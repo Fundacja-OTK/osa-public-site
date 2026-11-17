@@ -867,6 +867,24 @@
         el('b', null, 'Ostatnia synchronizacja ze sklepem nie powiodła się'), ' (' + s.lastErrorAt + '). ',
         'Dane mogą być nieaktualne — daj znać administratorowi. Szczegóły: ' + s.lastError));
     }
+    renderHealth(s.health, box);
+  }
+
+  // Health check backendu (Health.gs): problemy z danymi z Selly. Błąd synchronizacji i nieaktualne dane
+  // mają własne paski wyżej. Ostrzeżenia można ukryć (zapamiętane per problem), awarii nie.
+  const DISMISS_KEY = 'osa-dismissed';
+  function renderHealth(h, box) {
+    if (!h || !h.issues) return;
+    const dismissed = store(DISMISS_KEY) || {};
+    for (const i of h.issues) {
+      if (i.id === 'sync-error' || i.id === 'stale') continue;
+      if (i.level !== 'broken' && dismissed[i.id]) continue;
+      const hide = i.level === 'broken' ? null : el('button', { type: 'button', class: 'linkbtn small', title: 'Ukryj to ostrzeżenie na tym urządzeniu (wróci, jeśli problem się pogorszy)' }, 'Ukryj');
+      const n = el('div', { class: 'notice ' + (i.level === 'broken' ? 'error' : 'warn'), role: i.level === 'broken' ? 'alert' : null },
+        el('b', null, i.title + '. '), i.detail + ' ', hide);
+      if (hide) hide.addEventListener('click', () => { dismissed[i.id] = 1; store(DISMISS_KEY, dismissed); n.remove(); });
+      box.append(n);
+    }
   }
 
   // ─── Pobieranie ────────────────────────────────────────────────────────────
