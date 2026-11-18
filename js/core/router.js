@@ -3,7 +3,7 @@
 //   routes  — lista podwidoków (pierwszy = domyślny), tylko informacyjnie / do nawigacji
 //   mount   — pokaż moduł w kontenerze `el`; wołane przy każdej zmianie trasy w obrębie modułu (ma być idempotentne)
 //   unmount — moduł przestaje być widoczny (stan zostaje; kontener jest tylko ukrywany)
-// params = { parts: ['orszaki'], view: 'orszaki' | '' }.
+// params = { parts: ['orszaki'], view: 'orszaki' | '', query: URLSearchParams } (query = część po „?” w hashu, np. #/zamowienia?status=9).
 
 const modules = new Map();
 const hooks = { container: null, onRoute: null, fallback: null };
@@ -18,8 +18,11 @@ export const getModule = id => modules.get(id) || null;
 export const listModules = () => [...modules.values()];
 
 export function parseHash(hash) {
-  const parts = String(hash || '').replace(/^#\/?/, '').split('/').filter(Boolean).map(p => { try { return decodeURIComponent(p); } catch (e) { return p; } });
-  return { id: parts[0] || '', parts: parts.slice(1) };
+  const full = String(hash || '').replace(/^#\/?/, '');
+  const qi = full.indexOf('?');
+  const query = new URLSearchParams(qi < 0 ? '' : full.slice(qi + 1));
+  const parts = (qi < 0 ? full : full.slice(0, qi)).split('/').filter(Boolean).map(p => { try { return decodeURIComponent(p); } catch (e) { return p; } });
+  return { id: parts[0] || '', parts: parts.slice(1), query };
 }
 
 /** Przejście do trasy: go('/magazyny/stany'). Ta sama trasa nie wywoła zdarzenia — wołamy ręcznie. */
@@ -43,7 +46,7 @@ function containerFor(mod) {
 }
 
 function resolve() {
-  const { id, parts } = parseHash(location.hash);
+  const { id, parts, query } = parseHash(location.hash);
   const mod = modules.get(id);
   if (!mod) { const d = hooks.fallback && hooks.fallback(); if (d) go(d, { replace: true }); return; }
   const el = containerFor(mod);
@@ -53,7 +56,7 @@ function resolve() {
   }
   el.hidden = false;
   current = { mod, el };
-  const params = { parts, view: parts[0] || '' };
+  const params = { parts, view: parts[0] || '', query };
   if (hooks.onRoute) hooks.onRoute(mod, params);
   mod.mount(el, params);
 }

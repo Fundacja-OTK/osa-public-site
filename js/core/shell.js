@@ -9,7 +9,7 @@ const ROUTE_KEY = 'osa-route';
 
 /** Pozycje nawigacji. `module` = id modułu z implementacją; bez niego pozycja jest wyszarzona i prowadzi do Selly. */
 export const NAV = [
-  { id: 'zamowienia', title: 'Zamówienia', sellyQuery: '?a=zamowienia' },
+  { id: 'zamowienia', title: 'Zamówienia', module: true, tip: 'Lista zamówień, szczegóły i zmiana statusów (także masowa)' },
   { id: 'produkty', title: 'Produkty', sellyQuery: '?a=produkty' },
   { id: 'klienci', title: 'Klienci', sellyQuery: '?a=klienci' },
   { id: 'magazyny', title: 'Magazyny', module: true, tip: 'Stany magazynowe, wydania do zamówień, inwentaryzacja' },
