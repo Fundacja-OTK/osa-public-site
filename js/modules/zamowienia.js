@@ -1,8 +1,9 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, plural, debounce, store, flash, progressToast, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard } from '../core/ui.js';
+import { el, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows } from '../core/ui.js';
 import { api, ctx } from '../core/client.js';
 import { go } from '../core/router.js';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -23,13 +24,8 @@ const S = {
 // ─── Pomocnicze ─────────────────────────────────────────────────────────────
 
 const adminUrl = () => (S.meta && S.meta.adminUrl) || (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
-const money = v => (v == null || v === '' || isNaN(Number(v)) ? '—' : Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-const dateStr = d => (d ? String(d).replace('T', ' ').slice(0, 16) : '');
 const dayStr = d => (d ? String(d).slice(0, 10) : '');
-const fullName = (a, b) => [a, b].filter(Boolean).join(' ').trim();
 const statusName = id => { const s = S.meta && S.meta.statuses.find(x => String(x.id) === String(id)); return s ? s.name : (id == null || id === '' ? '—' : 'Status ' + id); };
-const cnt = (n, one, few, many) => n + ' ' + plural(n, one, few, many);
-const isUnavailable = e => e && (e.code === 501 || /nieznana akcja|unknown action/i.test(e.message || ''));
 const sellyOrderUrl = id => adminUrl() + '?a=zamowienia.view&id=' + encodeURIComponent(id);
 
 function statusTone(name) {
@@ -41,12 +37,6 @@ function statusTone(name) {
   return 'neutral';
 }
 const statusPill = (id, name) => { const nm = name || statusName(id); return el('span', { class: 'ord-st ' + statusTone(nm), title: 'Status zamówienia: ' + nm }, nm); };
-
-function loadingBox(text) {
-  return el('div', { class: 'loading' }, el('div', { class: 'line' }, el('span', { class: 'spinner' }), text),
-    el('div', { class: 'skel' }), el('div', { class: 'skel' }), el('div', { class: 'skel' }), el('div', { class: 'skel' }));
-}
-const sellyLink = (text, url, tip) => el('a', { href: url, target: '_blank', rel: 'noopener', class: 'btn-link', title: tip }, text);
 
 function unavailableBox(extra) {
   return el('div', { class: 'card' }, el('div', { class: 'empty error' },
@@ -61,7 +51,7 @@ function readQ(query) {
   const g = k => (query && query.get(k)) || '';
   const sort = SORTS.includes(g('sort')) ? g('sort') : 'date';
   return {
-    status: g('status'), q: g('q'), from: g('from'), to: g('to'),
+    status: g('status'), q: g('q'), from: g('from'), to: g('to'), ...readOsa(g),
     page: Math.max(1, parseInt(g('page'), 10) || 1), sort, dir: g('dir') === 'asc' ? 'asc' : g('dir') === 'desc' ? 'desc' : (sort === 'date' || sort === 'total' ? 'desc' : 'asc'),
   };
 }
@@ -71,6 +61,7 @@ function qsOf(Q) {
   if (Q.q) p.set('q', Q.q);
   if (Q.from) p.set('from', Q.from);
   if (Q.to) p.set('to', Q.to);
+  writeOsa(Q, p);
   if (Q.page > 1) p.set('page', String(Q.page));
   if (Q.sort !== 'date' || Q.dir !== 'desc') { p.set('sort', Q.sort); p.set('dir', Q.dir); }
   const s = p.toString();
@@ -83,7 +74,7 @@ const listParams = (Q, extra) => {
   if (Q.q) p.q = Q.q;
   if (Q.from) p.dateFrom = Q.from;
   if (Q.to) p.dateTo = Q.to;
-  return Object.assign(p, extra);
+  return Object.assign(p, osaParams(Q), extra);
 };
 
 /** Zmiana filtrów: nowy adres (cofnięcie przeglądarki wraca do poprzedniego widoku); replace — bez wpisu w historii (pisanie w wyszukiwarce). */
@@ -127,7 +118,8 @@ function buildList() {
       el('label', { class: 'field-inline' }, 'Od dnia', u.from),
       el('label', { class: 'field-inline' }, 'Do dnia', u.to),
       el('label', { class: 'field-inline' }, 'Wierszy na stronie', u.size),
-      el('button', { type: 'button', class: 'ghost', id: 'ordClear', title: 'Usuń wyszukiwanie, zakres dat i wybrany status', onclick: () => setQ({ status: '', q: '', from: '', to: '' }) }, 'Wyczyść filtry')));
+      el('button', { type: 'button', class: 'ghost', id: 'ordClear', title: 'Usuń wyszukiwanie, zakres dat, wybrany status i filtry OSA', onclick: () => setQ({ status: '', q: '', from: '', to: '', ...OSA_CLEAR }) }, 'Wyczyść filtry')));
+  u.osa = osaBar({ prefix: 'ordOsa', withLicense: true, getQ: () => S.Q, apply: patch => setQ(patch), facets: () => S.meta && S.meta.facets });
   u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Status zamówienia' });
   u.exportBtn = menuButton({ id: 'ordExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz zamówienia z tabeli do pliku Excel lub CSV — zaznaczone albo cały wynik filtra', items: exportItems });
   u.info = el('div', { class: 'muted small ord-info' });
@@ -139,7 +131,7 @@ function buildList() {
       el('div', { class: 'card-head' }, el('h2', null, 'Zamówienia'), el('div', { class: 'sub' }, 'Lista zamówień ze sklepu (kopia odświeżana co minutę). Kliknij zamówienie, aby zobaczyć szczegóły.')),
       u.segs,
       el('div', { class: 'toolbar' }, u.search, u.filtersBtn, u.exportBtn, el('span', { class: 'spacer' }), u.info),
-      u.filters, u.dlg, u.bulk, u.results));
+      u.osa.node, u.filters, u.dlg, u.bulk, u.results));
   S.root.append(S.listBox);
 }
 
@@ -158,6 +150,7 @@ function syncList() {
   u.filtersBtn.classList.toggle('on', extra);
   if (extra && u.filters.hidden) toggleFilters(true);
   renderSegs();
+  u.osa.sync();
 }
 
 function renderSegs() {
@@ -205,7 +198,7 @@ async function loadList() {
 
 const COLS = [
   { key: 'number', label: 'Nr', sort: 'number', tip: 'Numer zamówienia' },
-  { key: 'date', label: 'Data', sort: 'date', tip: 'Data i godzina złożenia zamówienia' },
+  { key: 'date', label: 'Data', sort: 'date', firstDir: 'desc', tip: 'Data i godzina złożenia zamówienia' },
   { key: 'client', label: 'Klient', tip: 'Nazwisko klienta (z faktury) i firma. Najedź na nazwisko, aby zobaczyć e-mail i telefon.', tipHeader: true },
   { key: 'city', label: 'Miasto', tip: 'Miasto z danych zamówienia' },
   { key: 'status', label: 'Status', sort: 'status', tip: 'Aktualny status zamówienia w Selly' },
@@ -229,15 +222,7 @@ function renderList() {
   const head = el('tr', null,
     el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'ordSelAll', 'aria-label': 'Zaznacz wszystkie na tej stronie', title: 'Zaznacz lub odznacz wszystkie zamówienia na tej stronie',
       onchange: ev => { for (const r of d.rows) { if (ev.target.checked) S.sel.set(r.id, r); else S.sel.delete(r.id); } refreshSel(); } })),
-    COLS.map(c => {
-      const cls = c.num ? 'n' : null;
-      if (!c.sort) return el('th', { class: cls }, el('span', { title: c.tip, class: c.tipHeader ? 'tip' : null }, c.label));
-      const active = Q.sort === c.sort;
-      return el('th', { class: cls, 'aria-sort': active ? (Q.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
-        el('button', { type: 'button', class: c.tipHeader ? 'tip' : null, title: c.tip + '\n\n' + (active ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'),
-          onclick: () => setQ({ sort: c.sort, dir: active ? (Q.dir === 'asc' ? 'desc' : 'asc') : (c.num || c.sort === 'date' ? 'desc' : 'asc') }) },
-          c.label + (active ? (Q.dir === 'asc' ? ' ↑' : ' ↓') : '')));
-    }));
+    COLS.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
   const body = el('tbody');
   for (const r of d.rows) {
     const name = fullName(r.firstName, r.lastName) || r.company || r.email || '—';
@@ -246,8 +231,9 @@ function renderList() {
       el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz zamówienie ' + r.number, checked: S.sel.has(r.id), onchange: ev => { if (ev.target.checked) S.sel.set(r.id, r); else S.sel.delete(r.id); refreshSel(); } })),
       el('td', { class: 'nw' }, el('a', { href: '#/zamowienia/' + encodeURIComponent(r.id), class: 'cell-name', onclick: () => { S.listHash = location.hash; } }, r.number || r.id)),
       el('td', { class: 'nw' }, dateStr(r.date)),
-      el('td', { title: contact || null }, el('div', { class: 'cell-name' }, name), r.company && fullName(r.firstName, r.lastName) ? el('div', { class: 'cell-sub' }, r.company) : null,
+      el('td', null, el('div', { title: contact || null }, el('div', { class: 'cell-name' }, name), r.company && fullName(r.firstName, r.lastName) ? el('div', { class: 'cell-sub' }, r.company) : null,
         r.attention || r.comment ? el('span', { class: 'ord-flag', title: 'Zamówienie ma komentarz klienta lub uwagę — zobacz w szczegółach' }, '!') : null),
+        osaBadges(r, patch => setQ(patch), true, S.meta && S.meta.facets)),
       el('td', null, r.city || ''),
       el('td', null, statusPill(r.statusId)),
       el('td', null, r.delivery || ''),
@@ -255,17 +241,14 @@ function renderList() {
       el('td', { class: 'n' }, String(r.itemCount == null ? '' : r.itemCount)));
     body.append(tr);
   }
-  const filtered = !!(Q.status || Q.q || Q.from || Q.to);
+  const filtered = !!(Q.status || Q.q || Q.from || Q.to || osaActive(Q));
   if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: '9', class: 'empty' },
     filtered ? 'Brak zamówień pasujących do wybranych filtrów.' : 'Brak zamówień.', ' ',
-    filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ status: '', q: '', from: '', to: '' }) }, 'Wyczyść filtry') : null)));
-  const pager = el('div', { class: 'ord-pager' },
-    el('button', { type: 'button', class: 'secondary', id: 'ordPrev', disabled: Q.page <= 1, title: Q.page <= 1 ? 'To pierwsza strona' : 'Poprzednia strona', onclick: () => setQ({ page: Q.page - 1 }) }, '← Poprzednia'),
-    el('span', { class: 'muted' }, 'Strona ' + Math.min(Q.page, pages) + ' z ' + pages + ' · ' + cnt(d.total, 'zamówienie', 'zamówienia', 'zamówień')),
-    el('button', { type: 'button', class: 'secondary', id: 'ordNext', disabled: Q.page >= pages, title: Q.page >= pages ? 'To ostatnia strona' : 'Następna strona', onclick: () => setQ({ page: Q.page + 1 }) }, 'Następna →'));
+    filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ status: '', q: '', from: '', to: '', ...OSA_CLEAR }) }, 'Wyczyść filtry') : null)));
+  const pg = pager({ prefix: 'ord', page: Q.page, pages, total: d.total, noun: ['zamówienie', 'zamówienia', 'zamówień'], onPage: p => setQ({ page: p }) });
   u.results.replaceChildren(
     S.err ? el('div', { class: 'notice error' }, S.err) : null,
-    el('div', { class: 'table-wrap' }, el('table', { id: 'ordTable' }, el('thead', null, head), body)), pager);
+    el('div', { class: 'table-wrap' }, el('table', { id: 'ordTable' }, el('thead', null, head), body)), pg);
   renderBulk();
   refreshSel();
 }
@@ -380,28 +363,21 @@ function exportTable(rows) {
       { header: 'Numer', type: 'text' }, { header: 'Data', type: 'text' }, { header: 'Status', type: 'text' }, { header: 'Imię i nazwisko', type: 'text' }, { header: 'Firma', type: 'text' },
       { header: 'E-mail', type: 'text' }, { header: 'Telefon', type: 'text' }, { header: 'Miasto', type: 'text' }, { header: 'Dostawa', type: 'text' }, { header: 'Płatność', type: 'text' },
       { header: 'Zapłacono', type: 'center' }, { header: 'Nr przesyłki', type: 'text' }, { header: 'Wartość (zł)', type: 'number' }, { header: 'Pozycji', type: 'number' }, { header: 'Komentarz klienta', type: 'text' },
+      { header: 'Województwo', type: 'text' }, { header: 'Rodzaj podmiotu', type: 'text' }, { header: 'Tytuł orszaku', type: 'text' }, { header: 'Tagi', type: 'text' }, { header: 'Licencja → woj.', type: 'text' },
     ],
     rows: rows.map(r => [r.number, dateStr(r.date), statusName(r.statusId), fullName(r.firstName, r.lastName), r.company || '', r.email || '', r.phone || '', r.city || '', r.delivery || '', r.payment || '',
-      r.paid ? 'tak' : 'nie', r.tracking || '', r.total == null ? '' : Number(r.total), r.itemCount == null ? '' : r.itemCount, r.comment || '']),
+      r.paid ? 'tak' : 'nie', r.tracking || '', r.total == null ? '' : Number(r.total), r.itemCount == null ? '' : r.itemCount, r.comment || '',
+      osaExport(r).woj, osaExport(r).kind, osaExport(r).title, osaExport(r).tags, licenseExport(r)]),
   };
 }
 const saveTable = (t, kind) => (kind === 'xlsx' ? downloadXlsx(t, '') : downloadCsv(tableMatrix(t), t.file, ''));
 
 async function exportAll(kind) {
-  const pt = progressToast('Pobieram zamówienia do pliku…');
   try {
-    const rows = []; let total = 0;
-    for (let page = 1; rows.length < EXPORT_MAX; page++) {
-      const r = await api('orders:list', listParams(S.Q, { page, pageSize: 200 }));
-      total = r.total; rows.push(...r.rows);
-      if (total > 200) pt.set('Pobieram zamówienia do pliku… ' + Math.min(rows.length, total) + ' z ' + total);
-      if (!r.rows.length || rows.length >= total) break;
-    }
-    const part = rows.slice(0, EXPORT_MAX);
+    const { rows: part, total } = await fetchAllRows(page => api('orders:list', listParams(S.Q, { page, pageSize: 200 })), EXPORT_MAX, 'zamówienia');
     saveTable(exportTable(part), kind);
-    pt.done('Gotowe: ' + part.length + ' zamówień w pliku');
     if (total > EXPORT_MAX) flash('', 'Plik zawiera pierwsze ' + EXPORT_MAX + ' z ' + total + ' zamówień — zawęź filtry, aby dostać resztę');
-  } catch (e) { pt.done('Nie udało się pobrać zamówień: ' + (e.message || 'błąd')); }
+  } catch (e) { flash('', 'Nie udało się pobrać zamówień: ' + (e.message || 'błąd')); }
 }
 
 function exportItems() {
@@ -417,7 +393,6 @@ function exportItems() {
 
 // ─── Szczegóły ──────────────────────────────────────────────────────────────
 
-const dl = pairs => el('dl', { class: 'ord-dl' }, pairs.filter(p => p && p[1] != null && p[1] !== '' && p[1] !== false).flatMap(([k, v, tip]) => [el('dt', { title: tip || null, class: tip ? 'tip' : null }, k), el('dd', null, v)]));
 const textVal = v => (v == null ? '' : typeof v === 'object' ? (Array.isArray(v) ? v.map(textVal).filter(Boolean).join(', ') : Object.entries(v).map(([k, x]) => k + ': ' + textVal(x)).join(', ')) : String(v));
 
 function addressBlock(o, p) {
@@ -483,6 +458,8 @@ async function renderDetail(id) {
   if (o.client_comment) notes.push(el('div', { class: 'notice warn', id: 'ordClientComment' }, el('strong', null, 'Komentarz klienta: '), o.client_comment));
   if (o.order_attention) notes.push(el('div', { class: 'notice warn', id: 'ordAttention' }, el('strong', null, 'Uwagi do zamówienia: '), o.order_attention));
 
+  const osaHost = el('div', { id: 'ordOsaCard' });
+  fillOsa(osaHost, o, number, my);
   const synced = r.syncedMs ? new Date(r.syncedMs).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
   box.replaceChildren(
     el('div', { class: 'card' },
@@ -502,7 +479,21 @@ async function renderDetail(id) {
         dl([['Dostawa', o.delivery_name], ['Koszt dostawy (zł)', o.delivery_price != null && o.delivery_price !== '' ? money(o.delivery_price) : ''], ['Płatność', o.payment_name],
           ['Zapłacono (zł)', o.paid_price != null && o.paid_price !== '' ? money(o.paid_price) : '', 'Kwota, którą Selly uznaje za zapłaconą'], ['Rabat (zł)', Number(o.discount_price) ? money(o.discount_price) : ''],
           ['Nr przesyłki', o.tracking_code], ['Paczkomat', o.inpost_parcel_locker]]))),
-    prodCard, movesCard, eventsCard);
+    osaHost, prodCard, movesCard, eventsCard);
+}
+
+/** Sekcja „Orszak (z notatki)”: dane klienta przypisanego do zamówienia (wiersz z listy zamówień ma dołączone pola notatki). */
+async function fillOsa(host, o, number, my) {
+  let row = S.data && S.data.rows.find(x => String(x.number) === String(number));
+  if (!row) { try { const r = await api('orders:list', { q: String(number), pageSize: 10 }); row = r.rows.find(x => String(x.number) === String(number)) || null; } catch (e) { row = null; } }
+  if (my !== S.routeSeq) return;
+  const head = el('div', { class: 'card-head' }, el('h2', null, 'Orszak (z notatki)'), el('div', { class: 'sub' }, 'Dane z notatki klienta przypisanego do zamówienia'));
+  if (!row || !row.clientId) { host.replaceChildren(el('div', { class: 'card' }, head, el('p', { class: 'muted', id: 'ordOsaNone' }, 'To zamówienie nie jest powiązane z klientem z notatką (np. zakup bez konta), więc nie ma danych orszaku.'))); return; }
+  const pairs = osaDetailPairs(row);
+  if (Number(row.hasLicense)) pairs.push(['Licencja → woj.', licenseExport(row), 'Zamówienie z licencją: województwo z notatki albo przybliżone z kodu pocztowego dostawy']);
+  const dlEl = dl(pairs);
+  host.replaceChildren(el('div', { class: 'card' }, head, dlEl.children.length ? dlEl : el('p', { class: 'muted', id: 'ordOsaNone' }, 'Klient nie ma w notatce danych orszaku.'),
+    el('a', { href: '#/klienci/' + encodeURIComponent(row.clientId), class: 'btn-link', title: 'Otwiera kartę klienta przypisanego do zamówienia' }, 'Karta klienta →')));
 }
 
 // ─── Trasa ──────────────────────────────────────────────────────────────────
@@ -538,6 +529,7 @@ export default {
   title: 'Zamówienia',
   routes: ['', '<id>'],
   mount(el0, params) {
+    applyBadgePrefs();
     if (!S.root) {
       S.root = el0;
       S.metaBox = el('div'); S.detailBox = el('div'); S.metaBox.hidden = S.detailBox.hidden = true;

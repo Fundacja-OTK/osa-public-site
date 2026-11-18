@@ -373,3 +373,62 @@ export function buildXlsx({ sheetName, columns, rows, note }) {
 
 // Tekst do porównań bez wielkości liter i polskich znaków
 export const norm = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036F]/g, '');
+
+// ─── Wspólne elementy modułów z listą z backendu (Zamówienia, Produkty, Klienci) ───
+
+export const money = v => (v == null || v === '' || isNaN(Number(v)) ? '—' : Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+export const dateStr = d => (d ? String(d).replace('T', ' ').slice(0, 16) : '');
+export const fullName = (a, b) => [a, b].filter(Boolean).join(' ').trim();
+export const cnt = (n, one, few, many) => n + ' ' + plural(n, one, few, many);
+export const isUnavailable = e => e && (e.code === 501 || /nieznana akcja|unknown action/i.test(e.message || ''));
+export const syncedLabel = ms => (ms ? new Date(ms).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+
+export function loadingBox(text) {
+  return el('div', { class: 'loading' }, el('div', { class: 'line' }, el('span', { class: 'spinner' }), text),
+    el('div', { class: 'skel' }), el('div', { class: 'skel' }), el('div', { class: 'skel' }), el('div', { class: 'skel' }));
+}
+export const sellyLink = (text, url, tip) => el('a', { href: url, target: '_blank', rel: 'noopener', class: 'btn-link', title: tip }, text);
+
+/** Lista „etykieta – wartość”; puste wartości pomijane. pairs: [[etykieta, wartość, tooltip?]] */
+export const dl = pairs => el('dl', { class: 'ord-dl' }, pairs.filter(p => p && p[1] != null && p[1] !== '' && p[1] !== false).flatMap(([k, v, tip]) => [el('dt', { title: tip || null, class: tip ? 'tip' : null }, k), el('dd', null, v)]));
+
+/**
+ * Nagłówek kolumny tabeli z sortowaniem serwerowym. col: { label, sort?, num?, tip, tipHeader?, firstDir? ('asc'|'desc') }.
+ * state: { sort, dir }; onSort(sort, dir). Kolumna bez `sort` to zwykły nagłówek z tooltipem.
+ */
+export function sortTh(col, state, onSort) {
+  const cls = col.num ? 'n' : null;
+  if (!col.sort) return el('th', { class: cls }, el('span', { title: col.tip, class: col.tipHeader ? 'tip' : null }, col.label));
+  const active = state.sort === col.sort;
+  return el('th', { class: cls, 'aria-sort': active ? (state.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
+    el('button', { type: 'button', class: col.tipHeader ? 'tip' : null, title: col.tip + '\n\n' + (active ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'),
+      onclick: () => onSort(col.sort, active ? (state.dir === 'asc' ? 'desc' : 'asc') : (col.firstDir || (col.num ? 'desc' : 'asc'))) },
+      col.label + (active ? (state.dir === 'asc' ? ' ↑' : ' ↓') : '')));
+}
+
+/** Stronicowanie: „← Poprzednia · Strona X z Y · N pozycji · Następna →”. o: { prefix, page, pages, total, noun:[1,2-4,5+], onPage } */
+export function pager(o) {
+  return el('div', { class: 'ord-pager' },
+    el('button', { type: 'button', class: 'secondary', id: o.prefix + 'Prev', disabled: o.page <= 1, title: o.page <= 1 ? 'To pierwsza strona' : 'Poprzednia strona', onclick: () => o.onPage(o.page - 1) }, '← Poprzednia'),
+    el('span', { class: 'muted' }, 'Strona ' + Math.min(o.page, o.pages) + ' z ' + o.pages + ' · ' + cnt(o.total, ...o.noun)),
+    el('button', { type: 'button', class: 'secondary', id: o.prefix + 'Next', disabled: o.page >= o.pages, title: o.page >= o.pages ? 'To ostatnia strona' : 'Następna strona', onclick: () => o.onPage(o.page + 1) }, 'Następna →'));
+}
+
+/** Pobiera kolejne strony listy (po 200) aż do `max` wierszy: fetchPage(page) → { rows, total }. */
+export async function fetchAllRows(fetchPage, max, what = 'dane') {
+  const rows = []; let total = 0;
+  const pt = progressToast('Pobieram ' + what + ' do pliku…');
+  try {
+    for (let page = 1; rows.length < max; page++) {
+      const r = await fetchPage(page);
+      total = r.total; rows.push(...r.rows);
+      if (total > 200) pt.set('Pobieram ' + what + ' do pliku… ' + Math.min(rows.length, total) + ' z ' + total);
+      if (!r.rows.length || rows.length >= total) break;
+    }
+    pt.done('Gotowe: ' + Math.min(rows.length, max) + ' w pliku');
+  } catch (e) { pt.done(); throw e; }
+  return { rows: rows.slice(0, max), total };
+}
+
+/** Pole z tooltipem: <label>tekst + kontrolka</label>. */
+export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);

@@ -10,12 +10,12 @@ const ROUTE_KEY = 'osa-route';
 /** Pozycje nawigacji. `module` = id modułu z implementacją; bez niego pozycja jest wyszarzona i prowadzi do Selly. */
 export const NAV = [
   { id: 'zamowienia', title: 'Zamówienia', module: true, tip: 'Lista zamówień, szczegóły i zmiana statusów (także masowa)' },
-  { id: 'produkty', title: 'Produkty', sellyQuery: '?a=produkty' },
-  { id: 'klienci', title: 'Klienci', sellyQuery: '?a=klienci' },
+  { id: 'produkty', title: 'Produkty', module: true, tip: 'Lista produktów, stany i ceny, edycja wybranych pól' },
+  { id: 'klienci', title: 'Klienci', module: true, tip: 'Lista klientów sklepu, dane, zamówienia i notatki' },
   { id: 'magazyny', title: 'Magazyny', module: true, tip: 'Stany magazynowe, wydania do zamówień, inwentaryzacja' },
   { id: 'licencje', title: 'Licencje', module: true, tip: 'Raport licencji członkowskich (przedłużenia, orszaki wg województw)' },
   { id: 'raporty', title: 'Raporty', sellyQuery: '' },
-  { id: 'uzytkownicy', title: 'Użytkownicy', sellyQuery: '', admin: true },
+  { id: 'uzytkownicy', title: 'Użytkownicy', module: true, admin: true, tip: 'Kto ma dostęp do panelu OSA (tylko administrator)' },
 ];
 
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_ADMIN;
@@ -116,7 +116,7 @@ export function startShell(modules) {
       $('who').textContent = data.email ? 'Zalogowano: ' + data.email : '';
       renderNav(!!data.isAdmin);
       // Rola z Cloudflare (Apps Script jej nie zna): „Użytkownicy” dla administratora; brak Workera → bez zmian
-      if (!data.isAdmin) api('whoami').then(w => { if (w && w.isAdmin) { ctx.boot.isAdmin = true; renderNav(true); if (navId) markNav(navId); } }).catch(() => {});
+      if (!data.isAdmin) api('whoami').then(w => { if (w && w.isAdmin) { ctx.boot.isAdmin = true; renderNav(true); if (navId) markNav(navId); if (navId === 'uzytkownicy') window.dispatchEvent(new HashChangeEvent('hashchange')); } }).catch(() => {});
       startRouter({
         container: $('modules'),
         fallback: defaultRoute,
