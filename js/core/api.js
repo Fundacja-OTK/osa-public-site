@@ -1,0 +1,97 @@
+// Klient API panelu OSA: POST { idToken, action, params } → { ok, data } | { ok:false, error, code }.
+// Lista backendów z zapasowym: akcja idzie do pierwszego zdrowego; błąd sieci, HTTP 5xx albo odpowiedź,
+// której nie da się sparsować, przełącza na następny (a niedziałający jest pomijany przez 5 min).
+// Błędy aplikacyjne (ok:false z kodem, np. 401/403) NIE przełączają backendu.
+// Bez zależności od przeglądarki — fetch, storage i zegar można wstrzyknąć (testy w node).
+
+export const DOWN_KEY = 'osa-be-down';
+export const DOWN_MS = 5 * 60 * 1000;
+
+export const MSG_NOT_CONFIGURED = 'Strona nie jest skonfigurowana (brak config.js). Administrator: wdróż panel skryptem scripts/deploy-panel.ps1.';
+export const MSG_NETWORK = 'Brak połączenia z serwerem raportu. Sprawdź internet i odśwież stronę.';
+export const MSG_BAD_REPLY = 'Serwer raportu zwrócił nieoczekiwaną odpowiedź. Administrator: sprawdź wdrożenie backendu („Wykonuj jako: Ja”, „Kto ma dostęp: Każdy”).';
+
+/** Lista backendów z konfiguracji: OSA_CONFIG.backends albo [{ url: backendUrl }]. */
+export function backendList(config) {
+  const c = config || {};
+  const list = Array.isArray(c.backends) && c.backends.length ? c.backends : (c.backendUrl ? [{ url: c.backendUrl }] : []);
+  return list.filter(b => b && b.url).map(b => ({ url: b.url, kind: b.kind || 'gas' }));
+}
+
+export function backendLabel(b) {
+  return b.kind === 'cloudflare' ? 'cloudflare' : 'apps script';
+}
+
+function memoryStorage() {
+  const m = new Map();
+  return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } };
+}
+
+/**
+ * @param {{ config, getToken: (force:boolean)=>Promise<string>, fetchImpl?, storage?, now?: ()=>number }} o
+ * @returns {{ api: (action, params?, retried?) => Promise<any>, apiInfo: () => object|null, onInfo: (cb) => void }}
+ */
+export function createApi(o) {
+  const config = o.config || {};
+  const fetchImpl = o.fetchImpl || ((...a) => fetch(...a));
+  const now = o.now || Date.now;
+  let storage = o.storage;
+  if (!storage) { try { storage = sessionStorage; } catch (e) { storage = null; } }
+  if (!storage) storage = memoryStorage();
+  const backends = backendList(config);
+  let info = null;
+  const listeners = [];
+
+  const readDown = () => {
+    try { return JSON.parse(storage.getItem(DOWN_KEY) || '{}') || {}; } catch (e) { return {}; }
+  };
+  const markDown = url => {
+    const d = readDown(); d[url] = now() + DOWN_MS;
+    try { storage.setItem(DOWN_KEY, JSON.stringify(d)); } catch (e) { /* bez zapisu */ }
+  };
+  const markUp = url => {
+    const d = readDown();
+    if (!(url in d)) return;
+    delete d[url];
+    try { storage.setItem(DOWN_KEY, JSON.stringify(d)); } catch (e) { /* bez zapisu */ }
+  };
+  /** Zdrowe najpierw (w kolejności z konfiguracji), niezdrowe na końcu — jako ostatnia deska ratunku. */
+  const candidates = () => {
+    const d = readDown(), t = now();
+    const up = [], down = [];
+    for (const b of backends) (d[b.url] > t ? down : up).push(b);
+    return up.concat(down);
+  };
+
+  async function api(action, params, retried) {
+    if (!backends.length || !config.clientId) throw new Error(MSG_NOT_CONFIGURED);
+    const idToken = await o.getToken(!!retried);
+    let lastErr = new Error(MSG_NETWORK);
+    for (const b of candidates()) {
+      let res, body;
+      try {
+        // Treść jako tekst — bez nagłówków własnych, więc bez zapytania CORS preflight
+        res = await fetchImpl(b.url, { method: 'POST', body: JSON.stringify({ idToken, action, params }) });
+      } catch (e) { markDown(b.url); lastErr = new Error(MSG_NETWORK); continue; }
+      if (res.status >= 500) { markDown(b.url); lastErr = new Error(MSG_BAD_REPLY); continue; }
+      try { body = await res.json(); } catch (e) { markDown(b.url); lastErr = new Error(MSG_BAD_REPLY); continue; }
+      if (!body || typeof body !== 'object') { markDown(b.url); lastErr = new Error(MSG_BAD_REPLY); continue; }
+      markUp(b.url);
+      info = { url: b.url, kind: b.kind, label: backendLabel(b), fallback: b.url !== backends[0].url, at: now() };
+      listeners.forEach(f => { try { f(info); } catch (e) { /* słuchacz nie psuje zapytania */ } });
+      if (!body.ok) {
+        if (body.code === 401 && !retried) return api(action, params, true);
+        // 501 = ten backend nie zna (jeszcze) tej akcji — moduły przenoszone na Cloudflare pojedynczo;
+        // próbujemy następnego backendu, bez oznaczania tego jako niezdrowy
+        if (body.code === 501) { lastErr = Object.assign(new Error(body.error), { code: 501 }); continue; }
+        const err = new Error(body.error);
+        err.code = body.code;
+        throw err;
+      }
+      return body.data;
+    }
+    throw lastErr;
+  }
+
+  return { api, apiInfo: () => info, onInfo: cb => { listeners.push(cb); } };
+}
