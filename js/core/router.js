@@ -3,6 +3,7 @@
 //   routes  — lista podwidoków (pierwszy = domyślny), tylko informacyjnie / do nawigacji
 //   mount   — pokaż moduł w kontenerze `el`; wołane przy każdej zmianie trasy w obrębie modułu (ma być idempotentne)
 //   unmount — moduł przestaje być widoczny (stan zostaje; kontener jest tylko ukrywany)
+//   load    — (zamiast mount) moduł wczytywany przy pierwszym wejściu: async () => moduł; podmieniany w rejestrze
 // params = { parts: ['orszaki'], view: 'orszaki' | '', query: URLSearchParams } (query = część po „?” w hashu, np. #/zamowienia?status=9).
 
 const modules = new Map();
@@ -45,9 +46,24 @@ function containerFor(mod) {
   return el;
 }
 
-function resolve() {
+// Strażnik wyjścia (np. niezapisane zmiany w karcie): zwraca komunikat → potwierdzenie; „Anuluj” przywraca poprzedni adres
+let leaveGuard = null, lastHash = null;
+export function setLeaveGuard(fn) { leaveGuard = fn; }
+
+let resolveSeq = 0;
+async function resolve() {
+  const seq = ++resolveSeq;
+  if (leaveGuard && lastHash !== null && location.hash !== lastHash) {
+    const msg = leaveGuard(location.hash);
+    if (msg && !confirm(msg)) { history.replaceState(null, '', lastHash); return; }
+  }
+  lastHash = location.hash;
   const { id, parts, query } = parseHash(location.hash);
-  const mod = modules.get(id);
+  let mod = modules.get(id);
+  if (mod && mod.load && !mod.mount) {
+    try { const m = await mod.load(); modules.set(id, m); mod = m; } catch (e) { console.error(e); mod = null; }
+    if (seq !== resolveSeq) return;
+  }
   if (!mod) { const d = hooks.fallback && hooks.fallback(); if (d) go(d, { replace: true }); return; }
   const el = containerFor(mod);
   if (current && current.mod !== mod) {

@@ -1,0 +1,59 @@
+/* Pulpit (js/modules/pulpit.js) */
+.pl-top { display: flex; justify-content: flex-end; font-size: var(--fs-xs); margin-top: var(--s2); }
+.pl-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s3); margin-top: var(--s3); }
+.pl-tile { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r3); padding: var(--s4); box-shadow: var(--shadow); color: var(--text); text-decoration: none; }
+a.pl-tile:hover { border-color: var(--accent); }
+.pl-tile-label { font-size: var(--fs-sm); color: var(--muted); }
+.pl-tile-main { margin-top: var(--s1); display: flex; align-items: baseline; gap: var(--s2); }
+.pl-big { font-size: var(--fs-kpi); font-weight: 700; line-height: 1.1; }
+.pl-unit { font-size: var(--fs-sm); color: var(--muted); }
+.pl-tile-sub { margin-top: var(--s1); font-size: var(--fs-sm); color: var(--muted); }
+.pl-trend { font-size: var(--fs-xs); font-weight: 600; }
+.pl-trend.up { color: var(--ok); } .pl-trend.down { color: var(--no); } .pl-trend.flat { color: var(--muted); font-weight: 400; }
+.pl-warn { color: var(--warn); font-weight: 600; }
+.pl-card h2 { font-size: var(--fs-lg); margin: 0; }
+.pl-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin-bottom: var(--s3); }
+.pl-head h2 { flex: 1 1 auto; }
+.pl-more { font-size: var(--fs-sm); color: var(--link); text-decoration: none; }
+.pl-more:hover { text-decoration: underline; }
+.pl-segs { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--r1); overflow: hidden; }
+.pl-seg { border: 0; border-radius: 0; background: var(--surface); color: var(--text); padding: 6px 12px; font-size: var(--fs-sm); cursor: pointer; }
+.pl-seg + .pl-seg { border-left: 1px solid var(--border-strong); }
+.pl-seg[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.pl-chart-wrap { position: relative; }
+.pl-svg { width: 100%; height: auto; display: block; }
+.pl-grid { stroke: var(--border); stroke-width: 1; }
+.pl-axis { fill: var(--muted); font-size: 11px; }
+.pl-bar { fill: var(--bar); } .pl-bar.today { fill: var(--accent); } .pl-bar.zero { opacity: 0; }
+.pl-hit { fill: transparent; }
+.pl-barg:hover .pl-bar { fill: var(--accent-strong); }
+.pl-barg:hover .pl-hit { fill: var(--hover); }
+.pl-tip { position: absolute; top: 0; transform: translateX(-50%); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--r1);
+  box-shadow: var(--shadow); padding: var(--s2) var(--s3); font-size: var(--fs-sm); pointer-events: none; white-space: nowrap; z-index: 2; }
+.pl-cols { display: grid; gap: var(--s3); grid-template-columns: 1fr; }
+@media (min-width: 900px) { .pl-cols { grid-template-columns: 1fr 1fr; } }
+.pl-cols > div > .pl-card:first-child { margin-top: 0; }
+.pl-cols > section { margin-top: var(--s3); }
+.pl-row { display: flex; align-items: center; gap: var(--s3); padding: 9px 4px; border-top: 1px solid var(--border); color: var(--text); text-decoration: none; }
+.pl-card h2 + .pl-row, .pl-head + .pl-row { margin-top: var(--s2); }
+.pl-row:hover, .pl-ev:hover { background: var(--hover); }
+.pl-todo span:first-child { flex: 1; }
+.pl-count { font-weight: 700; background: var(--accent-soft); color: var(--accent-strong); border-radius: 999px; padding: 1px 10px; }
+.pl-onum { font-weight: 600; flex: 0 0 auto; min-width: 90px; }
+.pl-oval { flex: 1; text-align: right; font-variant-numeric: tabular-nums; }
+.pl-ost { flex: 0 1 38%; color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-chev { color: var(--muted); }
+.pl-none { padding: var(--s3) 0; }
+.pl-timeline { margin-top: var(--s2); border-left: 2px solid var(--border); margin-left: 6px; }
+.pl-ev { display: flex; flex-wrap: wrap; gap: 2px var(--s3); padding: 6px 4px 6px var(--s3); position: relative; color: var(--text); text-decoration: none; font-size: var(--fs-sm); }
+.pl-ev::before { content: ''; position: absolute; left: -6px; top: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.pl-evt { color: var(--muted); font-variant-numeric: tabular-nums; } .pl-evn { font-weight: 600; } .pl-evs { color: var(--muted); }
+.pl-quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); margin: var(--s3) 0 var(--s5); }
+.pl-q { display: block; text-align: center; padding: var(--s3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r2); color: var(--link); text-decoration: none; font-weight: 600; }
+.pl-q:hover { border-color: var(--accent); background: var(--hover); }
+
+/* Link „Pulpit” na górze menu bocznego */
+.sb-home-link { cursor: pointer; text-decoration: none; color: var(--nav-text); font-size: inherit; padding-bottom: 10px; }
+.sb-home-link:hover { background: var(--nav-bg-2); color: #fff; }
+.sb-home-link[aria-current="page"] { background: var(--nav-active); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+.sb-home-link[aria-current="page"] .ico { color: var(--accent); }

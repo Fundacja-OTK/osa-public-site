@@ -1,6 +1,6 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, thumb, rowActions } from '../core/ui.js';
 import { api, ctx } from '../core/client.js';
 import { go } from '../core/router.js';
 
@@ -13,7 +13,7 @@ const EXPORT_MAX = 50000;
 const LOW_DEFAULT = 5;
 const MSG_UNAVAILABLE = 'Moduł Produkty wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
 
-const S = { root: null, listBox: null, detailBox: null, ui: {}, Q: null, data: null, err: '', listHash: '#/produkty', seq: 0, routeSeq: 0, route: null };
+const S = { root: null, listBox: null, detailBox: null, ui: {}, edits: new Map(), facets: undefined, Q: null, data: null, err: '', listHash: '#/produkty', seq: 0, routeSeq: 0, route: null };
 
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
 const sellyProductUrl = id => adminUrl() + '?a=produkty.zmienProdukt&id=' + encodeURIComponent(id);
@@ -30,11 +30,13 @@ function unavailableBox(extra) {
 
 // ─── Stan filtrów ↔ adres ───────────────────────────────────────────────────
 
+const VIS = ['', 'on', 'off'];
 function readQ(query) {
   const g = k => (query && query.get(k)) || '';
   const sort = SORTS.includes(g('sort')) ? g('sort') : 'name';
   return {
     q: g('q'), seg: SEGS.includes(g('seg')) ? g('seg') : '', low: Math.max(1, parseInt(g('low'), 10) || LOW_DEFAULT),
+    cat: g('cat'), prd: g('prd'), zdj: ['', 'on', 'off'].includes(g('zdj')) ? g('zdj') : '', wh: g('wh'), vis: VIS.includes(g('vis')) ? g('vis') : '',
     page: Math.max(1, parseInt(g('page'), 10) || 1), sort, dir: g('dir') === 'desc' ? 'desc' : g('dir') === 'asc' ? 'asc' : (sort === 'qty' || sort === 'price' ? 'desc' : 'asc'),
   };
 }
@@ -42,6 +44,7 @@ function qsOf(Q) {
   const p = new URLSearchParams();
   if (Q.q) p.set('q', Q.q);
   if (Q.seg) p.set('seg', Q.seg);
+  for (const k of ['cat', 'prd', 'wh', 'vis', 'zdj']) if (Q[k]) p.set(k, Q[k]);
   if (Q.low !== LOW_DEFAULT) p.set('low', String(Q.low));
   if (Q.page > 1) p.set('page', String(Q.page));
   if (Q.sort !== 'name' || Q.dir !== 'asc') { p.set('sort', Q.sort); p.set('dir', Q.dir); }
@@ -54,10 +57,18 @@ function listParams(Q, extra) {
   if (Q.q) p.q = Q.q;
   if (Q.seg === 'zero') p.stock = 'zero';
   if (Q.seg === 'low') { p.stock = 'low'; p.lowBelow = Q.low; }
-  if (Q.seg === 'hidden') p.visible = false;
+  if (Q.seg === 'hidden' || Q.vis === 'off') p.visible = false;
+  else if (Q.vis === 'on') p.visible = true;
+  if (Q.zdj) p.photo = Q.zdj === 'on';
+  if (Q.cat) p.categoryId = Q.cat;
+  if (Q.prd) p.producerId = Q.prd;
+  if (Q.wh) p.whId = Q.wh;
   return Object.assign(p, extra);
 }
+const FILTER_KEYS = ['q', 'seg', 'cat', 'prd', 'wh', 'vis', 'zdj'];
+const CLEAR = { q: '', seg: '', cat: '', prd: '', wh: '', vis: '', zdj: '' };
 function setQ(patch, replace) {
+  if (dirtyCount() && !replace && !confirm('Masz niezapisane zmiany w tabeli. Odrzucić je i przejść dalej?')) { syncList(); return; }
   const n = Object.assign({}, S.Q, patch);
   if (!('page' in patch)) n.page = 1;
   const h = '/produkty' + qsOf(n);
@@ -65,7 +76,44 @@ function setQ(patch, replace) {
   else if (location.hash === '#' + h) { S.Q = n; loadList(); } else go(h);
 }
 
+// ─── Edycja w tabeli (zmiany zbierane i zapisywane naraz) ────────────────────
+
+const dirtyRows = () => [...S.edits.values()].filter(e => e.fields().length);
+const dirtyCount = () => dirtyRows().length;
+function refreshDirty() {
+  const rows = dirtyRows();
+  for (const e of S.edits.values()) e.tr.classList.toggle('dirty-row', e.fields().length > 0);
+  if (S.ui.bar) S.ui.bar.set(rows.length);
+}
+function undoAll() {
+  for (const e of S.edits.values()) e.reset();
+  S.ui.bar.say(''); refreshDirty();
+}
+async function saveAll() {
+  const rows = dirtyRows();
+  const bad = [];
+  for (const e of rows) {
+    const f = e.values();
+    if ('price' in f && !(Number(f.price) >= 0 && String(f.price).trim() !== '')) bad.push(e.label + ': cena musi być liczbą nie mniejszą niż 0');
+    if ('name' in f && !String(f.name).trim()) bad.push(e.label + ': nazwa nie może być pusta');
+  }
+  if (bad.length) { S.ui.bar.say(bad[0]); return; }
+  S.ui.bar.busy(true); S.ui.bar.say('Zapisuję…');
+  let ok = 0; const fail = [];
+  for (const e of rows) {
+    try { const v = e.values(); if ('price' in v) v.price = Number(v.price); await api('products:update', { id: e.id, fields: v }); ok++; } catch (err) { fail.push(e.label + ': ' + (err.message || 'błąd')); }
+  }
+  S.ui.bar.busy(false);
+  flash('', 'Zapisano w Selly: ' + cnt(ok, 'produkt', 'produkty', 'produktów') + (fail.length ? ' · błędy: ' + fail.length : ''));
+  S.ui.bar.say(fail.length ? 'Nie zapisano: ' + fail.join('; ') : '');
+  S.edits.clear();
+  await loadList();
+  if (fail.length) S.ui.bar.say('Nie zapisano: ' + fail.join('; '));
+}
+
 // ─── Lista ──────────────────────────────────────────────────────────────────
+
+const selOpt = (label, items, cur, mk) => [el('option', { value: '' }, label), ...items.map(mk), ...(cur && !items.some(x => String(x.id) === cur) ? [el('option', { value: cur }, '#' + cur)] : [])];
 
 function buildList() {
   const u = S.ui;
@@ -74,15 +122,16 @@ function buildList() {
     oninput: debounce(() => { const v = u.search.value.trim(); if (v !== S.Q.q) setQ({ q: v }, true); }, 350) });
   u.low = el('input', { type: 'number', id: 'prodLow', min: '1', step: '1', 'aria-label': 'Próg niskiego stanu',
     onchange: () => setQ({ low: Math.max(1, parseInt(u.low.value, 10) || LOW_DEFAULT) }) });
-  u.size = el('select', { id: 'prodSize', 'aria-label': 'Wierszy na stronie', onchange: () => { store('osa-prod-size', Number(u.size.value)); setQ({}); } },
-    SIZES.map(n => el('option', { value: String(n) }, String(n))));
-  u.filtersBtn = el('button', { type: 'button', class: 'secondary', id: 'prodFiltersBtn', 'aria-expanded': 'false', 'aria-controls': 'prodFilters',
-    title: 'Dodatkowe ustawienia: próg niskiego stanu i liczba wierszy na stronie', onclick: () => toggleFilters() }, 'Filtry ▾');
-  u.filters = el('div', { class: 'opts-box ord-filters', id: 'prodFilters', hidden: true },
-    el('div', { class: 'ord-filter-row' },
-      field('Niski stan: do (szt.)', u.low, 'Segment „Niski stan” pokazuje produkty, których stan w Selly jest większy od 0 i nie większy niż ta wartość'),
-      field('Wierszy na stronie', u.size, 'Ile produktów pokazać na jednej stronie listy'),
-      el('button', { type: 'button', class: 'ghost', id: 'prodClear', title: 'Usuń wyszukiwanie i wybrany segment', onclick: () => setQ({ q: '', seg: '' }) }, 'Wyczyść filtry')));
+  u.cat = el('select', { id: 'prodCat', 'aria-label': 'Kategoria', onchange: ev => setQ({ cat: ev.target.value }) });
+  u.prd = el('select', { id: 'prodPrd', 'aria-label': 'Producent', onchange: ev => setQ({ prd: ev.target.value }) });
+  u.wh = el('select', { id: 'prodWh', 'aria-label': 'Magazyn', onchange: ev => setQ({ wh: ev.target.value }) });
+  u.vis = el('select', { id: 'prodVis', 'aria-label': 'Widoczność w sklepie', onchange: ev => setQ({ vis: ev.target.value }) },
+    el('option', { value: '' }, 'Wszystkie'), el('option', { value: 'on' }, 'Wyświetlane w sklepie'), el('option', { value: 'off' }, 'Ukryte'));
+  u.zdj = el('select', { id: 'prodZdj', 'aria-label': 'Zdjęcie produktu', onchange: ev => setQ({ zdj: ev.target.value }) },
+    el('option', { value: '' }, 'Wszystkie'), el('option', { value: 'on' }, 'ze zdjęciem'), el('option', { value: 'off' }, 'bez zdjęcia'));
+  u.filtersBtn = el('button', { type: 'button', class: 'secondary', id: 'prodFiltersBtn', 'aria-controls': 'prodFilters',
+    title: 'Pokaż lub ukryj panel filtrów po lewej (kategoria, producent, magazyn, widoczność, próg niskiego stanu). Wybór jest zapamiętywany.', onclick: () => { L.setOpen(!L.isOpen()); syncFiltersBtn(); } });
+  u.clear = el('button', { type: 'button', class: 'ghost', id: 'prodClear', title: 'Usuń wyszukiwanie i wszystkie filtry', onclick: () => setQ({ ...CLEAR }) }, 'Wyczyść filtry');
   u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Które produkty pokazać' });
   u.exportBtn = menuButton({ id: 'prodExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz cały wynik filtra do pliku Excel lub CSV', items: () => {
     const tot = Math.min(S.data ? S.data.total : 0, EXPORT_MAX);
@@ -92,29 +141,52 @@ function buildList() {
   u.info = el('div', { class: 'muted small ord-info' });
   u.notice = el('div');
   u.results = el('div', { id: 'prodResults' });
+  u.bar = saveBar({ id: 'prodBar', noun: 'produktów', onSave: saveAll, onUndo: undoAll });
+  const panelNodes = [
+    filterSection('Widok', el('div', { class: 'fp-list' },
+      el('div', { class: 'muted small' }, 'Podział listy jak „Produkty wg kategorii / producentów / magazynów”. Dostępne tylko podziały, które umiemy zbudować z danych sklepu.'),
+      field('Kategoria', u.cat, 'Tylko produkty z wybranej kategorii głównej. Nazwy kategorii nie są dostępne w API sklepu — widzisz numer (i liczbę produktów).'),
+      field('Producent', u.prd, 'Tylko produkty wybranego producenta. API sklepu nie podaje nazw producentów — widzisz numer (i liczbę produktów).'),
+      field('Magazyn', u.wh, 'Tylko produkty, których magazynem domyślnym jest wybrany magazyn'))),
+    filterSection('Status produktu', el('div', { class: 'fp-list' }, field('Widoczność', u.vis, 'Czy produkt jest widoczny dla klientów w sklepie'),
+      field('Zdjęcie', u.zdj, 'Produkty, które mają (lub nie mają) zdjęcia głównego w sklepie — przydatne do uzupełniania braków'))),
+    filterSection('Niski stan', field('Niski stan: do (szt.)', u.low, 'Segment „Niski stan” pokazuje produkty, których stan w Selly jest większy od 0 i nie większy niż ta wartość'), { fold: true, tip: 'Ustawienia zaawansowane' }),
+    u.clear];
+  const L = filterLayout({ key: 'produkty', panelId: 'prodFilters', panelNodes,
+    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.exportBtn, el('span', { class: 'spacer' }), u.info), u.notice, u.results, u.bar.node] });
+  u.layout = L;
+  const syncFiltersBtn = () => { const n = ['cat', 'prd', 'wh', 'vis', 'zdj'].filter(k => S.Q && S.Q[k]).length; u.filtersBtn.setAttribute('aria-expanded', String(L.isOpen())); u.filtersBtn.textContent = 'Filtry' + (n ? ' (' + n + ')' : '') + (L.isOpen() ? ' ◂' : ' ▸'); u.filtersBtn.classList.toggle('on', n > 0); };
+  u.syncFiltersBtn = syncFiltersBtn;
+  u.filters = L.panel;
   S.listBox = el('div', { class: 'ord-list' }, el('div', { class: 'card' },
-    el('div', { class: 'card-head' }, el('h2', null, 'Produkty'), el('div', { class: 'sub' }, 'Lista produktów ze sklepu (kopia odświeżana w tle). Kliknij produkt, aby zobaczyć szczegóły i zmienić cenę lub stan.')),
-    u.segs, el('div', { class: 'toolbar' }, u.search, u.filtersBtn, u.exportBtn, el('span', { class: 'spacer' }), u.info), u.filters, u.notice, u.results));
+    pageToolbar({ title: 'Produkty', sub: 'Lista produktów ze sklepu (kopia odświeżana w tle). Ceny i widoczność poprawisz bezpośrednio w tabeli i zapiszesz wszystko naraz.',
+      actions: [u.filtersBtn, el('a', { class: 'btn-primary', id: 'prodAdd', href: adminUrl() + '?a=produkty.nowyProdukt', target: '_blank', rel: 'noopener',
+        title: 'Dodawanie produktów odbywa się w panelu Selly (panel OSA nie tworzy nowych produktów). Otwiera się w nowej karcie.' }, '+ Dodaj produkt')] }),
+    L.node));
   S.root.append(S.listBox);
 }
-function toggleFilters(force) {
-  const u = S.ui, open = force != null ? force : u.filters.hidden;
-  u.filters.hidden = !open;
-  u.filtersBtn.setAttribute('aria-expanded', String(open));
-  u.filtersBtn.textContent = open ? 'Filtry ▴' : 'Filtry ▾';
+async function loadFacets() {
+  if (S.facets !== undefined) return;
+  S.facets = null;
+  try { S.facets = await api('products:facets'); } catch (e) { S.facets = null; }
+  if (S.ui.cat) syncList();
 }
 function syncList() {
   const u = S.ui, Q = S.Q;
   if (u.search.value.trim() !== Q.q) u.search.value = Q.q;
-  u.low.value = String(Q.low); u.size.value = String(pageSize());
-  const extra = Q.low !== LOW_DEFAULT || pageSize() !== 50;
-  u.filtersBtn.classList.toggle('on', extra);
-  if (extra && u.filters.hidden) toggleFilters(true);
+  u.low.value = String(Q.low);
+  const F = S.facets || { categories: [], producers: [], warehouses: [] };
+  u.cat.replaceChildren(...selOpt('Wszystkie kategorie', F.categories, Q.cat, x => el('option', { value: String(x.id) }, 'Kategoria #' + x.id + ' (' + x.n + ')'))); u.cat.value = Q.cat;
+  u.prd.replaceChildren(...selOpt('Wszyscy producenci', F.producers, Q.prd, x => el('option', { value: String(x.id) }, 'Producent #' + x.id + ' (' + x.n + ')'))); u.prd.value = Q.prd;
+  u.wh.replaceChildren(...selOpt('Wszystkie magazyny', F.warehouses, Q.wh, x => el('option', { value: String(x.id) }, (x.name || 'Magazyn #' + x.id) + ' (' + x.n + ')'))); u.wh.value = Q.wh;
+  u.vis.value = Q.vis; u.zdj.value = Q.zdj;
+  u.clear.hidden = !FILTER_KEYS.some(k => Q[k]);
+  u.syncFiltersBtn();
   const seg = (id, key, label, tip) => el('button', { type: 'button', class: 'chip', id, 'aria-pressed': String(Q.seg === key), title: tip, onclick: () => setQ({ seg: key }) }, label);
   u.segs.replaceChildren(
     seg('prodSegAll', '', 'Wszystkie', 'Wszystkie produkty, bez względu na stan i widoczność'),
     seg('prodSegZero', 'zero', 'Brak na stanie', 'Produkty ze stanem 0 (lub mniejszym) w Selly'),
-    seg('prodSegLow', 'low', 'Niski stan (1–' + Q.low + ')', 'Produkty, których stan w Selly jest większy od 0 i nie większy niż ' + Q.low + ' szt. Próg zmienisz w „Filtry”.'),
+    seg('prodSegLow', 'low', 'Niski stan (1–' + Q.low + ')', 'Produkty, których stan w Selly jest większy od 0 i nie większy niż ' + Q.low + ' szt. Próg zmienisz w panelu filtrów (Niski stan).'),
     seg('prodSegHidden', 'hidden', 'Ukryte', 'Produkty niewidoczne w sklepie'));
 }
 
@@ -122,6 +194,7 @@ async function loadList() {
   const my = ++S.seq, u = S.ui;
   S.err = '';
   syncList();
+  loadFacets();
   if (!S.data) u.results.replaceChildren(loadingBox('Pobieram produkty…'));
   else u.results.classList.add('fade');
   try {
@@ -140,6 +213,7 @@ async function loadList() {
 
 function renderList() {
   const u = S.ui, d = S.data, Q = S.Q;
+  S.edits.clear();
   if (S.err && !d) {
     u.info.textContent = ''; u.notice.replaceChildren();
     u.results.replaceChildren(el('div', { class: 'empty error' }, S.err, ' ', sellyLink('Panel Selly ↗', adminUrl() + '?a=produkty', 'Otwiera listę produktów w panelu Selly w nowej karcie'),
@@ -149,39 +223,69 @@ function renderList() {
   const size = d.pageSize || pageSize(), pages = Math.max(1, Math.ceil(d.total / size));
   u.info.replaceChildren(el('span', { class: 'tip', title: 'Lista pochodzi z kopii produktów synchronizowanej z Selly w tle — najświeższe zmiany mogą pojawić się z opóźnieniem.' }, 'dane z: ' + syncedLabel(d.syncedMs)));
   u.notice.replaceChildren(d.loading ? el('div', { class: 'notice warn', id: 'prodLoading', role: 'status' }, 'Trwa pierwsze pobieranie produktów ze sklepu — lista może być niepełna. Odśwież stronę za chwilę.') : null);
-  const withPhoto = d.rows.some(r => isUrl(r.photo));
   const COLS = [
-    withPhoto ? { label: 'Zdjęcie', tip: 'Miniatura zdjęcia głównego produktu' } : null,
-    { label: 'Nazwa', sort: 'name', tip: 'Nazwa produktu w sklepie' },
-    { label: 'Kod', sort: 'code', tip: 'Kod producenta produktu' },
-    { label: 'Cena (zł)', sort: 'price', num: true, tip: 'Cena brutto w sklepie, w złotych', tipHeader: true },
-    { label: 'Stan', sort: 'qty', num: true, tip: 'Stan wg Selly (suma ze wszystkich magazynów). Czerwony: brak; żółty: niski (do ' + Q.low + ' szt.). Stan fizyczny prowadzi moduł Magazyny.', tipHeader: true },
-    { label: 'Widoczny', tip: 'Czy produkt jest widoczny dla klientów w sklepie' },
-    { label: 'Lokalizacja', tip: 'Lokalizacja magazynowa wpisana przy produkcie w Selly (np. regał, półka)' },
-  ].filter(Boolean);
+    { label: 'Produkt', tip: 'ID, zdjęcie, nazwa (do poprawienia w tabeli), kod, symbol i EAN produktu', tipHeader: true, sorts: [
+      { label: 'Nazwa', sort: 'name', tip: 'Sortuj po nazwie produktu' }, { label: 'ID', sort: 'id', num: true, tip: 'Sortuj po numerze ID produktu' }, { label: 'Kod', sort: 'code', tip: 'Sortuj po kodzie producenta' }] },
+    { label: 'Ceny i magazyn', tip: 'Cena brutto (do poprawienia w tabeli), cena poprzednia oraz stan wg Selly (suma ze wszystkich magazynów). Czerwony stan: brak; żółty: niski (do ' + Q.low + ' szt.).', tipHeader: true, sorts: [
+      { label: 'Cena', sort: 'price', num: true, tip: 'Sortuj po cenie brutto w złotych' }, { label: 'Stan', sort: 'qty', num: true, tip: 'Sortuj po stanie wg Selly' }] },
+    { label: 'Opcje', tip: 'Widoczność produktu w sklepie (do zmiany w tabeli). Pozostałe opcje z Selly (hit dnia, promocje, porównywarki) zmienisz w panelu Selly — API sklepu ich nie udostępnia.', tipHeader: true },
+    { label: 'Działanie', tip: 'Skróty: szczegóły produktu, podgląd w sklepie, zamówienia z tym produktem, otwarcie w Selly', tipHeader: true },
+  ];
   const head = el('tr', null, COLS.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
   const body = el('tbody');
-  for (const r of d.rows) {
-    const qty = Number(r.qty);
-    const stCls = qty <= 0 ? 'stk-zero' : qty <= Q.low ? 'stk-low' : '';
-    body.append(el('tr', { class: 'pick', 'data-id': r.id, onclick: ev => { if (ev.target.closest('a,button')) return; openProduct(r.id); } },
-      withPhoto ? el('td', { class: 'c' }, isUrl(r.photo) ? el('img', { class: 'thumb', src: r.photo, alt: '', loading: 'lazy' }) : null) : null,
-      el('td', null, el('a', { href: '#/produkty/' + encodeURIComponent(r.id), class: 'cell-name', onclick: () => { S.listHash = location.hash; } }, r.name || ('Produkt ' + r.id)),
-        r.hasVariants || r.isKit ? el('div', { class: 'cell-sub' }, r.hasVariants ? el('span', { class: 'tag', title: 'Produkt ma warianty (np. rozmiary) — stany są w szczegółach' }, 'warianty') : null,
-          r.isKit ? el('span', { class: 'tag', title: 'Zestaw złożony z kilku produktów' }, 'zestaw') : null) : null),
-      el('td', { class: 'nw' }, r.code || r.symbol || ''),
-      el('td', { class: 'n nw' }, money(r.price)),
-      el('td', { class: 'n nw ' + stCls, title: stCls === 'stk-zero' ? 'Brak na stanie' : stCls === 'stk-low' ? 'Niski stan' : null }, num(r.qty)),
-      el('td', null, Number(r.visible) ? 'tak' : el('span', { class: 'tag', title: 'Produkt jest ukryty w sklepie' }, 'ukryty')),
-      el('td', null, r.location || '')));
-  }
-  const filtered = !!(Q.q || Q.seg);
+  for (const r of d.rows) body.append(productRow(r));
+  const filtered = FILTER_KEYS.some(k => Q[k]);
   if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(COLS.length), class: 'empty' },
     filtered ? 'Brak produktów pasujących do wybranych filtrów.' : 'Brak produktów.', ' ',
-    filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ q: '', seg: '' }) }, 'Wyczyść filtry') : null)));
+    filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ ...CLEAR }) }, 'Wyczyść filtry') : null)));
   u.results.replaceChildren(S.err ? el('div', { class: 'notice error' }, S.err) : null,
-    el('div', { class: 'table-wrap' }, el('table', { id: 'prodTable' }, el('thead', null, head), body)),
-    pager({ prefix: 'prod', page: Q.page, pages, total: d.total, noun: ['produkt', 'produkty', 'produktów'], onPage: p => setQ({ page: p }) }));
+    el('div', { class: 'table-wrap' }, el('table', { id: 'prodTable', class: 'rich' }, el('thead', null, head), body)),
+    pager({ prefix: 'prod', page: Q.page, pages, total: d.total, noun: ['produkt', 'produkty', 'produktów'], onPage: p => setQ({ page: p }),
+      sizes: SIZES, size: pageSize(), onSize: n => { store('osa-prod-size', n); setQ({}); } }));
+  refreshDirty();
+}
+
+function productRow(r) {
+  const Q = S.Q, qty = Number(r.qty), stCls = qty <= 0 ? 'stk-zero' : qty <= Q.low ? 'stk-low' : '';
+  const label = (r.name || ('Produkt ' + r.id)).slice(0, 40);
+  const inName = inlineInput({ value: r.name || '', cls: 'name', label: 'Nazwa produktu ' + r.id, tip: 'Nazwa produktu w sklepie — popraw i zapisz paskiem na dole', onChange: refreshDirty, attrs: { maxlength: '500', 'data-f': 'name' } });
+  const inPrice = inlineInput({ value: r.price == null ? '' : String(r.price), type: 'number', cls: 'num', label: 'Cena brutto produktu ' + r.id, tip: 'Cena brutto w złotych — popraw i zapisz paskiem na dole', onChange: refreshDirty, attrs: { min: '0', step: '0.01', 'data-f': 'price' } });
+  const visOrig = !!Number(r.visible);
+  const inVis = el('input', { type: 'checkbox', 'aria-label': 'Wyświetlany w sklepie: produkt ' + r.id, checked: visOrig, 'data-f': 'visible', onchange: refreshDirty });
+  const detailHref = '#/produkty/' + encodeURIComponent(r.id);
+  const keepList = () => { S.listHash = location.hash; };
+  const tr = el('tr', { 'data-id': r.id },
+    el('td', null, el('div', { class: 'prow' },
+      el('div', { class: 'prow-id' }, el('div', { class: 'id-line' },
+        el('a', { href: detailHref, class: 'big-id', title: 'Otwórz szczegóły produktu (stany w magazynach, warianty, ruchy)', onclick: keepList }, r.id),
+        el('a', { href: detailHref, class: 'mini-ico', title: 'Edytuj produkt: szczegóły, stany w magazynach, warianty', 'aria-label': 'Edytuj produkt ' + r.id, onclick: keepList }, '✎')),
+        thumb(r.photo, r.name)),
+      el('div', { class: 'grow' }, inName,
+        el('div', { class: 'cell-sub' }, [r.code && 'kod: ' + r.code, r.symbol && 'symbol: ' + r.symbol, r.ean && 'EAN: ' + r.ean].filter(Boolean).join(' · ')),
+        r.location || r.hasVariants || r.isKit ? el('div', { class: 'cell-sub' },
+          r.hasVariants ? el('span', { class: 'tag', title: 'Produkt ma warianty (np. rozmiary) — stany są w szczegółach' }, 'warianty') : null,
+          r.isKit ? el('span', { class: 'tag', title: 'Zestaw złożony z kilku produktów' }, 'zestaw') : null,
+          r.location ? el('span', { class: 'tag', title: 'Lokalizacja magazynowa wpisana przy produkcie w Selly (np. regał, półka)' }, '📍 ' + r.location) : null) : null))),
+    el('td', null, el('div', { class: 'price-box' },
+      el('label', { class: 'pb-row', title: 'Cena brutto w sklepie, w złotych' }, 'Cena brutto (zł)', inPrice),
+      Number(r.prevPrice) ? el('div', { class: 'pb-row', title: 'Cena przed obniżką (tylko do odczytu — zmienisz ją w panelu Selly)' }, el('span', { class: 'tip' }, 'Poprzednia'), el('span', { class: 'v' }, money(r.prevPrice))) : null,
+      el('div', { class: 'pb-row', title: 'Stan wg Selly (suma ze wszystkich magazynów). Stan w poszczególnych magazynach zmienisz w szczegółach produktu.' }, el('span', { class: 'tip' }, 'Stan'),
+        el('span', { class: 'v ' + stCls }, num(r.qty) + ' szt.')))),
+    el('td', null, el('div', { class: 'opt-list' },
+      el('label', { title: 'Czy produkt jest widoczny dla klientów w sklepie' }, inVis, 'wyświetlany'),
+      Number(r.visible) ? null : el('span', { class: 'tag bad', title: 'Produkt jest ukryty w sklepie' }, 'ukryty'))),
+    el('td', null, rowActions([
+      { label: 'edytuj produkt', href: detailHref, icon: '✎', tip: 'Szczegóły produktu: stany w magazynach, warianty, ruchy magazynowe', onclick: () => openProduct(r.id) },
+      /^https?:\/\//i.test(r.uri || '') ? { label: 'podgląd', href: r.uri, icon: '👁', ext: true, tip: 'Strona produktu w sklepie (nowa karta)' } : null,
+      { label: ['zamówienia produktu ', el('span', { class: 'muted' }, '(' + (r.ordersCount || 0) + ')')], href: '#/zamowienia?product=' + encodeURIComponent(r.id) + '&pname=' + encodeURIComponent(r.name || ''), icon: '🧾', tip: 'Zamówienia zawierające ten produkt: ' + (r.ordersCount || 0) },
+      { label: 'w panelu Selly', href: sellyProductUrl(r.id), icon: '↗', ext: true, tip: 'Otwiera produkt w panelu Selly (tam: hit dnia, promocje, porównywarki, Allegro, usuwanie)' }])));
+  S.edits.set(r.id, {
+    id: r.id, tr, label,
+    fields: () => [inName.isDirty() && 'name', inPrice.isDirty() && 'price', inVis.checked !== visOrig && 'visible'].filter(Boolean),
+    values() { const o = {}; if (inName.isDirty()) o.name = inName.value; if (inPrice.isDirty()) o.price = inPrice.value; if (inVis.checked !== visOrig) o.visible = inVis.checked; return o; },
+    reset() { inName.reset(); inPrice.reset(); inVis.checked = visOrig; },
+  });
+  return tr;
 }
 function openProduct(id) { S.listHash = location.hash; go('/produkty/' + encodeURIComponent(id)); }
 

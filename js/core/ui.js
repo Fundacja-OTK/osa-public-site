@@ -398,6 +398,16 @@ export const dl = pairs => el('dl', { class: 'ord-dl' }, pairs.filter(p => p && 
  */
 export function sortTh(col, state, onSort) {
   const cls = col.num ? 'n' : null;
+  // Kolumna z kilkoma możliwymi sortowaniami (np. „Nr i status”: Nr / Data / Status) — każde to osobny przycisk
+  if (col.sorts) {
+    const act = col.sorts.find(x => x.sort === state.sort);
+    return el('th', { class: cls, 'aria-sort': act ? (state.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
+      el('span', { class: 'th-multi' }, el('span', { title: col.tip, class: 'th-lbl tip' }, col.label), ...col.sorts.map(x => {
+        const a = state.sort === x.sort;
+        return el('button', { type: 'button', class: 'th-sort' + (a ? ' on' : ''), title: (x.tip || x.label) + '\n\n' + (a ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'),
+          onclick: () => onSort(x.sort, a ? (state.dir === 'asc' ? 'desc' : 'asc') : (x.firstDir || (x.num ? 'desc' : 'asc'))) }, x.label + (a ? (state.dir === 'asc' ? ' ↑' : ' ↓') : ''));
+      })));
+  }
   if (!col.sort) return el('th', { class: cls }, el('span', { title: col.tip, class: col.tipHeader ? 'tip' : null }, col.label));
   const active = state.sort === col.sort;
   return el('th', { class: cls, 'aria-sort': active ? (state.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
@@ -408,10 +418,89 @@ export function sortTh(col, state, onSort) {
 
 /** Stronicowanie: „← Poprzednia · Strona X z Y · N pozycji · Następna →”. o: { prefix, page, pages, total, noun:[1,2-4,5+], onPage } */
 export function pager(o) {
+  const cur = Math.min(o.page, o.pages);
+  const goTo = v => { const n = Math.min(o.pages, Math.max(1, parseInt(v, 10) || cur)); if (n !== cur) o.onPage(n); };
+  const inp = el('input', { type: 'number', class: 'pg-in', id: o.prefix + 'Page', min: '1', max: String(o.pages), value: String(cur), 'aria-label': 'Numer strony', title: 'Wpisz numer strony i naciśnij Enter',
+    onchange: () => goTo(inp.value), onkeydown: ev => { if (ev.key === 'Enter') goTo(inp.value); } });
+  const arrow = (id, label, dis, tip, to) => el('button', { type: 'button', class: 'secondary pg-btn', id: o.prefix + id, disabled: dis, 'aria-label': tip, title: dis ? (id === 'Prev' ? 'To pierwsza strona' : 'To ostatnia strona') : tip, onclick: () => o.onPage(to) }, label);
   return el('div', { class: 'ord-pager' },
-    el('button', { type: 'button', class: 'secondary', id: o.prefix + 'Prev', disabled: o.page <= 1, title: o.page <= 1 ? 'To pierwsza strona' : 'Poprzednia strona', onclick: () => o.onPage(o.page - 1) }, '← Poprzednia'),
-    el('span', { class: 'muted' }, 'Strona ' + Math.min(o.page, o.pages) + ' z ' + o.pages + ' · ' + cnt(o.total, ...o.noun)),
-    el('button', { type: 'button', class: 'secondary', id: o.prefix + 'Next', disabled: o.page >= o.pages, title: o.page >= o.pages ? 'To ostatnia strona' : 'Następna strona', onclick: () => o.onPage(o.page + 1) }, 'Następna →'));
+    el('div', { class: 'pg-nav' }, arrow('Prev', '‹', cur <= 1, 'Poprzednia strona', cur - 1), el('span', { class: 'muted' }, 'Strona'), inp, el('span', { class: 'muted' }, 'z ' + o.pages), arrow('Next', '›', cur >= o.pages, 'Następna strona', cur + 1)),
+    el('span', { class: 'muted' }, cnt(o.total, ...o.noun)),
+    o.sizes ? el('label', { class: 'field-inline', title: 'Ile pozycji pokazać na jednej stronie' }, 'Na stronie',
+      el('select', { id: o.prefix + 'PageSize', 'aria-label': 'Pozycji na stronie', onchange: ev => o.onSize(Number(ev.target.value)) }, o.sizes.map(n => el('option', { value: String(n), selected: n === o.size }, String(n))))) : null);
+}
+
+// ─── Wspólne klocki widoków list (Produkty, Zamówienia): pasek tytułu, panel filtrów, wiersze rozbudowane ──
+
+/** Pasek strony: tytuł + opis po lewej, akcje po prawej (główna — ostatnia). */
+export function pageToolbar({ title, sub, actions }) {
+  return el('div', { class: 'page-toolbar' }, el('div', { class: 'pt-title' }, el('h2', null, title), sub ? el('div', { class: 'sub' }, sub) : null),
+    el('div', { class: 'pt-actions' }, ...(actions || []).filter(Boolean)));
+}
+
+/**
+ * Układ „panel filtrów po lewej + treść”. Panel jest zwijany, a wybór pamiętany (store `osa-fp-<key>`).
+ * Zwraca { node, panel, main, isOpen(), setOpen(bool) }; panel.hidden = zwinięty.
+ */
+export function filterLayout({ key, panelId, mainNodes, panelNodes, defaultOpen = true }) {
+  const saved = store('osa-fp-' + key);
+  const panel = el('aside', { class: 'filter-panel', id: panelId, 'aria-label': 'Filtry' }, ...panelNodes);
+  const main = el('div', { class: 'split-main' }, ...mainNodes);
+  const L = { panel, main, node: el('div', { class: 'split' }, panel, main) };
+  panel.hidden = saved == null ? !defaultOpen : !saved;
+  L.isOpen = () => !panel.hidden;
+  L.setOpen = (v, persist = true) => { panel.hidden = !v; if (persist) store('osa-fp-' + key, v ? 1 : 0); };
+  return L;
+}
+/** Sekcja panelu filtrów: tytuł + treść; `fold: true` zwija ją (opcje zaawansowane). */
+export function filterSection(title, body, { fold = false, open = false, tip } = {}) {
+  if (!fold) return el('section', { class: 'fp-sec' }, el('h3', { title: tip || null, class: tip ? 'tip' : null }, title), body);
+  return el('details', { class: 'fp-sec fold', open }, el('summary', { title: tip || null }, title), body);
+}
+
+/** Kolorowa plakietka statusu (ton: ok | warn | bad | acc | info | neutral). */
+export const statusPill = (text, tone, tip) => el('span', { class: 'ord-st ' + (tone || 'neutral'), title: tip || 'Status: ' + text }, text);
+
+/** Miniatura (domyślnie 56 px) albo pusty kwadrat z literą, gdy brak zdjęcia. */
+export function thumb(url, name, size = 56) {
+  const ok = typeof url === 'string' && /^https?:\/\//i.test(url);
+  return ok ? el('img', { class: 'thumb-l', src: url, alt: '', loading: 'lazy', width: String(size), height: String(size) })
+    : el('span', { class: 'thumb-l ph', 'aria-hidden': 'true' }, String(name || '?').trim().charAt(0).toUpperCase());
+}
+
+/**
+ * Pole edytowane w wierszu: podświetla się, gdy wartość różni się od początkowej.
+ * o: { value, type?, id?, cls?, label, tip, attrs?, onChange(dirty) }. Zwraca input z `reset()` i `isDirty()`.
+ */
+export function inlineInput(o) {
+  const orig = o.value == null ? '' : String(o.value);
+  const inp = el('input', Object.assign({ type: o.type || 'text', class: 'inl ' + (o.cls || ''), value: orig, 'aria-label': o.label, title: o.tip || null, id: o.id || null }, o.attrs || {}));
+  inp.isDirty = () => inp.value !== orig;
+  inp.reset = () => { inp.value = orig; inp.classList.remove('dirty'); };
+  inp.addEventListener('input', () => { inp.classList.toggle('dirty', inp.isDirty()); if (o.onChange) o.onChange(inp.isDirty()); });
+  return inp;
+}
+
+/** Przyklejony dolny pasek „Zapisz zmiany (N)” z „Cofnij”. o: { id, noun, onSave, onUndo }. Zwraca { node, set(n), busy(bool), say(text) }. */
+export function saveBar(o) {
+  const count = el('strong', { id: o.id + 'Count' });
+  const msg = el('span', { class: 'muted small', id: o.id + 'Msg', role: 'status' });
+  const save = el('button', { type: 'button', class: 'primary', id: o.id + 'Save', title: 'Zapisuje wszystkie zmienione pola naraz (w Selly)', onclick: () => o.onSave() }, 'Zapisz zmiany');
+  const undo = el('button', { type: 'button', class: 'secondary', id: o.id + 'Undo', title: 'Przywraca wszystkie pola do wartości sprzed edycji', onclick: () => o.onUndo() }, 'Cofnij');
+  const node = el('div', { class: 'save-bar', id: o.id, hidden: true }, el('span', null, 'Niezapisane zmiany: ', count, o.noun ? ' ' + o.noun : ''), msg, el('span', { class: 'spacer' }), undo, save);
+  return {
+    node,
+    set(n) { node.hidden = n === 0 && !msg.textContent; count.textContent = String(n); save.textContent = 'Zapisz zmiany (' + n + ')'; save.disabled = n === 0; undo.disabled = n === 0; },
+    busy(b) { save.disabled = b; undo.disabled = b; },
+    say(t) { msg.textContent = t || ''; },
+  };
+}
+
+/** Lista akcji przy wierszu: [{ label, href?, onclick?, icon, tip, ext? }] — małe ikony + etykiety. */
+export function rowActions(items) {
+  return el('ul', { class: 'row-actions' }, items.filter(Boolean).map(a => el('li', null,
+    el('a', { href: a.href || '#', title: a.tip || null, target: a.ext ? '_blank' : null, rel: a.ext ? 'noopener' : null,
+      onclick: a.onclick ? ev => { ev.preventDefault(); a.onclick(ev); } : null }, el('span', { class: 'ra-ico', 'aria-hidden': 'true' }, a.icon || '•'), a.label))));
 }
 
 /** Pobiera kolejne strony listy (po 200) aż do `max` wierszy: fetchPage(page) → { rows, total }. */

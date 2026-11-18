@@ -132,8 +132,9 @@ export function osaBar(o) {
     BADGE_KINDS.filter(b => b.k !== 'lic' || o.withLicense).map(b => el('label', { class: 'osa-chk', title: b.tip },
       el('input', { type: 'checkbox', 'data-pref': b.k, checked: prefs[b.k], onchange: ev => { const p = badgePrefs(); p[b.k] = ev.target.checked; store(BKEY, p); applyBadgePrefs(p); } }), ' ' + b.label)));
   viewBtn.onclick = () => { view.hidden = !view.hidden; viewBtn.setAttribute('aria-expanded', String(!view.hidden)); viewBtn.textContent = view.hidden ? 'Widok ▾' : 'Widok ▴'; };
-  const star = el('span', { class: 'osa-star tip', title: 'Filtry z notatki klienta w sklepie: województwo, rodzaj podmiotu, tytuł orszaku i tagi. Liczby to liczba klientów.' }, '★ OSA');
-  const node = el('div', { class: 'osa-bar', id: id('Bar') },
+  // plain: wiersz w zwykłym panelu „Filtry” (Zamówienia) — bez wyróżnionego paska i napisu „★ OSA”
+  const star = o.plain ? el('span', { class: 'label tip', title: 'Dane z notatki klienta w sklepie: województwo, rodzaj podmiotu, tytuł orszaku i tagi. Liczby to liczba klientów.' }, 'Orszak') : el('span', { class: 'osa-star tip', title: 'Filtry z notatki klienta w sklepie: województwo, rodzaj podmiotu, tytuł orszaku i tagi. Liczby to liczba klientów.' }, '★ OSA');
+  const node = el('div', { class: o.plain ? 'osa-inline' : 'osa-bar', id: id('Bar') },
     el('div', { class: 'osa-row' }, star, woj, kind, title, dlist, tag, nodataL, licL, clear, viewBtn), view);
 
   function fill(select, firstLabel, items, cur) {
@@ -163,7 +164,7 @@ export function osaBar(o) {
       : 'Najpierw wybierz województwo, rodzaj, tytuł lub tag — ta opcja dołącza do wyniku rekordy bez danych w wybranym polu';
     lic.checked = !!Q.lic;
     clear.disabled = !(filt || Q.lic || Q.nodata);
-    clear.title = clear.disabled ? 'Brak aktywnych filtrów OSA' : 'Usuń filtry województwa, rodzaju, tytułu, tagu i licencji (wyszukiwanie i statusy zostają)';
+    clear.title = clear.disabled ? 'Brak aktywnych filtrów z notatek klientów' : 'Usuń filtry województwa, rodzaju, tytułu, tagu i licencji (wyszukiwanie i statusy zostają)';
     node.classList.toggle('on', filt || !!Q.lic);
   }
   return { node, sync };

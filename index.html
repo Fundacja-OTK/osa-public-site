@@ -5,48 +5,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Panel OSA</title>
   <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/pulpit.css">
+  <link rel="stylesheet" href="css/przesylki.css">
+  <link rel="stylesheet" href="css/zasob.css">
   <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, clientId, version, backends? } -->
   <script src="config.js"></script>
   <script src="https://accounts.google.com/gsi/client" async></script>
   <script>
-    // Motyw ustawiany przed pierwszym malowaniem: system (domyślnie) / jasny / ciemny
+    // Motyw i zwinięte menu ustawiane przed pierwszym malowaniem
     try { var t = JSON.parse(localStorage.getItem('otk-theme') || 'null'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+    try { if (JSON.parse(localStorage.getItem('osa-sb-collapsed') || 'false')) document.documentElement.classList.add('sb-collapsed'); } catch (e) {}
   </script>
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
-<main>
-  <header class="app-head">
-    <div>
-      <h1>Panel OSA <span class="sub" id="modSub"></span></h1>
-      <span class="muted small who"><span id="who"></span> <button type="button" class="linkbtn small" id="signOut" hidden title="Wyloguj z panelu na tym urządzeniu (konto Google pozostaje zalogowane)">Wyloguj</button></span>
-    </div>
-    <div class="head-tools">
-      <div class="seg" role="group" aria-label="Motyw kolorystyczny" id="themeSw">
-        <button type="button" data-theme-opt="system" aria-pressed="true">System</button>
-        <button type="button" data-theme-opt="light" aria-pressed="false">Jasny</button>
-        <button type="button" data-theme-opt="dark" aria-pressed="false">Ciemny</button>
+<div class="app">
+  <header class="topbar">
+    <button type="button" class="tb-btn navtoggle" id="navToggle" aria-expanded="false" aria-controls="sidebar" title="Pokaż lub ukryj menu panelu"><span class="sr-only">Menu</span><span aria-hidden="true">☰</span></button>
+    <a class="brand" href="#/pulpit" title="Panel OSA — strona startowa"><span class="brand-mark" aria-hidden="true">OSA</span><span class="brand-name">Panel</span></a>
+    <form class="tb-search" id="tbSearch" role="search" autocomplete="off" hidden>
+      <label class="tb-field" title="Szukaj zamówienia po numerze, kliencie, e-mailu lub telefonie — Enter otwiera listę zamówień z wynikami">
+        <span class="sr-only">Szukaj zamówienia</span><input type="search" id="tbOrders" placeholder="Szukaj zamówienia…" data-route="zamowienia"></label>
+      <label class="tb-field" title="Szukaj klienta po nazwisku, firmie, e-mailu lub telefonie — Enter otwiera listę klientów">
+        <span class="sr-only">Szukaj klienta</span><input type="search" id="tbClients" placeholder="Szukaj klienta…" data-route="klienci"></label>
+      <label class="tb-field" title="Szukaj produktu po nazwie, kodzie, symbolu lub EAN — Enter otwiera listę produktów">
+        <span class="sr-only">Szukaj produktu</span><input type="search" id="tbProducts" placeholder="Szukaj produktu…" data-route="produkty"></label>
+    </form>
+    <div class="tb-right">
+      <a class="tb-btn tb-selly" id="tbSelly" href="#" target="_blank" rel="noopener" title="Otwiera tę samą stronę w panelu Selly (nowa karta)" hidden>Selly ↗</a>
+      <div class="tb-user" id="tbUser" hidden>
+        <button type="button" class="tb-btn" id="userBtn" aria-haspopup="true" aria-expanded="false" title="Konto, motyw, wylogowanie"><span class="avatar" id="avatar" aria-hidden="true">?</span><span class="caret" aria-hidden="true">▾</span></button>
+        <div class="tb-menu" id="userMenu" hidden>
+          <div class="small" id="who"></div>
+          <div class="tb-menu-label small muted">Motyw</div>
+          <div class="seg" role="group" aria-label="Motyw kolorystyczny" id="themeSw">
+            <button type="button" data-theme-opt="system" aria-pressed="true" title="Jak w ustawieniach systemu">System</button>
+            <button type="button" data-theme-opt="light" aria-pressed="false">Jasny</button>
+            <button type="button" data-theme-opt="dark" aria-pressed="false">Ciemny</button>
+          </div>
+          <button type="button" class="secondary small" id="signOut" hidden title="Wyloguj z panelu na tym urządzeniu (konto Google pozostaje zalogowane)">Wyloguj</button>
+        </div>
       </div>
     </div>
   </header>
-  <div class="modbar">
-    <button type="button" class="secondary navtoggle" id="navToggle" aria-expanded="false" aria-controls="modNav" title="Pokaż lub ukryj listę modułów panelu">☰ Menu</button>
-    <nav class="modnav" id="modNav" aria-label="Moduły panelu"></nav>
-  </div>
-  <div id="pageErrors"></div>
 
-  <div id="modules"></div>
+  <aside class="sidebar" id="sidebar" aria-label="Menu panelu">
+    <nav class="modnav" id="modNav" aria-label="Sekcje panelu"></nav>
+    <button type="button" class="sb-collapse" id="sbCollapse" title="Zwiń lub rozwiń menu boczne (zostaną same ikony)" aria-pressed="false"><span aria-hidden="true">‹</span><span class="sr-only">Zwiń menu</span></button>
+  </aside>
 
-  <div class="card" id="cardStart"><div class="loading"><div class="line"><span class="spinner"></span>Otwieram raport…</div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></div>
-  <div class="card" id="cardSignIn" hidden>
-    <div class="signin">
-      <div><strong>Zaloguj się kontem Google</strong></div>
-      <div class="muted small" id="signInMsg">Panel jest dostępny dla osób z listy uprawnionych.</div>
-      <div id="signInBtn"></div>
+  <main class="content">
+    <div class="page-head" id="pageHead" hidden>
+      <div class="crumbs small" id="modSub"></div>
+      <h1 id="pageTitle"></h1>
     </div>
-  </div>
-  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
-  <footer class="app-foot muted small"><span id="appFoot"></span><span id="beSep" hidden> · </span><span id="beInfo" hidden></span> · <a href="privacy.html">Prywatność</a></footer>
-</main>
+    <div id="pageErrors"></div>
+    <div id="modules"></div>
+
+    <div class="card" id="cardStart"><div class="loading"><div class="line"><span class="spinner"></span>Otwieram panel…</div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></div>
+    <div class="card" id="cardSignIn" hidden>
+      <div class="signin">
+        <div><strong>Zaloguj się kontem Google</strong></div>
+        <div class="muted small" id="signInMsg">Panel jest dostępny dla osób z listy uprawnionych.</div>
+        <div id="signInBtn"></div>
+      </div>
+    </div>
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+    <footer class="app-foot muted small"><span id="appFoot"></span><span id="beSep" hidden> · </span><span id="beInfo" hidden></span> · <a href="privacy.html">Prywatność</a></footer>
+  </main>
+</div>
 </body>
 </html>
