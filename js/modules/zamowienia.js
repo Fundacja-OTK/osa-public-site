@@ -1,13 +1,14 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard } from '../core/ui.js';
+import { el, plural, debounce, store, flash, progressToast, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard } from '../core/ui.js';
 import { api, ctx } from '../core/client.js';
 import { go } from '../core/router.js';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
 const SIZES = [25, 50, 100, 200];
-const EXPORT_MAX = 2000;
+// Eksport czyta z bazy panelu (nie z Selly — nie zużywa limitu API); górna granica tylko jako bezpiecznik
+const EXPORT_MAX = 50000;
 const MSG_UNAVAILABLE = 'Moduł Zamówienia wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
 
 const S = {
@@ -387,18 +388,20 @@ function exportTable(rows) {
 const saveTable = (t, kind) => (kind === 'xlsx' ? downloadXlsx(t, '') : downloadCsv(tableMatrix(t), t.file, ''));
 
 async function exportAll(kind) {
-  flash('', 'Pobieram zamówienia do pliku…');
+  const pt = progressToast('Pobieram zamówienia do pliku…');
   try {
     const rows = []; let total = 0;
     for (let page = 1; rows.length < EXPORT_MAX; page++) {
       const r = await api('orders:list', listParams(S.Q, { page, pageSize: 200 }));
       total = r.total; rows.push(...r.rows);
+      if (total > 200) pt.set('Pobieram zamówienia do pliku… ' + Math.min(rows.length, total) + ' z ' + total);
       if (!r.rows.length || rows.length >= total) break;
     }
     const part = rows.slice(0, EXPORT_MAX);
     saveTable(exportTable(part), kind);
+    pt.done('Gotowe: ' + part.length + ' zamówień w pliku');
     if (total > EXPORT_MAX) flash('', 'Plik zawiera pierwsze ' + EXPORT_MAX + ' z ' + total + ' zamówień — zawęź filtry, aby dostać resztę');
-  } catch (e) { flash('', 'Nie udało się pobrać zamówień: ' + (e.message || 'błąd')); }
+  } catch (e) { pt.done('Nie udało się pobrać zamówień: ' + (e.message || 'błąd')); }
 }
 
 function exportItems() {
@@ -407,8 +410,8 @@ function exportItems() {
   return [
     { label: 'Zaznaczone — Excel (.xlsx)', count: sel.length, title: sel.length ? 'Arkusz z zaznaczonymi zamówieniami' : noSel, run: () => saveTable(exportTable(sel), 'xlsx') },
     { label: 'Zaznaczone — CSV (.csv)', count: sel.length, title: sel.length ? 'Plik tekstowy (separator „;”, UTF-8) z zaznaczonymi zamówieniami' : noSel, run: () => saveTable(exportTable(sel), 'csv') },
-    { label: 'Cały wynik filtra — Excel (.xlsx)', count: tot, title: 'Wszystkie zamówienia pasujące do bieżących filtrów, nie tylko ta strona (maks. ' + EXPORT_MAX + ')', run: () => exportAll('xlsx') },
-    { label: 'Cały wynik filtra — CSV (.csv)', count: tot, title: 'Wszystkie zamówienia pasujące do bieżących filtrów, nie tylko ta strona (maks. ' + EXPORT_MAX + ')', run: () => exportAll('csv') },
+    { label: 'Cały wynik filtra — Excel (.xlsx)', count: tot, title: 'Wszystkie zamówienia pasujące do bieżących filtrów, nie tylko ta strona', run: () => exportAll('xlsx') },
+    { label: 'Cały wynik filtra — CSV (.csv)', count: tot, title: 'Wszystkie zamówienia pasujące do bieżących filtrów, nie tylko ta strona', run: () => exportAll('csv') },
   ];
 }
 

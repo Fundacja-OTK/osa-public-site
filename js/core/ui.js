@@ -49,6 +49,13 @@ export function store(key, value) {
 // ─── Eksport ───────────────────────────────────────────────────────────────
 
 // Krótkie powiadomienie (toast) na dole ekranu; pierwszy argument zachowany dla zgodności wywołań
+/** Jedno powiadomienie z aktualizowanym tekstem (postęp dłuższych operacji, np. eksportu). */
+export function progressToast(text) {
+  const t = el('div', { class: 'toast-item', role: 'status' }, text);
+  $('toasts').append(t);
+  return { set: s => { t.textContent = s; }, done: s => { if (s) t.textContent = s; setTimeout(() => t.remove(), 2800); } };
+}
+
 export function flash(_id, text) {
   const t = el('div', { class: 'toast-item' }, text);
   $('toasts').append(t);
