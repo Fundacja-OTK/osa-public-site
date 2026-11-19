@@ -1,6 +1,6 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js';
+import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js';
 import { api, ctx } from '../core/client.js';
 import { go, setLeaveGuard } from '../core/router.js';
 import { RESOURCES } from '../core/resources.js';
@@ -129,7 +129,7 @@ export function createResource(id) {
     const body = el('tbody');
     for (const r of d.rows) {
       const rid = String(r[def.idField]);
-      body.append(el('tr', { class: 'pick', 'data-id': rid, onclick: ev => { if (ev.target.closest('a,button')) return; go('/' + id + '/' + encodeURIComponent(rid)); } },
+      body.append(el('tr', { class: 'pick', 'data-id': rid, onclick: tapOpen(() => go('/' + id + '/' + encodeURIComponent(rid))) },
         def.columns.map((c, i) => {
           const td = cell(c, r, refOpts);
           if (i === 0 && !c.tree) { const t = td.textContent; td.replaceChildren(el('a', { href: '#/' + id + '/' + encodeURIComponent(rid), class: 'cell-name' }, t || '(bez nazwy)')); }

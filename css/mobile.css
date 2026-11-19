@@ -28,7 +28,7 @@
   .year button, .pg-btn { min-width: 44px; justify-content: center; }
   .pl-ev { display: flex; }
   .toolbar, .filters, .bar, .actions, .row-actions, .ord-bar, .tb-right { flex-wrap: wrap; }
-  #cardList *, .ord-dl dd, .notice, .notice * { overflow-wrap: anywhere; }
+  #cardList *, .ord-dl dd, .notice, .notice * { overflow-wrap: break-word; }
   dialog, .modal, .dlg { max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow: auto; }
 }
 /*MOBILE-END*/

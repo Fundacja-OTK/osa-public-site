@@ -18,6 +18,6 @@
 .fbk-item { display: grid; gap: var(--s2); padding: var(--s3) 0; border-top: 1px solid var(--border); }
 .fbk-item:first-child { border-top: 0; }
 .fbk-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: var(--fs-sm); color: var(--muted); }
-.fbk-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.fbk-text { white-space: pre-wrap; overflow-wrap: break-word; }
 .fbk-item.closed .fbk-text { color: var(--muted); }
 .fbk-health { display: grid; gap: var(--s1); }

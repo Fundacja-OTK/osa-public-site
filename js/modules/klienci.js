@@ -1,6 +1,6 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js';
+import { el, tapOpen, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js';
 import { api, ctx } from '../core/client.js';
 import { go } from '../core/router.js';
 import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js';
@@ -141,7 +141,7 @@ function renderList() {
   const body = el('tbody');
   for (const r of d.rows) {
     const blocked = isOn(r.blocked);
-    body.append(el('tr', { class: 'pick' + (blocked ? ' blocked' : ''), 'data-id': r.id, onclick: ev => { if (ev.target.closest('a,button')) return; openClient(r.id); } },
+    body.append(el('tr', { class: 'pick' + (blocked ? ' blocked' : ''), 'data-id': r.id, onclick: tapOpen(() => openClient(r.id)) },
       el('td', { title: r.notes ? 'Notatka: ' + r.notes : null },
         el('a', { href: '#/klienci/' + encodeURIComponent(r.id), class: 'cell-name', onclick: () => { S.listHash = location.hash; } }, r.name || r.email || ('Klient ' + r.id)),
         r.company ? el('div', { class: 'cell-sub' }, r.company) : null,

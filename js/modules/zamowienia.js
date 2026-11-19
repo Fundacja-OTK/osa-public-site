@@ -1,6 +1,6 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect } from '../core/ui.js';
+import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect } from '../core/ui.js';
 import { api, ctx } from '../core/client.js';
 import { go, setLeaveGuard } from '../core/router.js';
 import { buildOrderCard, productPicker } from './zamowieniaKarta.js';
@@ -149,18 +149,19 @@ function buildList() {
   u.osa = osaBar({ prefix: 'ordOsa', withLicense: true, plain: true, getQ: () => S.Q, apply: patch => setQ(patch), facets: () => S.meta && S.meta.facets });
   u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Status zamówienia' });
   u.exportBtn = menuButton({ id: 'ordExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz zamówienia z tabeli do pliku Excel lub CSV — zaznaczone albo cały wynik filtra', items: exportItems });
-  u.colMenu = columnMenu({ id: 'ordColsBtn', storeKey: 'osa-ord-cols', onChange: () => { if (S.data) renderList(); },
+  u.colMenu = columnMenu({ id: 'ordColsBtn', storeKey: 'osa-ord-cols2',   // v2: Klient i Informacje dodatkowe domyślnie wyłączone
+    onChange: () => { if (S.data) renderList(); },
     cols: [
       { key: 'nr', label: 'Nr i status', locked: true },
-      { key: 'client', label: 'Klient', tip: 'Nazwisko, firma, miasto i plakietki z notatki klienta' },
+      { key: 'client', label: 'Klient', def: false, tip: 'Nazwisko, firma, miasto i plakietki z notatki klienta' },
       { key: 'items', label: 'Zamówione produkty', tip: 'Pozycje zamówienia z ilościami i miniaturami' },
       { key: 'total', label: 'Wartość', locked: true },
-      { key: 'info', label: 'Informacje dodatkowe', tip: 'Komentarz klienta, uwaga do zamówienia i numer przesyłki' }] });
+      { key: 'info', label: 'Informacje dodatkowe', def: false, tip: 'Komentarz klienta, uwaga do zamówienia i numer przesyłki' }] });
   u.info = el('div', { class: 'muted small ord-info' });
   u.dlg = el('div', { id: 'ordDlg' });
   u.bulk = el('div', { class: 'ord-bulk', id: 'ordBulk', hidden: true });
   u.results = el('div', { id: 'ordResults' });
-  u.layout = filterLayout({ key: 'zamowienia', panelId: 'ordFilters', panelNodes: [u.filtersInner], defaultOpen: window.innerWidth >= 1500,
+  u.layout = filterLayout({ key: 'zamowienia', panelId: 'ordFilters', panelNodes: [u.filtersInner],
     mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info), u.dlg, u.bulk, u.results] });
   u.filters = u.layout.panel;
   S.listBox = el('div', { class: 'ord-list' },
@@ -304,7 +305,7 @@ function renderList() {
     const nm = fullName(r.firstName, r.lastName), name = nm || r.company || r.email || '—';
     const contact = [r.email, r.phone].filter(Boolean).join('\n');
     const deliv = r.delivery ? r.delivery + (Number(r.deliveryPrice) ? ' (' + money(r.deliveryPrice) + ' zł)' : '') : '';
-    const tr = el('tr', { class: 'pick' + (S.sel.has(r.id) ? ' sel' : ''), 'data-id': r.id, onclick: ev => { if (ev.target.closest('input,a,button')) return; openOrder(r.id); } },
+    const tr = el('tr', { class: 'pick' + (S.sel.has(r.id) ? ' sel' : ''), 'data-id': r.id, onclick: tapOpen(() => openOrder(r.id)) },
       el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz zamówienie ' + r.number, checked: S.sel.has(r.id), onchange: ev => { if (ev.target.checked) S.sel.set(r.id, r); else S.sel.delete(r.id); refreshSel(); } })),
       el('td', null, el('div', { class: 'ord-cell-no' },
         el('a', { href: '#/zamowienia/' + encodeURIComponent(r.id), class: 'big-id ord-no', title: 'Otwórz zamówienie', onclick: () => { S.listHash = location.hash; } }, r.number || r.id),

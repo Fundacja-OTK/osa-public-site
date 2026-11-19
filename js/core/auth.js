@@ -1,4 +1,5 @@
-// Logowanie Google Identity Services. Token tożsamości (ważny ~1 h) trzymany w sessionStorage (tylko ta karta);
+// Logowanie Google Identity Services. Token tożsamości (ważny ~1 h) trzymany w localStorage — wspólny dla wszystkich kart
+// (nowa karta otwiera panel od razu, bez ponownego logowania; odświeżony token trafia do pozostałych kart przez zdarzenie „storage”);
 // po wygaśnięciu GIS wydaje nowy bez klikania (auto_select), a gdy nie może — pokazujemy przycisk „Zaloguj się”.
 import { $ } from './ui.js';
 
@@ -11,10 +12,25 @@ function jwtPayload(jwt) {
   return JSON.parse(decodeURIComponent(atob(b).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
 }
 
+const tokenStore = () => { try { return localStorage; } catch (e) { try { return sessionStorage; } catch (e2) { return null; } } };
+function adopt(raw) {
+  try {
+    const saved = JSON.parse(raw || 'null');
+    if (saved && saved.exp - Date.now() > 5 * 60 * 1000) { token = saved.t; tokenExp = saved.exp; return true; }
+  } catch (e) { /* uszkodzony wpis — zaloguje przez GIS */ }
+  return false;
+}
 try {
-  const saved = JSON.parse(sessionStorage.getItem(TOKEN_KEY) || 'null');
-  if (saved && saved.exp - Date.now() > 5 * 60 * 1000) { token = saved.t; tokenExp = saved.exp; }
-} catch (e) { /* bez sessionStorage — zaloguje przez GIS */ }
+  const st = tokenStore();
+  if (!(st && adopt(st.getItem(TOKEN_KEY)))) adopt(sessionStorage.getItem(TOKEN_KEY));   // dawny zapis tylko dla karty
+} catch (e) { /* bez magazynu — zaloguje przez GIS */ }
+// Inna karta zalogowała się albo odświeżyła token — przejmij go (także dla czekających zapytań)
+if (typeof window !== 'undefined') window.addEventListener('storage', ev => {
+  if (ev.key !== TOKEN_KEY || !adopt(ev.newValue)) return;
+  clearTimeout(signInTimer);
+  const w = waiters; waiters = [];
+  w.forEach(f => f(token));
+});
 
 function gis() {
   return gisInit || (gisInit = new Promise((resolve, reject) => {
@@ -36,7 +52,7 @@ function onCredential(resp) {
   try {
     const p = jwtPayload(resp.credential);
     token = resp.credential; tokenExp = p.exp * 1000;
-    try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ t: token, exp: tokenExp })); } catch (e) { /* bez zapisu */ }
+    try { const st = tokenStore(); if (st) st.setItem(TOKEN_KEY, JSON.stringify({ t: token, exp: tokenExp })); } catch (e) { /* bez zapisu */ }
   } catch (e) { return; }
   clearTimeout(signInTimer);
   $('cardSignIn').hidden = true;
@@ -67,7 +83,7 @@ export function freshToken(force) {
 }
 
 export function signOut() {
-  try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) { /* nic */ }
+  try { const st = tokenStore(); if (st) st.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); } catch (e) { /* nic */ }
   if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
   location.reload();
 }

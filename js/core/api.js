@@ -10,6 +10,11 @@ export const DOWN_MS = 5 * 60 * 1000;
 
 export const MSG_NOT_CONFIGURED = 'Strona nie jest skonfigurowana (brak config.js). Administrator: wdróż panel skryptem scripts/deploy-panel.ps1.';
 export const MSG_NETWORK = 'Brak połączenia z serwerem raportu. Sprawdź internet i odśwież stronę.';
+export const MSG_TIMEOUT_WRITE = 'Serwer nie odpowiedział na czas. Zmiana mogła się zapisać — odśwież widok i sprawdź, zanim spróbujesz ponownie.';
+// Limit czasu jednej próby (ms): zawieszony backend nie blokuje strony — odczyty przechodzą na zapasowy
+export const TIMEOUT_MS = { cloudflare: 20000, gas: 60000 };
+// Odczyty (bezpieczne do powtórzenia na innym backendzie po przekroczeniu czasu); reszta to zapisy — bez powtórzenia
+export const READ_ACTION = /^(init|whoami|report|orszaki|changes)$|:(list|get|meta|facets|queue|options|latest|history|init|orders|moves|invoices)$/;
 export const MSG_BAD_REPLY = 'Serwer raportu zwrócił nieoczekiwaną odpowiedź. Administrator: sprawdź wdrożenie backendu („Wykonuj jako: Ja”, „Kto ma dostęp: Każdy”).';
 
 /** Lista backendów z konfiguracji: OSA_CONFIG.backends albo [{ url: backendUrl }]. */
@@ -72,13 +77,32 @@ export function createApi(o) {
     const idToken = await o.getToken(!!retried);
     let lastErr = new Error(MSG_NETWORK), d1Down = false;
     for (const b of candidates()) {
-      let res, body;
+      let res, body, timer = 0, timedOut = false;
+      const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const limit = (o.timeouts || TIMEOUT_MS)[b.kind] || TIMEOUT_MS.gas;
+      // Jeden zegar na całą próbę (połączenie + treść): abort dla fetch, a wyścig — gdy fetch nie reaguje na abort
+      const deadline = new Promise((_, reject) => { timer = setTimeout(() => { timedOut = true; if (ctl) ctl.abort(); reject(new Error('timeout')); }, limit); });
+      deadline.catch(() => {});
+      const within = p => Promise.race([p, deadline]);
       try {
         // Treść jako tekst — bez nagłówków własnych, więc bez zapytania CORS preflight
-        res = await fetchImpl(b.url, { method: 'POST', body: JSON.stringify({ idToken, action, params }) });
-      } catch (e) { markDown(b.url); failed(b, action, 'brak połączenia'); lastErr = new Error(MSG_NETWORK); continue; }
-      if (res.status >= 500) { markDown(b.url); failed(b, action, 'HTTP ' + res.status, res.status); lastErr = new Error(MSG_BAD_REPLY); continue; }
-      try { body = await res.json(); } catch (e) { markDown(b.url); failed(b, action, 'odpowiedź nie jest JSON-em'); lastErr = new Error(MSG_BAD_REPLY); continue; }
+        res = await within(fetchImpl(b.url, { method: 'POST', body: JSON.stringify({ idToken, action, params }), signal: ctl ? ctl.signal : undefined }));
+      } catch (e) {
+        clearTimeout(timer);
+        markDown(b.url);
+        if (timedOut) {
+          failed(b, action, 'przekroczony czas (' + Math.round(limit / 1000) + ' s)');
+          if (!READ_ACTION.test(action)) throw Object.assign(new Error(MSG_TIMEOUT_WRITE), { code: 'timeout' });
+          lastErr = new Error(MSG_NETWORK); continue;
+        }
+        failed(b, action, 'brak połączenia'); lastErr = new Error(MSG_NETWORK); continue;
+      }
+      if (res.status >= 500) { clearTimeout(timer); markDown(b.url); failed(b, action, 'HTTP ' + res.status, res.status); lastErr = new Error(MSG_BAD_REPLY); continue; }
+      try { body = await within(res.json()); } catch (e) {
+        clearTimeout(timer);
+        if (timedOut) { markDown(b.url); failed(b, action, 'przekroczony czas (' + Math.round(limit / 1000) + ' s)'); if (!READ_ACTION.test(action)) throw Object.assign(new Error(MSG_TIMEOUT_WRITE), { code: 'timeout' }); lastErr = new Error(MSG_NETWORK); continue; }
+        markDown(b.url); failed(b, action, 'odpowiedź nie jest JSON-em'); lastErr = new Error(MSG_BAD_REPLY); continue; }
+      clearTimeout(timer);
       if (!body || typeof body !== 'object') { markDown(b.url); failed(b, action, 'nieoczekiwana odpowiedź'); lastErr = new Error(MSG_BAD_REPLY); continue; }
       markUp(b.url);
       info = { url: b.url, kind: b.kind, label: backendLabel(b), fallback: b.url !== backends[0].url, at: now(),

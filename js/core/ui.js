@@ -33,6 +33,28 @@ export function el(tag, attrs, ...children) {
 }
 
 
+/*
+ * Klik w wiersz listy, który otwiera szczegóły — tylko „prawdziwy” klik:
+ *  - kursor przesunął się między wciśnięciem a puszczeniem o ≤ 6 px (przeciąganie = zaznaczanie tekstu, nie otwieranie),
+ *  - nic nie jest zaznaczone (kopiowanie tekstu z wiersza nie otwiera szczegółów),
+ *  - nie dwuklik (dwuklik zaznacza słowo — otwarcie czeka 220 ms i jest anulowane przy drugim kliknięciu),
+ *  - nie na kontrolce (pole, link, przycisk, lista, etykieta).
+ */
+let tapDown = null, tapTimer = 0;
+if (typeof document !== 'undefined') document.addEventListener('pointerdown', ev => { tapDown = { x: ev.clientX, y: ev.clientY }; }, true);
+const TAP_SKIP = 'input,a,button,select,textarea,label,summary,[contenteditable]';
+export function tapOpen(fn) {
+  return ev => {
+    if (ev.target.closest && ev.target.closest(TAP_SKIP)) return;
+    clearTimeout(tapTimer);
+    if (ev.detail > 1) return;
+    if (tapDown && Math.hypot(ev.clientX - tapDown.x, ev.clientY - tapDown.y) > 6) return;
+    const sel = window.getSelection ? String(window.getSelection()) : '';
+    if (sel.trim()) return;
+    tapTimer = setTimeout(() => { const s = window.getSelection ? String(window.getSelection()) : ''; if (!s.trim()) fn(ev); }, 220);
+  };
+}
+
 export function plural(n, one, few, many) {
   const d = n % 10, h = n % 100;
   if (n === 1) return one;
@@ -538,17 +560,18 @@ export function pageToolbar({ title, sub, actions }) {
 }
 
 /**
- * Układ „panel filtrów po lewej + treść”. Panel jest zwijany, a wybór pamiętany (store `osa-fp-<key>`).
+ * Układ „panel filtrów po lewej + treść”. Panel jest zwijany, a wybór pamiętany (store `osa-fp2-<key>`).
  * Zwraca { node, panel, main, isOpen(), setOpen(bool) }; panel.hidden = zwinięty.
  */
-export function filterLayout({ key, panelId, mainNodes, panelNodes, defaultOpen = true }) {
-  const saved = store('osa-fp-' + key);
+// Filtry domyślnie zwinięte (prośba użytkownika); stan zapamiętywany per lista (klucz v2 — reset dawnych „otwartych” domyślnie)
+export function filterLayout({ key, panelId, mainNodes, panelNodes, defaultOpen = false }) {
+  const saved = store('osa-fp2-' + key);
   const panel = el('aside', { class: 'filter-panel', id: panelId, 'aria-label': 'Filtry' }, ...panelNodes);
   const main = el('div', { class: 'split-main' }, ...mainNodes);
   const L = { panel, main, node: el('div', { class: 'split' }, panel, main) };
   panel.hidden = saved == null ? !defaultOpen : !saved;
   L.isOpen = () => !panel.hidden;
-  L.setOpen = (v, persist = true) => { panel.hidden = !v; if (persist) store('osa-fp-' + key, v ? 1 : 0); };
+  L.setOpen = (v, persist = true) => { panel.hidden = !v; if (persist) store('osa-fp2-' + key, v ? 1 : 0); };
   return L;
 }
 /** Sekcja panelu filtrów: tytuł + treść; `fold: true` zwija ją (opcje zaawansowane). */

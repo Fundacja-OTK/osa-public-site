@@ -95,7 +95,7 @@ code { font: var(--fs-xs) ui-monospace, SFMono-Regular, Consolas, monospace; col
 
 /* Nagłówek */
 .app-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); padding-bottom: var(--s3); }
-.app-head .who { display: block; margin-top: 2px; overflow-wrap: anywhere; }
+.app-head .who { display: block; margin-top: 2px; overflow-wrap: break-word; }
 .head-tools { display: flex; align-items: center; gap: var(--s3); }
 .app-head h1 .sub { color: var(--muted); font-weight: 500; }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
@@ -215,7 +215,7 @@ button.secondary.on { background: var(--accent-soft); border-color: var(--accent
 .products { display: grid; gap: var(--s2); margin-top: var(--s2); }
 .pgroup { display: grid; grid-template-columns: 64px 1fr; gap: 2px var(--s3); align-items: baseline; }
 .pgroup > b { font-variant-numeric: tabular-nums; }
-.pgroup label { display: block; cursor: pointer; padding: 1px 0; overflow-wrap: anywhere; }
+.pgroup label { display: block; cursor: pointer; padding: 1px 0; overflow-wrap: break-word; }
 .pgroup.noyear > b { color: var(--warn); }
 
 /* Wyniki */
@@ -252,7 +252,7 @@ td.n, th.n { text-align: right; }
 .nw { white-space: nowrap; }
 tfoot td { font-weight: 700; position: sticky; bottom: 0; background: var(--surface-2); border-top: 1px solid var(--border-strong); border-bottom: 0; }
 tbody.subtotal td { font-weight: 700; background: var(--surface-2); }
-.cell-name { font-weight: 600; overflow-wrap: anywhere; }
+.cell-name { font-weight: 600; overflow-wrap: break-word; }
 .cell-sub { color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 .cell-sub a { color: var(--muted); text-decoration: none; }
 .cell-sub a:hover { color: var(--accent); text-decoration: underline; }
@@ -381,7 +381,7 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 #modMag textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r2); padding: 7px 10px; }
 #modMag .toolbar label { display: inline-flex; align-items: center; }
 #modMag td select { max-width: 100%; }
-.smnums { overflow-wrap: anywhere; }
+.smnums { overflow-wrap: break-word; }
 @media (max-width: 520px) { #magnav button { flex: 1 1 40%; font-size: var(--fs-md); padding: 9px 6px; } }
 
 .module[hidden] { display: none; }
@@ -413,9 +413,9 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .ord-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 0 var(--s4); }
 .ord-dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--s2) var(--s4); margin: 0; }
 .ord-dl dt { color: var(--muted); }
-.ord-dl dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.ord-dl dd { margin: 0; overflow-wrap: break-word; min-width: 0; }
 .ord-events { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
-.ord-events li { padding: var(--s2) 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.ord-events li { padding: var(--s2) 0; border-bottom: 1px solid var(--border); overflow-wrap: break-word; }
 @media (max-width: 520px) { .ord-dl { grid-template-columns: 1fr; gap: 0; } .ord-dl dd { margin-bottom: var(--s2); } .ord-info { margin-left: 0; } }
 
 /* Karta zamówienia: sekcje edytowalne, pozycje, podsumowanie */
@@ -449,12 +449,12 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .ord-pick { position: relative; min-width: 0; max-width: 100%; }
 .ord-pick input { width: 100%; min-width: 220px; max-width: 100%; }
 .ord-pick-list { display: flex; flex-direction: column; margin-top: 4px; max-width: 100%; border: 1px solid var(--border-strong); border-radius: var(--r2); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
-.ord-pick-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--text); padding: 6px 10px; font: inherit; cursor: pointer; width: 100%; overflow-wrap: anywhere; }
+.ord-pick-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--text); padding: 6px 10px; font: inherit; cursor: pointer; width: 100%; overflow-wrap: break-word; }
 .ord-pick-item:hover, .ord-pick-item:focus-visible { background: var(--hover); }
 .ord-pick-msg { padding: 8px 10px; margin: 0; }
 .ord-prodf { align-items: center; }
-.ord-prod-on { font-weight: 600; color: var(--accent); overflow-wrap: anywhere; }
-.ord-prods { max-width: 280px; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.ord-prod-on { font-weight: 600; color: var(--accent); overflow-wrap: break-word; }
+.ord-prods { max-width: 280px; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: break-word; }
 .ord-under { color: var(--no); } .ord-over { color: var(--warn); } .ord-ok { color: var(--ok); }
 @media (max-width: 520px) { .ord-editdef { margin-left: 0; } .ord-prodf { flex: 1 1 100%; } }
 
@@ -472,7 +472,7 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .tag.bad { background: var(--no-soft); color: var(--no); margin-left: 6px; }
 tr.blocked td { opacity: .8; }
 .cli-note { font-style: italic; }
-.cli-note-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cli-note-text { white-space: pre-wrap; overflow-wrap: break-word; }
 #cliNoteInput { width: 100%; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r2); padding: 7px 10px; }
 .usr-role { max-width: 100%; }
 
@@ -598,14 +598,14 @@ table.rich th { padding-top: 10px; padding-bottom: 10px; }
 .ord-ico { display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; color: var(--muted); }
 .ord-ico.yes { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
 .ord-ico.no { background: var(--no-soft); color: var(--no); border-color: transparent; }
-.ord-items { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ord-items { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; min-width: 12rem; }
 .ord-items li { display: flex; gap: var(--s2); align-items: center; min-width: 0; font-size: var(--fs-sm); }
-.ord-items .nm { min-width: 0; overflow-wrap: anywhere; }
+.ord-items .nm { min-width: 0; overflow-wrap: break-word; }
 .ord-items .q { color: var(--muted); white-space: nowrap; font-weight: 600; }
 .ord-items .more { color: var(--link); cursor: pointer; font-size: var(--fs-xs); background: none; border: 0; padding: 0; text-align: left; }
 .ord-sum { font-size: var(--fs-md); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ord-info-cell { display: grid; gap: 4px; font-size: var(--fs-sm); min-width: 0; }
-.ord-info-cell .note { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ord-info-cell .note { overflow-wrap: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .ord-info-cell .attn { color: var(--warn); }
 
 /* ─── Dopracowanie wyglądu (karty, tabele, kafelki) — kolory tylko z tokenów motywu ─── */
