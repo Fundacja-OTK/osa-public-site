@@ -219,7 +219,9 @@ function init() {
 }
 
 /** Czy pakiety startowe są zdefiniowane i włączone (opcja w ustawieniach zaawansowanych). */
-const packsActive = () => !!(BOOT && BOOT.packs && BOOT.packs.length && $('packsOn') && $('packsOn').checked);
+// Pakiety (legacy, do 2024) mają znaczenie tylko, gdy wyświetlane lata obejmują rok z pakietem — od 2025 liczy się wyłącznie licencja
+const packsActive = () => !!(BOOT && BOOT.packs && BOOT.packs.length && $('packsOn') && $('packsOn').checked &&
+  (!state.report || !state.report.years || BOOT.packs.some(p => state.report.years.indexOf(p.year) >= 0)));
 
 function renderPacksField() {
   if (!BOOT.packs || !BOOT.packs.length) return;
@@ -228,7 +230,8 @@ function renderPacksField() {
   $('packsHint').replaceChildren(
     'Orszak ma pakiet na rok R, gdy w sezonie R (1 lipca R−1 – 30 czerwca R) suma sztuk każdego składnika ze wszystkich jego zamówień ' +
     'jest co najmniej taka jak w zestawie — także gdy składniki kupił osobno. Pakiety: ' +
-    BOOT.packs.map(p => p.year + ' — ' + p.name).join('; ') + '. Definicje: zakładka „Pakiety startowe” w arkuszu danych.');
+    BOOT.packs.map(p => p.year + ' — ' + p.name).join('; ') + '. Definicje: zakładka „Pakiety startowe” w arkuszu danych. ' +
+    'Pakiety to dawna forma (do 2024) — od 2025 jako licencja liczy się wyłącznie licencja.');
 }
 
 /** Podpowiedź przy znaczniku „pakiet”: reguła i kupione składniki. p: { name|n, parts, orders, lic }. */
