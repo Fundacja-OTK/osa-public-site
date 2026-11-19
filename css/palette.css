@@ -74,3 +74,9 @@ tr.kb-hl > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   .pal-row { min-height: 44px; }
   .pal-hint { display: none; }
 }
+
+/* „Ostatnie” — zwijane w miejscu (jak w Cloudflare): strzałka obraca się przy rozwinięciu */
+.rc-toggle .rc-chev { margin-left: auto; transition: transform var(--dur, .18s) var(--ease, ease); opacity: .7; }
+.rc-toggle[aria-expanded="true"] .rc-chev { transform: rotate(90deg); }
+.sb-recent .rc-list { padding: 2px 0 6px 8px; }
+@media (prefers-reduced-motion: reduce) { .rc-toggle .rc-chev { transition: none; } }

@@ -1,13 +1,13 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
-import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=dbba09c';
-import { api, ctx } from '../core/client.js?v=dbba09c';
-import { go, setLeaveGuard } from '../core/router.js?v=dbba09c';
-import { noteVisit } from '../core/recents.js?v=dbba09c';
-import { registerListKeys } from '../core/listKeys.js?v=dbba09c';
-import { clientForm } from './klienciForm.js?v=dbba09c';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=dbba09c';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=dbba09c';
+import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=a359485';
+import { api, ctx } from '../core/client.js?v=a359485';
+import { go, setLeaveGuard } from '../core/router.js?v=a359485';
+import { noteVisit } from '../core/recents.js?v=a359485';
+import { registerListKeys } from '../core/listKeys.js?v=a359485';
+import { clientForm } from './klienciForm.js?v=a359485';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=a359485';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=a359485';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'email', 'created', 'modified', 'orders', 'id', 'login', 'city'];
