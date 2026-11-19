@@ -1,10 +1,10 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect } from '../core/ui.js?v=ead81e8';
-import { api, ctx } from '../core/client.js?v=ead81e8';
-import { go, setLeaveGuard } from '../core/router.js?v=ead81e8';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=ead81e8';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=ead81e8';
+import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=26278f6';
+import { api, ctx } from '../core/client.js?v=26278f6';
+import { go, setLeaveGuard } from '../core/router.js?v=26278f6';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=26278f6';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=26278f6';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -118,8 +118,8 @@ function buildList() {
   u.search = el('input', { type: 'search', id: 'ordSearch', placeholder: 'Szukaj: numer, e-mail, telefon, nazwisko, firma, miasto, nr przesyłki', 'aria-label': 'Szukaj zamówień',
     title: 'Szuka w numerze zamówienia, e-mailu, telefonie, imieniu i nazwisku (faktura i wysyłka), firmie, mieście i numerze przesyłki',
     oninput: debounce(() => { const v = u.search.value.trim(); if (v !== S.Q.q) setQ({ q: v }, true); }, 350) });
-  u.from = el('input', { type: 'date', id: 'ordFrom', 'aria-label': 'Data od', title: 'Zamówienia złożone od tego dnia (włącznie)', onchange: () => setQ({ from: u.from.value }) });
-  u.to = el('input', { type: 'date', id: 'ordTo', 'aria-label': 'Data do', title: 'Zamówienia złożone do tego dnia (włącznie)', onchange: () => setQ({ to: u.to.value }) });
+  u.range = dateRange({ idFrom: 'ordFrom', idTo: 'ordTo', labelFrom: 'Od dnia', labelTo: 'Do dnia', titleFrom: 'Zamówienia złożone od tego dnia (włącznie)', titleTo: 'Zamówienia złożone do tego dnia (włącznie)', onChange: r => setQ(r) });
+  u.from = u.range.from; u.to = u.range.to;
   u.size = el('select', { id: 'ordSize', 'aria-label': 'Wierszy na stronie', title: 'Ile zamówień pokazać na jednej stronie listy',
     onchange: () => { store('osa-ord-size', Number(u.size.value)); setQ({}); } },
     SIZES.map(n => el('option', { value: String(n) }, String(n))));
@@ -140,8 +140,7 @@ function buildList() {
       el('div', { class: 'field-inline' }, 'Dostawa', u.deliverySel.node),
       el('div', { class: 'field-inline ord-prodf' }, 'Produkt', u.prodPick.node, u.prodLabel, u.prodClear)),
     el('div', { class: 'ord-filter-row' },
-      el('label', { class: 'field-inline' }, 'Od dnia', u.from),
-      el('label', { class: 'field-inline' }, 'Do dnia', u.to),
+      u.range.node,
       el('label', { class: 'field-inline' }, 'Wierszy na stronie', u.size),
       el('button', { type: 'button', class: 'ghost', id: 'ordClear', title: 'Usuń wyszukiwanie, zakres dat, wybrany status i filtry z notatek klientów', onclick: () => setQ({ status: '', q: '', from: '', to: '', ...EXTRA_CLEAR, ...OSA_CLEAR }) }, 'Wyczyść filtry')));
   u.thumbs = el('input', { type: 'checkbox', id: 'ordThumbs', checked: thumbsOn(), onchange: () => { store('osa-ord-thumbs', u.thumbs.checked ? 1 : 0); if (S.data) renderList(); } });

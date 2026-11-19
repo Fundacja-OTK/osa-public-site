@@ -1,9 +1,9 @@
 // Moduł „Magazyny”: stany, wysyłka SpeedMail, do rozliczenia, nowy ruch, inwentaryzacja, historia.
 // Trasy: #/magazyny/stany, #/magazyny/speedmail, #/magazyny/rozliczenie, #/magazyny/ruch, #/magazyny/inwentaryzacja, #/magazyny/historia.
 // Dane i zapisy: backend Warehouses.gs (akcje mag:init, mag:moves).
-import { $, el, plural, debounce, store, flash, norm, tableTsv, tableHtml, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, today, htmlEsc } from '../core/ui.js?v=ead81e8';
-import { api } from '../core/client.js?v=ead81e8';
-import { go } from '../core/router.js?v=ead81e8';
+import { $, el, plural, debounce, store, flash, norm, tableTsv, tableHtml, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, today, htmlEsc, dateInput } from '../core/ui.js?v=26278f6';
+import { api } from '../core/client.js?v=26278f6';
+import { go } from '../core/router.js?v=26278f6';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 
@@ -530,7 +530,7 @@ function magInwent() {
   });
 
   const first = isPartial();
-  const dateIn = el('input', { type: 'date', value: iv.startDate, 'aria-label': 'Data startu ewidencji' });
+  const dateIn = dateInput({ value: iv.startDate, label: 'Data startu ewidencji', required: true });
   dateIn.addEventListener('input', () => { iv.startDate = dateIn.value; });
   save.addEventListener('click', async () => {
     const list = diffs();

@@ -1,7 +1,7 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:get, products:list (wyszukiwarka produktów).
-import { el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce } from '../core/ui.js?v=ead81e8';
-import { api } from '../core/client.js?v=ead81e8';
+import { el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=26278f6';
+import { api } from '../core/client.js?v=26278f6';
 
 const EDIT_KEY = 'osa-ord-edit';
 const r2 = n => Math.round(n * 100) / 100;
@@ -70,7 +70,7 @@ function buildControl(C, f, o) {
   } else if (f.type === 'textarea') {
     ctl = el('textarea', { id, rows: '3', class: f.cls || null }, orig);
   } else {
-    ctl = el('input', { type: f.type === 'date' ? 'date' : 'text', id, inputmode: f.type === 'number' ? 'decimal' : null, autocomplete: 'off', value: orig, list: f.list || null });
+    ctl = f.type === 'date' ? dateInput({ id, value: orig, label: f.label, title: f.tip }) : el('input', { type: 'text', id, inputmode: f.type === 'number' ? 'decimal' : null, autocomplete: 'off', value: orig, list: f.list || null });
   }
   const val = () => (f.type === 'flag' ? (ctl.checked ? '1' : '0') : f.type === 'select' || f.type === 'date' ? ctl.value : ctl.value.trim());
   const changed = () => {

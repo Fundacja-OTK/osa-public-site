@@ -55,6 +55,12 @@ export function tapOpen(fn) {
   };
 }
 
+// Przycięty tekst (.clip / .ellip): przy najechaniu dopisujemy pełną treść jako title (jeśli jest naprawdę ucięta i nie ma własnego title)
+if (typeof document !== 'undefined') document.addEventListener('mouseover', ev => {
+  const t = ev.target.closest && ev.target.closest('.clip, .ellip');
+  if (t && !t.title && t.scrollWidth > t.clientWidth + 1) t.title = t.textContent.trim();
+}, true);
+
 export function plural(n, one, few, many) {
   const d = n % 10, h = n % 100;
   if (n === 1) return one;
@@ -643,3 +649,5 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
+
+export * from './datepicker.js?v=26278f6';   // pole daty i zakres dat

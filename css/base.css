@@ -40,8 +40,8 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #14100c; --surface: #1e1913; --surface-2: #272017; --hover: #2c241b; --field-bg: #17120d; --field-border: #7d6a50;
-    --text: #efe6d8; --muted: #b5a691; --border: #3a3025; --border-strong: #52442f;
+    --bg: #12100d; --surface: #1d1913; --surface-2: #272118; --hover: #2f271c; --field-bg: #15110c; --field-border: #86735a;
+    --text: #f2eadd; --muted: #bdae98; --border: #332a1f; --border-strong: #4b3f2d;
     --accent: #e5a561; --accent-soft: #3b2a17; --accent-text: #20150a; --accent-strong: #f2c18b; --link: #eeb27a;
     --lamp: 229, 165, 97;
     --ok: #8fd48a; --ok-soft: #1f3320; --no: #ff9c86; --no-soft: #3f211a;
@@ -60,8 +60,8 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #14100c; --surface: #1e1913; --surface-2: #272017; --hover: #2c241b; --field-bg: #17120d; --field-border: #7d6a50;
-  --text: #efe6d8; --muted: #b5a691; --border: #3a3025; --border-strong: #52442f;
+  --bg: #12100d; --surface: #1d1913; --surface-2: #272118; --hover: #2f271c; --field-bg: #15110c; --field-border: #86735a;
+  --text: #f2eadd; --muted: #bdae98; --border: #332a1f; --border-strong: #4b3f2d;
   --accent: #e5a561; --accent-soft: #3b2a17; --accent-text: #20150a; --accent-strong: #f2c18b; --link: #eeb27a;
   --lamp: 229, 165, 97;
   --ok: #8fd48a; --ok-soft: #1f3320; --no: #ff9c86; --no-soft: #3f211a;
@@ -815,3 +815,80 @@ input[type=number], input[type=text], input[type=search], input[type=date], inpu
 .ord-f input[type=text], .ord-f input[type=date], .ord-f select, .ord-f textarea, .zs-field input[type=text], .zs-field input[type=number], .zs-field select, .zs-field textarea,
 .ord-in, .inl, .fb-body textarea, #cliNoteInput, #modMag textarea, .ms-btn, .year, .seg { border-color: var(--field-border); }
 input[type=number]:hover, input[type=text]:hover, input[type=search]:hover, input[type=date]:hover, select:hover, textarea:hover { border-color: var(--accent); }
+
+/* ═══ Polerowanie: spokój wizualny, typografia, daty ═══════════════════════════ */
+
+/* Typografia: czytelna miara, brak sierot, zawijanie tylko między słowami */
+body { font-feature-settings: "cv11", "ss01", "tnum" 0; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, .card-head h2 { text-wrap: balance; }
+p, li, dd, .intro, .notice, .empty, .muted.small { text-wrap: pretty; }
+.intro, .card > p, .notice p { max-width: 72ch; }
+td, th, dd, li, .notice { overflow-wrap: break-word; word-break: normal; hyphens: manual; }
+td { line-height: 1.45; font-size: var(--fs-sm); }
+td, td.num, td.n, th.n, .num, .tile .v, .tile-v, .pager, .menu-count, .osa-badge { font-variant-numeric: tabular-nums; }
+td.n, th.n, td.num, th.num { text-align: right; white-space: nowrap; }
+td.nw, th.nw { white-space: nowrap; }
+/* wąskie kolumny tekstowe nie łamią się na pojedyncze sylaby / słowa-sieroty */
+td:not(.n):not(.num):not(.c):not(.nw):not(:empty):not(:has(> input:only-child)):not(:has(> button:only-child)):not(:has(> .menu:only-child)) { min-width: 7ch; }
+/* Przycięty tekst: wielokropek + podpowiedź (title dopisuje się przy najechaniu — patrz ui.js) */
+.clip, td.clip, .ellip { max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Spokojniejsza hierarchia: mniej linii, miękkie cienie, delikatne tło zamiast ramek */
+:root { --shadow: 0 1px 2px rgba(80, 55, 20, .05), 0 2px 8px rgba(80, 55, 20, .04); --shadow-card: inset 0 1px 0 var(--edge), 0 1px 2px rgba(80, 55, 20, .04), 0 8px 20px -14px rgba(80, 55, 20, .16); --zebra: color-mix(in srgb, var(--surface-2) 24%, var(--surface)); }
+.card, .settingsbar, .opts-box { border-color: color-mix(in srgb, var(--border) 65%, transparent); }
+th { border-bottom: 1px solid var(--border-strong); box-shadow: none; }
+td { border-bottom-color: color-mix(in srgb, var(--border) 45%, transparent); }
+th, td { padding: 10px var(--s3); }
+.seg { border-color: transparent; }
+.toolbar, .bar, .actions, .ord-bar { align-items: center; row-gap: var(--s2); column-gap: var(--s3); }
+.field-inline { gap: var(--s1) var(--s2); }
+
+/* Fokus i hover: wyraźny, ale miękki */
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+button, a, summary, .tab, .chip { transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur); }
+button:active:not(:disabled) { translate: 0 1px; }
+
+/* Ruch: delikatne pojawianie się widoków i okienek */
+@keyframes osa-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: none; } }
+@keyframes osa-pop { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: none; } }
+.view-stack > div:not([hidden]) > .card, .view-stack > div:not([hidden]) > .tabs { animation: osa-in .22s var(--ease) both; }
+.menu-pop:not([hidden]), .dp-pop { animation: osa-pop .14s var(--ease) both; }
+
+/* Puste i ładujące się stany: równowaga, szkielet jak tabela */
+.empty { padding: var(--s6) var(--s4); line-height: 1.5; }
+.empty::before { content: "∅"; display: block; font-size: 22px; line-height: 1; margin-bottom: var(--s2); opacity: .35; }
+.empty.error::before, td.empty::before, .empty.nobadge::before { content: none; }
+.loading { max-width: 100%; }
+.loading .skel { height: 16px; margin: 12px 0; opacity: .8; }
+.loading .skel:nth-child(odd) { opacity: .55; }
+
+/* Pole daty i kalendarz */
+.dp { position: relative; display: inline-flex; align-items: center; min-width: 148px; max-width: 100%; }
+.dp .dp-in { width: 100%; padding-right: 58px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.dp-btn, .dp-clear { position: absolute; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--r1); background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; font-size: 15px; line-height: 1; }
+.dp-btn { right: 3px; } .dp-clear { right: 29px; font-size: 18px; }
+.dp-btn:hover, .dp-clear:hover { background: var(--hover); color: var(--accent-strong); }
+.filter-panel .dp, .ord-f .dp, .zs-field .dp { display: flex; width: 100%; }
+.dp-native { min-width: 148px; }
+.dp-range { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s2) var(--s3); }
+.dp-range .menu-pop { right: auto; left: 0; }
+.dp-pop { position: fixed; z-index: 300; width: 292px; max-width: calc(100vw - 16px); padding: var(--s3); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r3); box-shadow: var(--shadow-pop); color: var(--text); }
+.dp-head { display: flex; align-items: center; gap: 2px; margin-bottom: var(--s2); }
+.dp-title { flex: 1; text-align: center; font-size: var(--fs-md); font-weight: 650; text-transform: capitalize; white-space: nowrap; }
+.dp-nav { width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--r1); background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.dp-nav:hover { background: var(--hover); color: var(--accent-strong); }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-dow span { text-align: center; font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .04em; color: var(--muted); padding: 4px 0; text-transform: uppercase; }
+.dp-day { height: 34px; border: 0; border-radius: var(--r1); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; cursor: pointer; }
+.dp-day.wknd { color: var(--muted); }
+.dp-day:hover:not(:disabled) { background: var(--hover); }
+.dp-day.today { box-shadow: inset 0 0 0 1.5px var(--accent); font-weight: 700; }
+.dp-day.sel, .dp-day.sel:hover { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+.dp-day:disabled { opacity: .35; cursor: not-allowed; }
+.dp-foot { display: flex; justify-content: space-between; margin-top: var(--s2); padding-top: var(--s2); border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+@media (max-width: 640px) { .dp-range { align-items: stretch; } .dp-native { width: 100%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .view-stack > div > .card, .menu-pop, .dp-pop { animation: none !important; }
+  button:active:not(:disabled) { translate: none; }
+}

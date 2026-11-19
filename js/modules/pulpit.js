@@ -1,7 +1,7 @@
 // Pulpit: sprzedaż z 30 dni (wykres wartość / ilość), liczniki z trendem, „Do zrobienia” (otwarte statusy),
 // najnowsze zamówienia, ostatnie zmiany i szybkie skróty. Dane: jedna akcja dashboard:get (tylko odczyt).
-import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=ead81e8';
-import { api } from '../core/client.js?v=ead81e8';
+import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=26278f6';
+import { api } from '../core/client.js?v=26278f6';
 
 const MODE_KEY = 'osa-pulpit-mode';
 const zl = v => money(v) + ' zł';
@@ -118,7 +118,7 @@ function todoCard(d) {
   const rows = d.byStatus.length ? d.byStatus.map(s => el('a', { class: 'pl-row pl-todo', href: '#/zamowienia?status=' + encodeURIComponent(s.statusId), 'data-status': s.statusId,
     title: 'Pokaż zamówienia w statusie „' + s.name + '” (' + s.count + ' z ostatnich 60 dni)' }, el('span', null, s.name), el('span', { class: 'pl-count' }, String(s.count))))
     : [el('div', { class: 'muted pl-none' }, 'Brak otwartych zamówień z ostatnich 60 dni.')];
-  return el('section', { class: 'card pl-card', id: 'plTodo' }, el('h2', { class: 'tip', title: 'Zamówienia z ostatnich 60 dni w statusach, które jeszcze nie są zamknięte (poza wysłanymi, zrealizowanymi, anulowanymi i zwrotami).' }, 'Do zrobienia'), ...rows);
+  return el('section', { class: 'card pl-card', id: 'plTodo' }, el('div', { class: 'pl-head' }, el('h2', { class: 'tip', title: 'Zamówienia z ostatnich 60 dni w statusach, które jeszcze nie są zamknięte (poza wysłanymi, zrealizowanymi, anulowanymi i zwrotami).' }, 'Do zrobienia')), ...rows);
 }
 
 function latestCard(d) {
@@ -133,7 +133,7 @@ function eventsCard(d) {
   const rows = d.events.length ? d.events.map(e => el('a', { class: 'pl-ev', href: orderHref(e.id), title: 'Ostatnia zmiana zamówienia ' + e.number + ': ' + e.modified, 'data-id': e.id },
     el('span', { class: 'pl-evt' }, when(e.modified)), el('span', { class: 'pl-evn' }, e.number), el('span', { class: 'pl-evs' }, e.statusName)))
     : [el('div', { class: 'muted pl-none' }, 'Brak zmian.')];
-  return el('section', { class: 'card pl-card', id: 'plEvents' }, el('h2', { class: 'tip', title: 'Zamówienia ostatnio zmienione w Selly (nowe, zmiana statusu lub danych) — pokazujemy aktualny status zamówienia, nie historię zdarzeń.' }, 'Ostatnie zmiany'), el('div', { class: 'pl-timeline' }, ...rows));
+  return el('section', { class: 'card pl-card', id: 'plEvents' }, el('div', { class: 'pl-head' }, el('h2', { class: 'tip', title: 'Zamówienia ostatnio zmienione w Selly (nowe, zmiana statusu lub danych) — pokazujemy aktualny status zamówienia, nie historię zdarzeń.' }, 'Ostatnie zmiany')), el('div', { class: 'pl-timeline' }, ...rows));
 }
 
 function quick() {

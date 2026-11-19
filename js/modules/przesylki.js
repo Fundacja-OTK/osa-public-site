@@ -1,9 +1,9 @@
 // Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS), tworzenie listów przewozowych
 // w porcjach, etykiety, zmiana statusu nadanych oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today } from '../core/ui.js?v=ead81e8';
-import { api, ctx } from '../core/client.js?v=ead81e8';
-import { go } from '../core/router.js?v=ead81e8';
+import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=26278f6';
+import { api, ctx } from '../core/client.js?v=26278f6';
+import { go } from '../core/router.js?v=26278f6';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -158,7 +158,7 @@ function paramField(key, d) {
   if (d.type === 'flag') {
     return el('label', { class: 'ship-f ship-check', title: d.tip }, el('input', { type: 'checkbox', id, checked: !!v[d.key], onchange: ev => upd(ev.target.checked) }), ' ' + d.label);
   }
-  const inp = el('input', { type: d.type === 'date' ? 'date' : 'text', id, 'aria-label': d.label, title: d.tip, placeholder: d.ph || (d.type === 'date' ? '' : null), value: v[d.key],
+  const inp = d.type === 'date' ? dateInput({ id, label: d.label, title: d.tip, value: v[d.key], onChange: x => upd(x) }) : el('input', { type: 'text', id, 'aria-label': d.label, title: d.tip, placeholder: d.ph || (d.type === 'date' ? '' : null), value: v[d.key],
     oninput: ev => upd(ev.target.value) });
   return el('label', { class: 'ship-f' }, el('span', { class: 'ord-f-l tip', title: d.tip }, d.label), inp);
 }
