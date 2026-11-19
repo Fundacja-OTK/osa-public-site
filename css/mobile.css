@@ -1,0 +1,34 @@
+/* Telefon (do 640 px): wygodne cele dotyku (min. 44 px), pola 16 px (iOS nie powiększa strony przy fokusie),
+   czytelne małe teksty (min. 12 px), menu i listy mieszczące się w ekranie, boczne marginesy 16 px.
+   Wczytywany jako ostatni — powyżej 640 px nic nie zmienia. Ten sam blok jest w license-report/viewer/Index.html. */
+/*MOBILE-BEGIN*/
+@media (max-width: 640px) {
+  html { -webkit-text-size-adjust: 100%; }
+  main.content { padding-left: var(--s4); padding-right: var(--s4); }
+  input[type=number], input[type=text], input[type=search], input[type=date], input[type=email], input[type=password], input:not([type]), select, textarea,
+  .tb-field input, .ms-pop .ms-search, .year input[type=number] { font-size: 16px; min-height: 44px; }
+  .tb-field input { height: 44px; }
+  .btn, button.primary, button.secondary, button.ghost, button.small, .btn-link, a.btn-primary, .btn-primary-link,
+  .menu-item, .chip, .seg button, .ms-btn, .viewnav button, #magnav button, .sb-sec, .fly-item, .pin-item, .pg-in, summary { min-height: 44px; }
+  .tb-btn { height: 44px; min-width: 44px; justify-content: center; }
+  .tb-field input { padding-left: 34px; }
+  button.icon, .pin, .sb-collapse { width: 44px; min-height: 44px; }
+  .mini-ico { width: 40px; height: 40px; }
+  input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
+  label:has(> input[type=checkbox]), label:has(> input[type=radio]) { min-height: 44px; display: inline-flex; align-items: center; }
+  .menu-check, .ms-list .menu-check { min-height: 44px; }
+  .menu-pop:not(.ms-pop), .tb-menu { max-width: calc(100vw - 32px); max-height: 75vh; overflow: auto; }
+  .ms-pop { min-width: min(260px, calc(100vw - 32px)); max-width: calc(100vw - 32px); }
+  .ms-btn { min-width: 0; }
+  .ms-list { max-height: 50vh; }
+  th, th button, th .th-lbl, .osa-badge, .caret, .menu .caret, .ms-btn .caret, .fly-badge, .filter-panel .fp-sec h3, .tab span { font-size: 12px; }
+  .osa-badge { padding: 2px 8px; }
+  th button, .th-sort { min-height: 40px; }
+  .brand, .zs-add, .pl-seg, .pl-more, .pl-ev, .year button, .pg-btn, #smConfirm, .btn-primary-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .year button, .pg-btn { min-width: 44px; justify-content: center; }
+  .pl-ev { display: flex; }
+  .toolbar, .filters, .bar, .actions, .row-actions, .ord-bar, .tb-right { flex-wrap: wrap; }
+  #cardList *, .ord-dl dd, .notice, .notice * { overflow-wrap: anywhere; }
+  dialog, .modal, .dlg { max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow: auto; }
+}
+/*MOBILE-END*/
