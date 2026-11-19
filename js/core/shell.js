@@ -1,18 +1,18 @@
 // Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu sekcji z wysuwanymi listami
 // (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K), okruszki i tytuł strony, logowanie/start, stopka.
-import { $, el, store, pageError } from './ui.js?v=fdce023';
-import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=fdce023';
-import { signOut, freshToken, hasToken, tokenEmail } from './auth.js?v=fdce023';
-import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=fdce023';
-import { initErrorReporting } from './errors.js?v=fdce023';
-import { setReporter } from './errorHook.js?v=fdce023';
-import { initFeedback } from './feedback.js?v=fdce023';
-import { watchVersion, showNewVersion } from './update.js?v=fdce023';
-import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=fdce023';
-import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=fdce023';
-import { initPalette, openPalette } from './palette.js?v=fdce023';
-import { installShortcuts, shortcuts } from './shortcuts.js?v=fdce023';
-import { loadRecents, clearRecents, noteVisit, hashOf, TYPES } from './recents.js?v=fdce023';
+import { $, el, store, pageError } from './ui.js?v=0ec2249';
+import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=0ec2249';
+import { signOut, freshToken, hasToken, tokenEmail } from './auth.js?v=0ec2249';
+import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=0ec2249';
+import { initErrorReporting } from './errors.js?v=0ec2249';
+import { setReporter } from './errorHook.js?v=0ec2249';
+import { initFeedback } from './feedback.js?v=0ec2249';
+import { watchVersion, showNewVersion } from './update.js?v=0ec2249';
+import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=0ec2249';
+import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=0ec2249';
+import { initPalette, openPalette } from './palette.js?v=0ec2249';
+import { installShortcuts, shortcuts } from './shortcuts.js?v=0ec2249';
+import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=0ec2249';
 
 const ROUTE_KEY = 'osa-route';
 const RECORD_MODS = new Set(['zamowienia', 'klienci', 'produkty']);   // karta rekordu zapisuje się sama (z nazwą)
@@ -24,10 +24,10 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
 
 /** Moduły ładowane przy pierwszym wejściu (nowe ekrany; brak pliku → strona „w planie”). */
 const LAZY = {
-  pulpit: () => import('../modules/pulpit.js?v=fdce023'),
-  przesylki: () => import('../modules/przesylki.js?v=fdce023'),
-  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=fdce023'),
-  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=fdce023'),
+  pulpit: () => import('../modules/pulpit.js?v=0ec2249'),
+  przesylki: () => import('../modules/przesylki.js?v=0ec2249'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=0ec2249'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=0ec2249'),
 };
 
 // ─── Błędy strony ───────────────────────────────────────────────────────────
@@ -100,10 +100,13 @@ function renderNav(isAdmin) {
   const home = el('div', { class: 'sb-group sb-home' }, el('a', { href: '#/pulpit', class: 'sb-label sb-home-link', 'data-nav': 'pulpit', title: 'Pulpit — sprzedaż, zamówienia do zrobienia i najnowsze zmiany', 'aria-current': 'false' }, icon('home'), el('span', { class: 'sb-text' }, 'Pulpit')));
   const search = el('button', { type: 'button', class: 'sb-search', id: 'sbSearch', 'aria-haspopup': 'dialog', title: 'Szukaj ekranów, zamówień, klientów i produktów (Ctrl+K)', onclick: () => openPalette() },
     icon('search'), el('span', { class: 'sb-text sb-search-text' }, 'Szukaj…'), el('kbd', { class: 'sb-text sb-kbd' }, 'Ctrl K'));
-  const recent = el('div', { class: 'sb-group sb-recent', id: 'sbRecent' },
-    el('div', { class: 'sb-label', title: 'Ostatnio otwarte ekrany i rekordy (zamówienia, klienci, produkty) — lista tylko w tej przeglądarce' }, icon('clock'), el('span', { class: 'sb-text' }, 'Ostatnie'),
-      el('button', { type: 'button', class: 'rc-clear sb-text', id: 'rcClear', title: 'Usuń listę ostatnio otwartych miejsc (tylko w tej przeglądarce)', onclick: () => clearRecents() }, 'Wyczyść')),
-    el('div', { class: 'rc-list', id: 'rcList' }));
+  // „Ostatnie” — rozwijana sekcja jak pozostałe (wysuwana lista); bez ręcznego czyszczenia: max RECENT_MAX pozycji z ostatnich RECENT_DAYS dni
+  const rcBtn = el('button', { type: 'button', class: 'sb-sec', 'data-sec': 'recent', 'aria-expanded': 'false', id: 'sbRecentBtn',
+    title: 'Ostatnio otwarte ekrany i rekordy (zamówienia, klienci, produkty): do ' + RECENT_MAX + ' pozycji z ostatnich ' + RECENT_DAYS + ' dni, tylko w tej przeglądarce' },
+    icon('clock'), el('span', { class: 'sb-text' }, 'Ostatnie'));
+  const rcFly = el('div', { class: 'flyout', 'data-fly': 'recent', hidden: true }, el('div', { class: 'fly-head' }, 'Ostatnie'), el('div', { class: 'rc-list', id: 'rcList' }));
+  rcBtn.addEventListener('click', e => { e.stopPropagation(); openSection(rcFly.hidden ? 'recent' : null); });
+  const recent = el('div', { class: 'sb-group sb-recent', id: 'sbRecent', 'data-group': 'recent' }, rcBtn, rcFly);
 
   const secs = SECTIONS.map(s => {
     const items = s.items.filter((i, k, arr) => i === '-' ? k > 0 && arr[k - 1] !== '-' : visible(i, isAdmin));
@@ -127,7 +130,6 @@ function renderRecents() {
   const host = $('rcList');
   if (!host) return;
   const list = loadRecents().filter(e => e.t !== 'screen' || itemById(e.id));
-  $('rcClear').hidden = !list.length;
   host.replaceChildren(...(list.length ? list.map(e => el('a', { href: hashOf(e), class: 'rc-item', 'data-rc': e.t + ':' + e.id, title: TYPES[e.t].name + ': ' + e.label },
     icon(TYPES[e.t].icon, 'rc-ico'), el('span', { class: 'rc-text' }, e.label)))
     : [el('div', { class: 'rc-empty muted small', title: 'Tu pojawią się ostatnio otwarte ekrany, zamówienia, klienci i produkty' }, 'Brak — otwórz coś, a pojawi się tutaj')]));
@@ -238,7 +240,7 @@ export function startShell(modules) {
   for (const m of modules) register(m);
   for (const [id, load] of Object.entries(LAZY)) if (!getModule(id)) register({ id, title: (itemById(id) || {}).title || '', load: () => load().then(m => m.default) });
   // Ekrany uniwersalne (lista → karta → formularz ze specyfikacji API): kind 'resource'
-  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=fdce023').then(m => m.createResource(i.id)) });
+  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=0ec2249').then(m => m.createResource(i.id)) });
   // Pozycje bez własnego ekranu: strona „w planie / tylko w Selly” z linkiem
   for (const i of ITEMS) if (!getModule(i.id)) register(createPlaceholder({ id: i.id, title: i.title, sellyQuery: i.a ? '?a=' + i.a : '', adminUrl, kind: i.kind, tip: i.tip }));
   $('signOut').addEventListener('click', signOut);
@@ -288,7 +290,7 @@ function begin(data) {
       navId = mod.id;
       markNav(mod.id);
       shortcuts.setScreen(mod.id);
-      if (!mod.placeholder && mod.id !== 'pulpit' && !(RECORD_MODS.has(mod.id) && params.parts.length)) noteVisit({ t: 'screen', id: mod.id, label: (itemById(mod.id) || mod).title || mod.id, path: [mod.id, ...params.parts].join('/') });
+      if (mod.id !== 'pulpit' && !(RECORD_MODS.has(mod.id) && params.parts.length)) noteVisit({ t: 'screen', id: mod.id, label: (itemById(mod.id) || mod).title || mod.id, path: [mod.id, ...params.parts].join('/') });
       if (!mod.placeholder) store(ROUTE_KEY, [mod.id, ...params.parts].join('/'));
     },
   });

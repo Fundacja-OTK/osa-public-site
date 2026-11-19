@@ -3,6 +3,7 @@
 
 export const RECENT_KEY = 'osa-recent';
 export const RECENT_MAX = 8;
+export const RECENT_DAYS = 7;   // starsze wpisy wypadają same — lista nie rośnie w nieskończoność
 export const TYPES = {
   screen: { icon: 'sliders', name: 'Ekran' },
   order: { route: 'zamowienia', icon: 'bag', name: 'Zamówienie' },
@@ -18,14 +19,16 @@ export function hashOf(e) {
 }
 
 /** Nowa lista po wejściu w `entry` { t, id, label, path? } — bez duplikatów, najnowszy pierwszy, max `max`. */
-export function addRecent(list, entry, max) {
+export function addRecent(list, entry, max, now) {
   if (!entry || !TYPES[entry.t] || entry.id == null || entry.id === '') return list || [];
-  const e = { t: entry.t, id: String(entry.id), label: String(entry.label || entry.id).slice(0, 80) };
+  const e = { t: entry.t, id: String(entry.id), label: String(entry.label || entry.id).slice(0, 80), ts: now || Date.now() };
   if (entry.path) e.path = String(entry.path);
   return [e, ...(list || []).filter(x => keyOf(x) !== keyOf(e))].slice(0, max || RECENT_MAX);
 }
 
-const sane = l => (Array.isArray(l) ? l.filter(e => e && TYPES[e.t] && e.id != null).slice(0, RECENT_MAX) : []);
+/** Tylko poprawne i świeże (≤ RECENT_DAYS dni; wpisy bez czasu — z dawnej wersji — liczą się jako świeże raz). */
+export const fresh = (l, now) => (Array.isArray(l) ? l.filter(e => e && TYPES[e.t] && e.id != null && (!e.ts || (now || Date.now()) - e.ts <= RECENT_DAYS * 864e5)).slice(0, RECENT_MAX) : []);
+const sane = l => fresh(l);
 
 function ls() { try { return typeof localStorage === 'undefined' ? null : localStorage; } catch (e) { return null; } }
 

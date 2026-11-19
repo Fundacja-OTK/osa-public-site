@@ -1,6 +1,6 @@
 // Skróty ekranu „lista → karta” (Zamówienia, Produkty, Klienci): F filtry, E eksport, C kolumny, / szukaj, ↑↓ / J K wiersz,
 // Enter otwiera, X zaznacza, Esc wraca z karty. Moduł podaje tylko id istniejących kontrolek.
-import { shortcuts, addKeyTip } from './shortcuts.js?v=fdce023';
+import { shortcuts, addKeyTip } from './shortcuts.js?v=0ec2249';
 
 const byId = id => (id ? document.getElementById(id) : null);
 const shown = n => !!n && !n.disabled && n.offsetParent !== null;
@@ -47,5 +47,7 @@ export function registerListKeys(ids) {
     if (document.querySelector('.menu-pop:not([hidden]), .ms-pop:not([hidden])')) return false;
     const n = byId(ids.back); if (!shown(n)) return false; n.click(); return true;
   });
+  // ids.extra: [{ keys, label, desc, id }] — dodatkowe przyciski modułu (np. „Dodaj klienta”)
+  for (const x of ids.extra || []) { add(x.keys, x.label, x.desc, click(x.id)); addKeyTip(byId(x.id), x.label); }
   shortcuts.scope(ids.screen, entries);
 }

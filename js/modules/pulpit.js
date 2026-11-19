@@ -1,7 +1,7 @@
 // Pulpit: sprzedaż z 30 dni (wykres wartość / ilość), liczniki z trendem, „Do zrobienia” (otwarte statusy),
 // najnowsze zamówienia, ostatnie zmiany i szybkie skróty. Dane: jedna akcja dashboard:get (tylko odczyt).
-import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=fdce023';
-import { api } from '../core/client.js?v=fdce023';
+import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=0ec2249';
+import { api } from '../core/client.js?v=0ec2249';
 
 const MODE_KEY = 'osa-pulpit-mode';
 const zl = v => money(v) + ' zł';

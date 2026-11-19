@@ -1,0 +1,21 @@
+/* Moduł Klienci: formularz edycji/dodawania, sekcje zwijane, wyszukiwarka produktów przy cenach indywidualnych */
+.kf { display: grid; gap: var(--s3); }
+.kf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--s2) var(--s3); align-items: start; }
+.kf-field { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.kf-field.wide { grid-column: 1 / -1; }
+.kf-field > label { font-size: 13px; color: var(--muted); }
+.kf-field input, .kf-field select, .kf-field textarea { width: 100%; box-sizing: border-box; }
+.kf-field input.bad, .kf-field select.bad, .kf-field textarea.bad { border-color: var(--no); }
+.kf-err { color: var(--no); font-size: 12px; }
+.kf-check { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) 0; }
+.kf-sec > summary h2, details.fold > summary h2 { margin: 0; font-size: 16px; }
+.kf-actions { margin-top: var(--s2); }
+.kf-inline { margin: var(--s2) 0; padding: var(--s2); }
+.kf-hits { display: flex; flex-direction: column; gap: 2px; margin: var(--s1) 0; }
+.kf-hit { text-align: left; background: transparent; border: 1px solid transparent; padding: var(--s1) var(--s2); border-radius: var(--r1); cursor: pointer; color: var(--text); }
+.kf-hit:hover, .kf-hit:focus-visible { border-color: var(--border); background: var(--hover); }
+.kf-list { margin: var(--s1) 0 0; padding-left: 18px; display: grid; gap: var(--s1); }
+.kf-fold-body { padding-top: var(--s2); }
+.fold-inline { margin-top: var(--s3); }
+.fold-inline > summary { cursor: pointer; color: var(--accent-strong); }
+@media (max-width: 640px) { .kf-grid { grid-template-columns: 1fr; } }
