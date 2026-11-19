@@ -4,23 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Panel OSA</title>
-  <link rel="stylesheet" href="css/base.css?v=1a6db82">
-  <link rel="stylesheet" href="css/shell.css?v=1a6db82">
-  <link rel="stylesheet" href="css/pulpit.css?v=1a6db82">
-  <link rel="stylesheet" href="css/przesylki.css?v=1a6db82">
-  <link rel="stylesheet" href="css/zasob.css?v=1a6db82">
-  <link rel="stylesheet" href="css/feedback.css?v=1a6db82">
-  <link rel="stylesheet" href="css/palette.css?v=1a6db82">
-  <link rel="stylesheet" href="css/mobile.css?v=1a6db82">
+  <link rel="stylesheet" href="css/base.css?v=fdce023">
+  <link rel="stylesheet" href="css/shell.css?v=fdce023">
+  <link rel="stylesheet" href="css/pulpit.css?v=fdce023">
+  <link rel="stylesheet" href="css/przesylki.css?v=fdce023">
+  <link rel="stylesheet" href="css/zasob.css?v=fdce023">
+  <link rel="stylesheet" href="css/feedback.css?v=fdce023">
+  <link rel="stylesheet" href="css/palette.css?v=fdce023">
+  <link rel="stylesheet" href="css/embed.css?v=fdce023">
+  <link rel="stylesheet" href="css/mobile.css?v=fdce023">
   <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, clientId, version, backends? } -->
-  <script src="config.js?v=1a6db82"></script>
+  <script src="config.js?v=fdce023"></script>
   <script src="https://accounts.google.com/gsi/client" async></script>
   <script>
     // Motyw i zwinięte menu ustawiane przed pierwszym malowaniem
     try { var t = JSON.parse(localStorage.getItem('otk-theme') || 'null'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
     try { if (JSON.parse(localStorage.getItem('osa-sb-collapsed') || 'false')) document.documentElement.classList.add('sb-collapsed'); } catch (e) {}
   </script>
-  <script type="module" src="js/main.js?v=1a6db82"></script>
+  <script type="module" src="js/main.js?v=fdce023"></script>
 </head>
 <body>
 <div class="app">

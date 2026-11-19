@@ -1,18 +1,18 @@
 // Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu sekcji z wysuwanymi listami
 // (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K), okruszki i tytuł strony, logowanie/start, stopka.
-import { $, el, store, pageError } from './ui.js?v=1a6db82';
-import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=1a6db82';
-import { signOut, freshToken, hasToken, tokenEmail } from './auth.js?v=1a6db82';
-import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=1a6db82';
-import { initErrorReporting } from './errors.js?v=1a6db82';
-import { setReporter } from './errorHook.js?v=1a6db82';
-import { initFeedback } from './feedback.js?v=1a6db82';
-import { watchVersion, showNewVersion } from './update.js?v=1a6db82';
-import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=1a6db82';
-import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=1a6db82';
-import { initPalette, openPalette } from './palette.js?v=1a6db82';
-import { installShortcuts, shortcuts } from './shortcuts.js?v=1a6db82';
-import { loadRecents, clearRecents, noteVisit, hashOf, TYPES } from './recents.js?v=1a6db82';
+import { $, el, store, pageError } from './ui.js?v=fdce023';
+import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=fdce023';
+import { signOut, freshToken, hasToken, tokenEmail } from './auth.js?v=fdce023';
+import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=fdce023';
+import { initErrorReporting } from './errors.js?v=fdce023';
+import { setReporter } from './errorHook.js?v=fdce023';
+import { initFeedback } from './feedback.js?v=fdce023';
+import { watchVersion, showNewVersion } from './update.js?v=fdce023';
+import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=fdce023';
+import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=fdce023';
+import { initPalette, openPalette } from './palette.js?v=fdce023';
+import { installShortcuts, shortcuts } from './shortcuts.js?v=fdce023';
+import { loadRecents, clearRecents, noteVisit, hashOf, TYPES } from './recents.js?v=fdce023';
 
 const ROUTE_KEY = 'osa-route';
 const RECORD_MODS = new Set(['zamowienia', 'klienci', 'produkty']);   // karta rekordu zapisuje się sama (z nazwą)
@@ -24,10 +24,10 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
 
 /** Moduły ładowane przy pierwszym wejściu (nowe ekrany; brak pliku → strona „w planie”). */
 const LAZY = {
-  pulpit: () => import('../modules/pulpit.js?v=1a6db82'),
-  przesylki: () => import('../modules/przesylki.js?v=1a6db82'),
-  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=1a6db82'),
-  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=1a6db82'),
+  pulpit: () => import('../modules/pulpit.js?v=fdce023'),
+  przesylki: () => import('../modules/przesylki.js?v=fdce023'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=fdce023'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=fdce023'),
 };
 
 // ─── Błędy strony ───────────────────────────────────────────────────────────
@@ -238,7 +238,7 @@ export function startShell(modules) {
   for (const m of modules) register(m);
   for (const [id, load] of Object.entries(LAZY)) if (!getModule(id)) register({ id, title: (itemById(id) || {}).title || '', load: () => load().then(m => m.default) });
   // Ekrany uniwersalne (lista → karta → formularz ze specyfikacji API): kind 'resource'
-  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=1a6db82').then(m => m.createResource(i.id)) });
+  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=fdce023').then(m => m.createResource(i.id)) });
   // Pozycje bez własnego ekranu: strona „w planie / tylko w Selly” z linkiem
   for (const i of ITEMS) if (!getModule(i.id)) register(createPlaceholder({ id: i.id, title: i.title, sellyQuery: i.a ? '?a=' + i.a : '', adminUrl, kind: i.kind, tip: i.tip }));
   $('signOut').addEventListener('click', signOut);

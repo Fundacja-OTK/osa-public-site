@@ -1,10 +1,10 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=1a6db82';
-import { api, ctx } from '../core/client.js?v=1a6db82';
-import { go } from '../core/router.js?v=1a6db82';
-import { noteVisit } from '../core/recents.js?v=1a6db82';
-import { registerListKeys } from '../core/listKeys.js?v=1a6db82';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=fdce023';
+import { api, ctx } from '../core/client.js?v=fdce023';
+import { go } from '../core/router.js?v=fdce023';
+import { noteVisit } from '../core/recents.js?v=fdce023';
+import { registerListKeys } from '../core/listKeys.js?v=fdce023';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'code', 'price', 'qty', 'id', 'loc', 'ean', 'symbol'];
