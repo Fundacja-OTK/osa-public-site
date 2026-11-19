@@ -7,9 +7,8 @@ const OWNER_TIP = 'Właściciel panelu ma dostęp zawsze — niezależnie od tej
 const ROLES = { admin: 'Administrator', user: 'Użytkownik' };
 const ROLE_TIP = 'Administrator zarządza tą listą i widzi moduł „Użytkownicy”. Użytkownik korzysta z pozostałych modułów panelu.';
 
-const SCOPES = { panel: 'Cały panel OSA', 'license-report': 'Tylko stary raport licencji' };
-const SCOPE_TIP = 'Cały panel OSA: dostęp do panelu, starego raportu licencji i rozszerzenia przeglądarki.\nTylko stary raport licencji: osoba widzi wyłącznie dawną stronę raportu licencji (dla zgodności wstecznej) — do panelu nie wejdzie.\nAdministrator zawsze ma dostęp do całego panelu.';
-const MIRROR_TIP = 'Lista z tego ekranu jest automatycznie kopiowana do arkusza „whitelista” (zakładki: główna oraz „Tylko raport licencji”), z którego korzystają stary raport licencji i rozszerzenie. Arkusz jest tylko do odczytu — ręczne zmiany w nim zostaną nadpisane.';
+const MIRROR_TIP = 'Ta lista = dostęp do panelu OSA i rozszerzenia przeglądarki. Jest automatycznie kopiowana do pierwszej zakładki arkusza „whitelista” (tylko do odczytu — ręczne zmiany w niej zostaną nadpisane). Dostęp do raportu licencji to osobna lista, edytowana ręcznie w zakładce „Raport licencji” tego arkusza (nie tutaj). Osoba wpisana na obu listach ma oba dostępy.';
+const LR_TIP = 'Raport licencji ma własną listę dostępu: zakładka „Raport licencji” w arkuszu „whitelista”, edytowana ręcznie w arkuszu (nie w panelu). Ta lista (panel OSA i rozszerzenie) jest niezależna — osoba wpisana na obu listach ma oba dostępy.';
 
 const S = { root: null, ui: null, users: null, mirror: null, mirrorOn: true, sort: 'email', dir: 'asc', seq: 0 };
 
@@ -17,7 +16,6 @@ const COLS = [
   { key: 'email', label: 'E-mail', tip: 'Adres konta Google, którym użytkownik loguje się do panelu' },
   { key: 'name', label: 'Imię', tip: 'Imię lub opis osoby (tylko dla czytelności listy)' },
   { key: 'role', label: 'Rola', tip: ROLE_TIP, tipHeader: true },
-  { key: 'scope', label: 'Dostęp', tip: SCOPE_TIP, tipHeader: true },
   { key: 'active', label: 'Aktywny', tip: 'Wyłączone konto nie może wejść do panelu (wpis zostaje na liście)', tipHeader: true },
   { key: 'addedMs', label: 'Dodany', tip: 'Kiedy konto trafiło na listę', firstDir: 'desc' },
 ];
@@ -36,7 +34,7 @@ function sorted() {
 }
 
 async function save(u, patch, confirmed) {
-  const next = Object.assign({ email: u.email, name: u.name || '', active: !!Number(u.active), role: u.role, scope: u.scope || 'panel' }, patch);
+  const next = Object.assign({ email: u.email, name: u.name || '', active: !!Number(u.active), role: u.role }, patch);
   const self = u.email.toLowerCase() === myEmail();
   if (!confirmed && self && ((patch.role && u.role === 'admin' && patch.role !== 'admin') || (patch.active === false))) { askSelf(u, patch); return false; }
   try { await api('users:save', next); flash('', 'Zapisano: ' + u.email); await load(); return true; }
@@ -78,17 +76,12 @@ function render() {
     const self = x.email.toLowerCase() === myEmail();
     const role = el('select', { 'aria-label': 'Rola: ' + x.email, title: ROLE_TIP + (self ? '\n\n' + OWNER_TIP : ''), 'data-email': x.email, class: 'usr-role',
       onchange: ev => { if (ev.target.value !== x.role) save(x, { role: ev.target.value }); } }, Object.entries(ROLES).map(([v, l]) => el('option', { value: v, selected: x.role === v }, l)));
-    const adm = x.role === 'admin' || self;
-    const scope = el('select', { 'aria-label': 'Dostęp: ' + x.email, class: 'usr-scope', 'data-email': x.email, disabled: adm,
-      title: adm ? 'Administrator ma zawsze dostęp do całego panelu — zakres można zmienić tylko zwykłemu użytkownikowi.' : SCOPE_TIP,
-      onchange: ev => { if (ev.target.value !== (x.scope || 'panel')) save(x, { scope: ev.target.value }).then(ok => { if (!ok) ev.target.value = x.scope || 'panel'; }); } },
-      Object.entries(SCOPES).map(([v, l]) => el('option', { value: v, selected: (x.scope || 'panel') === v }, l)));
     const act = el('input', { type: 'checkbox', class: 'usr-active', 'data-email': x.email, checked: !!Number(x.active), 'aria-label': 'Aktywny: ' + x.email, title: 'Wyłączone konto nie może wejść do panelu',
       onchange: ev => { const v = ev.target.checked; save(x, { active: v }).then(ok => { if (!ok) ev.target.checked = !v; }); } });
     body.append(el('tr', null, el('td', null, el('span', { class: 'cell-name' }, x.email), self ? el('span', { class: 'tag tip', title: 'To Twoje konto. ' + OWNER_TIP }, 'Ty') : null),
-      el('td', null, x.name || ''), el('td', null, role), el('td', null, scope), el('td', { class: 'c' }, act), el('td', { class: 'nw' }, x.addedMs ? dateStr(new Date(Number(x.addedMs)).toISOString()) : '')));
+      el('td', null, x.name || ''), el('td', null, role), el('td', { class: 'c' }, act), el('td', { class: 'nw' }, x.addedMs ? dateStr(new Date(Number(x.addedMs)).toISOString()) : '')));
   }
-  if (!S.users.length) body.append(el('tr', null, el('td', { colspan: '6', class: 'empty' }, 'Lista jest pusta — dodaj pierwszego użytkownika poniżej.')));
+  if (!S.users.length) body.append(el('tr', null, el('td', { colspan: '5', class: 'empty' }, 'Lista jest pusta — dodaj pierwszego użytkownika poniżej.')));
   u.mirror.replaceChildren(mirrorLine());
   u.table.replaceChildren(el('div', { class: 'table-wrap' }, el('table', { id: 'usrTable' }, el('thead', null, head), body)));
 }
@@ -114,14 +107,12 @@ function build() {
   const name = el('input', { type: 'text', id: 'usrName', placeholder: 'np. Anna', 'aria-label': 'Imię nowego użytkownika', maxlength: '100' });
   const role = el('select', { id: 'usrRole', 'aria-label': 'Rola nowego użytkownika' }, Object.entries(ROLES).map(([v, l]) => el('option', { value: v }, l)));
   role.value = 'user';
-  const scopeSel = el('select', { id: 'usrScope', 'aria-label': 'Dostęp nowego użytkownika' }, Object.entries(SCOPES).map(([v, l]) => el('option', { value: v }, l)));
-  scopeSel.value = 'panel';
   const msg = el('div', { role: 'status' });
   const add = el('button', { type: 'button', class: 'primary', id: 'usrAdd', title: 'Dodaje konto do listy dostępu (albo aktualizuje je, jeśli już jest na liście)', onclick: async () => {
     const em = email.value.trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { msg.replaceChildren(el('div', { class: 'notice error' }, 'Wpisz poprawny adres e-mail.')); email.focus(); return; }
     add.disabled = true; msg.replaceChildren();
-    try { await api('users:save', { email: em, name: name.value.trim(), active: true, role: role.value, scope: role.value === 'admin' ? 'panel' : scopeSel.value }); flash('', 'Dodano: ' + em); email.value = ''; name.value = ''; role.value = 'user'; scopeSel.value = 'panel'; await load(); }
+    try { await api('users:save', { email: em, name: name.value.trim(), active: true, role: role.value }); flash('', 'Dodano: ' + em); email.value = ''; name.value = ''; role.value = 'user'; await load(); }
     catch (e) { msg.replaceChildren(el('div', { class: 'notice error' }, 'Nie udało się dodać: ' + (e.message || 'błąd'))); }
     add.disabled = false;
   } }, 'Dodaj użytkownika');
@@ -132,11 +123,12 @@ function build() {
   S.root.replaceChildren(
     el('div', { class: 'card' },
       el('div', { class: 'card-head' }, el('h2', null, 'Użytkownicy panelu'),
-        el('div', { class: 'sub' }, 'To lista dostępu do panelu OSA — zastępuje dawną listę dozwolonych adresów w arkuszu. Wpisz adres konta Google osoby, która ma korzystać z panelu.')),
+        el('div', { class: 'sub' }, 'To lista dostępu do panelu OSA i rozszerzenia przeglądarki. Wpisz adres konta Google osoby, która ma z nich korzystać.')),
       el('div', { class: 'notice warn tip', title: OWNER_TIP }, 'Właściciel panelu ma dostęp zawsze, nawet bez wpisu na liście.'),
-      el('div', { class: 'sub' }, 'Arkusz „whitelista” jest tylko automatyczną kopią tej listy (tylko do odczytu) — zmiany wprowadzaj wyłącznie tutaj.'), mirror, dlg, table),
+      el('div', { class: 'sub tip', title: MIRROR_TIP }, 'Pierwsza zakładka arkusza „whitelista” jest tylko automatyczną kopią tej listy (do odczytu) — zmiany wprowadzaj wyłącznie tutaj.'),
+      el('div', { class: 'notice tip', id: 'usrLrNote', title: LR_TIP }, 'Dostęp do raportu licencji nadajesz osobno — w arkuszu „whitelista”, zakładka „Raport licencji”.'), mirror, dlg, table),
     el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Dodaj użytkownika')),
-      el('div', { class: 'ord-filter-row' }, field('E-mail (konto Google)', email, 'Adres, którym osoba loguje się przez Google'), field('Imię', name, 'Opcjonalnie — dla czytelności listy'), field('Rola', role, ROLE_TIP), field('Dostęp', scopeSel, SCOPE_TIP), add), msg));
+      el('div', { class: 'ord-filter-row' }, field('E-mail (konto Google)', email, 'Adres, którym osoba loguje się przez Google'), field('Imię', name, 'Opcjonalnie — dla czytelności listy'), field('Rola', role, ROLE_TIP), add), msg));
 }
 
 export default {
