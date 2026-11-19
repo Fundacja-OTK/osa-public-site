@@ -1,5 +1,5 @@
 // Moduł-zaślepka dla pozycji menu bez ekranu OSA: „w planie” (Selly ma API) albo „tylko w Selly” — z linkiem do Selly.
-import { el } from '../core/ui.js?v=e0c65af';
+import { el } from '../core/ui.js?v=ead81e8';
 
 export const SELLY_ADMIN = 'https://takimarket.pl/adm/';
 export const BUILDING_TIP = 'W budowie — na razie użyj panelu Selly';

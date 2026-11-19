@@ -1,8 +1,8 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=e0c65af';
-import { api, ctx } from '../core/client.js?v=e0c65af';
-import { go } from '../core/router.js?v=e0c65af';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=ead81e8';
+import { api, ctx } from '../core/client.js?v=ead81e8';
+import { go } from '../core/router.js?v=ead81e8';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'code', 'price', 'qty', 'id', 'loc', 'ean', 'symbol'];
@@ -139,7 +139,6 @@ function buildList() {
   u.colMenu = columnMenu({ id: 'prodColsBtn', storeKey: 'osa-prod-cols', onChange: () => { if (S.data) renderList(); },
     cols: [
       { key: 'prod', label: 'Produkt', locked: true }, { key: 'price', label: 'Ceny i magazyn', locked: true },
-      { key: 'loc', label: 'Lokalizacja', tip: 'Lokalizacja magazynowa produktu (regał, półka) — do poprawienia w tabeli' },
       { key: 'opts', label: 'Opcje', tip: 'Widoczność produktu w sklepie (pole do zmiany w tabeli)' },
       { key: 'act', label: 'Działanie', tip: 'Skróty: szczegóły, podgląd w sklepie, zamówienia produktu, Selly' }] });
   u.exportBtn = menuButton({ id: 'prodExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz cały wynik filtra do pliku Excel lub CSV', items: () => {
@@ -186,8 +185,8 @@ function syncList() {
   if (u.search.value.trim() !== Q.q) u.search.value = Q.q;
   u.low.value = String(Q.low);
   const F = S.facets || { categories: [], producers: [], warehouses: [] };
-  u.cat.replaceChildren(...selOpt('Wszystkie kategorie', F.categories, Q.cat, x => el('option', { value: String(x.id) }, 'Kategoria #' + x.id + ' (' + x.n + ')'))); u.cat.value = Q.cat;
-  u.prd.replaceChildren(...selOpt('Wszyscy producenci', F.producers, Q.prd, x => el('option', { value: String(x.id) }, 'Producent #' + x.id + ' (' + x.n + ')'))); u.prd.value = Q.prd;
+  u.cat.replaceChildren(...selOpt('Wszystkie kategorie', F.categories, Q.cat, x => el('option', { value: String(x.id) }, (x.name || 'Kategoria #' + x.id) + ' (' + x.n + ')'))); u.cat.value = Q.cat;
+  u.prd.replaceChildren(...selOpt('Wszyscy producenci', F.producers, Q.prd, x => el('option', { value: String(x.id) }, (x.name || 'Producent #' + x.id) + ' (' + x.n + ')'))); u.prd.value = Q.prd;
   u.wh.replaceChildren(...selOpt('Wszystkie magazyny', F.warehouses, Q.wh, x => el('option', { value: String(x.id) }, (x.name || 'Magazyn #' + x.id) + ' (' + x.n + ')'))); u.wh.value = Q.wh;
   u.vis.value = Q.vis; u.zdj.value = Q.zdj; if (u.lok.value.trim() !== Q.lok) u.lok.value = Q.lok;
   u.clear.hidden = !FILTER_KEYS.some(k => Q[k]);
@@ -237,9 +236,9 @@ function renderList() {
     { key: 'prod', label: 'Produkt', tip: 'ID, zdjęcie, nazwa (do poprawienia w tabeli), kod, symbol i EAN produktu', tipHeader: true, sorts: [
       { label: 'Nazwa', sort: 'name', tip: 'Sortuj po nazwie produktu' }, { label: 'ID', sort: 'id', num: true, tip: 'Sortuj po numerze ID produktu' }, { label: 'Kod', sort: 'code', tip: 'Sortuj po kodzie producenta' },
       { label: 'EAN', sort: 'ean', tip: 'Sortuj po kodzie EAN (puste na końcu)' }] },
-    { key: 'price', label: 'Ceny i magazyn', tip: 'Cena brutto (do poprawienia w tabeli), cena poprzednia oraz stan wg Selly (suma ze wszystkich magazynów). Czerwony stan: brak; żółty: niski (do ' + Q.low + ' szt.).', tipHeader: true, sorts: [
-      { label: 'Cena', sort: 'price', num: true, tip: 'Sortuj po cenie brutto w złotych' }, { label: 'Stan', sort: 'qty', num: true, tip: 'Sortuj po stanie wg Selly' }] },
-    { key: 'loc', label: 'Lokalizacja', sort: 'loc', tip: 'Lokalizacja magazynowa wpisana przy produkcie w Selly (np. regał, półka) — do poprawienia w tabeli i zapisania paskiem na dole. Puste lokalizacje są zawsze na końcu.' },
+    { key: 'price', label: 'Ceny i magazyn', tip: 'Cena brutto (do poprawienia w tabeli), cena poprzednia, stan wg Selly (suma ze wszystkich magazynów) oraz lokalizacja magazynowa (regał, półka — do poprawienia w tabeli). Czerwony stan: brak; żółty: niski (do ' + Q.low + ' szt.).', tipHeader: true, sorts: [
+      { label: 'Cena', sort: 'price', num: true, tip: 'Sortuj po cenie brutto w złotych' }, { label: 'Stan', sort: 'qty', num: true, tip: 'Sortuj po stanie wg Selly' },
+      { label: 'Lok.', sort: 'loc', tip: 'Sortuj po lokalizacji magazynowej (regał, półka); puste lokalizacje są zawsze na końcu' }] },
     { key: 'opts', label: 'Opcje', tip: 'Widoczność produktu w sklepie (do zmiany w tabeli). Pozostałe opcje z Selly (hit dnia, promocje, porównywarki) zmienisz w panelu Selly — API sklepu ich nie udostępnia.', tipHeader: true },
     { key: 'act', label: 'Działanie', tip: 'Skróty: szczegóły produktu, podgląd w sklepie, zamówienia z tym produktem, otwarcie w Selly', tipHeader: true },
   ];
@@ -256,6 +255,13 @@ function renderList() {
     pager({ prefix: 'prod', page: Q.page, pages, total: d.total, noun: ['produkt', 'produkty', 'produktów'], onPage: p => setQ({ page: p }),
       sizes: SIZES, size: pageSize(), onSize: n => { store('osa-prod-size', n); setQ({}); } }));
   refreshDirty();
+}
+
+const STOCK_NOTE = 'Stany w poszczególnych magazynach odświeżają się w tle (co kilka dni, szybciej po zmianach), więc mogą być nieco nieaktualne; dokładne wartości są w szczegółach produktu.';
+function stockTip(r) {
+  let t = 'Stan wg Selly (suma ze wszystkich magazynów). Stan w poszczególnych magazynach zmienisz w szczegółach produktu.';
+  if (r.stockWh && Object.keys(r.stockWh).length) t += '\n' + Object.entries(r.stockWh).map(([id, q]) => whName(id) + ': ' + num(q)).join('\n');
+  return t + '\n' + STOCK_NOTE;
 }
 
 function productRow(r) {
@@ -277,16 +283,15 @@ function productRow(r) {
         thumb(r.photo, r.name)),
       el('div', { class: 'grow' }, inName,
         el('div', { class: 'cell-sub' }, [r.code && 'kod: ' + r.code, r.symbol && 'symbol: ' + r.symbol, r.ean && 'EAN: ' + r.ean].filter(Boolean).join(' · ')),
-        (r.location && !S.ui.colMenu.isOn('loc')) || r.hasVariants || r.isKit ? el('div', { class: 'cell-sub' },
+        r.hasVariants || r.isKit ? el('div', { class: 'cell-sub' },
           r.hasVariants ? el('span', { class: 'tag', title: 'Produkt ma warianty (np. rozmiary) — stany są w szczegółach' }, 'warianty') : null,
-          r.isKit ? el('span', { class: 'tag', title: 'Zestaw złożony z kilku produktów' }, 'zestaw') : null,
-          r.location && !S.ui.colMenu.isOn('loc') ? el('span', { class: 'tag', title: 'Lokalizacja magazynowa wpisana przy produkcie w Selly (np. regał, półka)' }, '📍 ' + r.location) : null) : null))),
+          r.isKit ? el('span', { class: 'tag', title: 'Zestaw złożony z kilku produktów' }, 'zestaw') : null) : null))),
     el('td', null, el('div', { class: 'price-box' },
       el('label', { class: 'pb-row', title: 'Cena brutto w sklepie, w złotych' }, 'Cena brutto (zł)', inPrice),
       Number(r.prevPrice) ? el('div', { class: 'pb-row', title: 'Cena przed obniżką (tylko do odczytu — zmienisz ją w panelu Selly)' }, el('span', { class: 'tip' }, 'Poprzednia'), el('span', { class: 'v' }, money(r.prevPrice))) : null,
-      el('div', { class: 'pb-row', title: 'Stan wg Selly (suma ze wszystkich magazynów). Stan w poszczególnych magazynach zmienisz w szczegółach produktu.' }, el('span', { class: 'tip' }, 'Stan'),
-        el('span', { class: 'v ' + stCls }, num(r.qty) + ' szt.')))),
-    cell('loc', el('td', null, inLoc)),
+      el('div', { class: 'pb-row', title: stockTip(r) }, el('span', { class: 'tip' }, 'Stan'),
+        el('span', { class: 'v ' + stCls }, num(r.qty) + ' szt.')),
+      el('label', { class: 'pb-row', title: 'Lokalizacja magazynowa (np. regał, półka) — popraw i zapisz paskiem na dole' }, el('span', { class: 'tip' }, 'Lokalizacja'), inLoc))),
     cell('opts', el('td', null, el('div', { class: 'opt-list' },
       el('label', { title: 'Czy produkt jest widoczny dla klientów w sklepie' }, inVis, 'wyświetlany'),
       Number(r.visible) ? null : el('span', { class: 'tag bad', title: 'Produkt jest ukryty w sklepie' }, 'ukryty')))),
@@ -311,14 +316,18 @@ const whName = id => { const w = S.facets && S.facets.warehouses && S.facets.war
 
 async function exportAll(kind) {
   try {
-    const { rows, total } = await fetchAllRows(page => api('products:list', listParams(S.Q, { page, pageSize: 200 })), EXPORT_MAX, 'produkty');
+    let whs = [];
+    const { rows, total } = await fetchAllRows(async page => { const d = await api('products:list', listParams(S.Q, { page, pageSize: 200 })); if (d.warehouses) whs = d.warehouses; return d; }, EXPORT_MAX, 'produkty');
+    const dateOf = ms => (ms ? new Date(ms).toISOString().slice(0, 16).replace('T', ' ') : '');
     const t = {
       file: 'produkty', sheet: 'Produkty',
       columns: [{ header: 'ID', type: 'text' }, { header: 'Nazwa', type: 'text' }, { header: 'Kod', type: 'text' }, { header: 'Symbol', type: 'text' }, { header: 'EAN', type: 'text' },
-        { header: 'Kategoria (ID)', type: 'text' }, { header: 'Producent (ID)', type: 'text' }, { header: 'Cena (zł)', type: 'number' }, { header: 'Stan (suma)', type: 'number' },
-        { header: 'Magazyn domyślny', type: 'text' }, { header: 'Lokalizacja magazynowa', type: 'text' }, { header: 'Dostępność', type: 'text' }, { header: 'Widoczny', type: 'center' }],
-      rows: rows.map(r => [r.id, r.name || '', r.code || '', r.symbol || '', r.ean || '', r.categoryId || '', r.producerId || '', r.price == null ? '' : Number(r.price), r.qty == null ? '' : Number(r.qty),
-        whName(r.whId), r.location || '', r.availability || '', Number(r.visible) ? 'tak' : 'nie']),
+        { header: 'Kategoria', type: 'text' }, { header: 'Producent', type: 'text' }, { header: 'Cena (zł)', type: 'number' }, { header: 'Stan (suma)', type: 'number' },
+        { header: 'Magazyn domyślny', type: 'text' }, { header: 'Lokalizacja magazynowa', type: 'text' }, { header: 'Dostępność', type: 'text' }, { header: 'Widoczny', type: 'center' },
+        ...whs.map(w => ({ header: 'Stan: ' + (w.name || 'Magazyn #' + w.id), type: 'number' })), { header: 'Stany magazynów z (odświeżane w tle)', type: 'text' }],
+      rows: rows.map(r => [r.id, r.name || '', r.code || '', r.symbol || '', r.ean || '', r.categoryName || r.categoryId || '', r.producerName || r.producerId || '', r.price == null ? '' : Number(r.price), r.qty == null ? '' : Number(r.qty),
+        whName(r.whId), r.location || '', r.availability || '', Number(r.visible) ? 'tak' : 'nie',
+        ...whs.map(w => (r.stockWh && r.stockWh[w.id] != null ? Number(r.stockWh[w.id]) : '')), dateOf(r.stockMs)]),
     };
     if (kind === 'xlsx') downloadXlsx(t, ''); else downloadCsv(tableMatrix(t), t.file, '');
     if (total > EXPORT_MAX) flash('', 'Plik zawiera pierwsze ' + EXPORT_MAX + ' z ' + total + ' produktów — zawęź filtry, aby dostać resztę');
