@@ -50,6 +50,9 @@ function showSignIn() {
   google.accounts.id.renderButton($('signInBtn'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pl' });
 }
 
+/** Czy mamy ważny token (bez wywoływania logowania) — dla raportów w tle. */
+export const hasToken = () => !!token && tokenExp - Date.now() > 60 * 1000;
+
 export function freshToken(force) {
   if (!force && token && tokenExp - Date.now() > 5 * 60 * 1000) return Promise.resolve(token);
   token = null;

@@ -2,8 +2,12 @@
 // (pełne menu panelu Selly — core/nav.js), „Moje skróty”, okruszki i tytuł strony, logowanie/start, stopka.
 import { $, el, store, pageError } from './ui.js';
 import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js';
-import { signOut } from './auth.js';
-import { register, getModule, go, startRouter, parseHash } from './router.js';
+import { signOut, freshToken, hasToken } from './auth.js';
+import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js';
+import { initErrorReporting } from './errors.js';
+import { setReporter } from './errorHook.js';
+import { initFeedback } from './feedback.js';
+import { watchVersion, showNewVersion } from './update.js';
 import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js';
 import { SECTIONS, ITEMS, itemById, DEFAULT_PINS, icon } from './nav.js';
 
@@ -18,6 +22,8 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
 const LAZY = {
   pulpit: () => import('../modules/pulpit.js'),
   przesylki: () => import('../modules/przesylki.js'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js'),
 };
 
 // ─── Błędy strony ───────────────────────────────────────────────────────────
@@ -55,6 +61,7 @@ function popup(btn, menu) {
 
 function setupTopbar(data) {
   $('tbUser').hidden = false;
+  $('tbFeedback').hidden = false;
   $('who').textContent = data.email ? 'Zalogowano: ' + data.email : '';
   $('avatar').textContent = (data.email || '?').slice(0, 1).toUpperCase();
   popup($('userBtn'), $('userMenu'));
@@ -199,12 +206,40 @@ function renderFoot() {
     ? 'Dane pochodzą z zapasowego serwera, bo główny chwilowo nie odpowiada. Panel działa normalnie; główny serwer sprawdzimy ponownie za kilka minut.'
     : 'Z którego serwera pochodzą dane panelu (serwer główny).';
   be.classList.toggle('tip', true);
+  renderDbNotice(info);
+}
+
+/** Pasek nad treścią, gdy baza panelu (D1) jest chwilowo niedostępna: dane z Selly na żywo albo z serwera zapasowego. */
+function renderDbNotice(info) {
+  let n = $('dbNotice');
+  if (!info || !info.degraded) { if (n) n.hidden = true; return; }
+  if (!n) {
+    const anchor = $('pageErrors');
+    if (!anchor || !anchor.parentNode) return;
+    n = document.createElement('div'); n.id = 'dbNotice'; n.className = 'notice warn'; n.setAttribute('role', 'status');
+    n.title = 'Dzienny limit bazy Cloudflare D1 został wyczerpany albo baza chwilowo nie odpowiada. Dane pokazujemy na żywo z Selly albo z serwera zapasowego (Apps Script); część widoków może być uboższa. Wróci samo po północy UTC lub po naprawie.';
+    anchor.parentNode.insertBefore(n, anchor);
+  }
+  n.textContent = 'Baza panelu chwilowo niedostępna — dane z Selly na żywo / zapasowy serwer.';
+  n.hidden = false;
 }
 
 // ─── Start ──────────────────────────────────────────────────────────────────
 
+/** Zgłaszanie błędów i uwag, powiadomienie o nowej wersji (core/errors.js, feedback.js, update.js). */
+function setupReporting() {
+  const route = () => location.hash.replace(/^#/, '').split('?')[0] || '/';
+  const reporter = initErrorReporting({ config: ENV, getToken: freshToken, hasToken, getRoute: route });
+  setReporter(reporter);
+  initFeedback({ button: $('tbFeedback'), config: ENV, getToken: freshToken, getRoute: route,
+    getBackend: () => { const i = apiInfo(); return i ? i.label + (i.fallback ? ' (zapasowy)' : '') : ''; }, getErrors: () => reporter.recent() });
+  watchVersion({ current: ENV.version || '', onNew: () => showNewVersion({
+    canLeave: () => { const m = leaveMessage(); return !m || confirm(m); }, reload: () => location.reload() }) });
+}
+
 export function startShell(modules) {
   setupErrors();
+  setupReporting();
   setupTheme();
   setupSidebar();
   renderFoot();
@@ -237,6 +272,7 @@ export function startShell(modules) {
     })
     .catch(err => {
       $('cardSignIn').hidden = true; $('cardStart').hidden = false;
+      $('tbFeedback').hidden = false;  // także przy błędzie startu — zgłoszenie albo „Kopiuj treść” zawsze dostępne
       if (err.code === 403) { $('signOut').hidden = false; $('tbUser').hidden = false; popup($('userBtn'), $('userMenu')); }  // inne konto Google
       $('cardStart').replaceChildren(el('div', { class: 'empty' + (err.code !== 403 ? ' error' : '') },
         err.code === 403 ? err.message + ' Możesz wylogować się i wybrać inne konto.' : 'Nie udało się otworzyć panelu: ' + err.message));

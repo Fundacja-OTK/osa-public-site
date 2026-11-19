@@ -70,6 +70,11 @@ const TEMPLATE = `
           <div class="products" id="products"></div>
           <button type="button" class="secondary small" id="productReset" style="margin-top:8px">Przywróć domyślne</button>
         </div>
+        <div class="field" id="packsField" hidden>
+          <span class="label">Pakiety startowe</span>
+          <label title="Przed licencjami organizatorzy kupowali pakiet startowy (zestaw: śpiewniki + korony). Po włączeniu pakiet z roku R liczy się tak samo jak licencja na rok R — w tabelach ma znacznik „pakiet”."><input type="checkbox" id="packsOn" checked> Licz pakiet startowy jak licencję z tego roku</label>
+          <p class="muted small" id="packsHint"></p>
+        </div>
         <div class="field">
           <span class="label">Które zamówienia liczą się jako zakup</span>
           <p class="muted small">Zaznaczone statusy zamówień. Domyślnie bez anulowanych, zwrotów i nieopłaconych.</p>
@@ -126,6 +131,7 @@ function init() {
   }
   if (!BOOT.statuses.length) $('statuses').append(el('p', { class: 'muted small' }, 'Lista statusów pojawi się po pierwszej synchronizacji z Selly.'));
   renderProducts();
+  renderPacksField();
 
   const onYear = () => {
     const y = year();
@@ -210,6 +216,27 @@ function init() {
 
   renderBanners(BOOT.sync);
   initChanges();
+}
+
+/** Czy pakiety startowe są zdefiniowane i włączone (opcja w ustawieniach zaawansowanych). */
+const packsActive = () => !!(BOOT && BOOT.packs && BOOT.packs.length && $('packsOn') && $('packsOn').checked);
+
+function renderPacksField() {
+  if (!BOOT.packs || !BOOT.packs.length) return;
+  $('packsField').hidden = false;
+  $('packsOn').addEventListener('change', settingsChanged);
+  $('packsHint').replaceChildren(
+    'Orszak ma pakiet na rok R, gdy w sezonie R (1 lipca R−1 – 30 czerwca R) suma sztuk każdego składnika ze wszystkich jego zamówień ' +
+    'jest co najmniej taka jak w zestawie — także gdy składniki kupił osobno. Pakiety: ' +
+    BOOT.packs.map(p => p.year + ' — ' + p.name).join('; ') + '. Definicje: zakładka „Pakiety startowe” w arkuszu danych.');
+}
+
+/** Podpowiedź przy znaczniku „pakiet”: reguła i kupione składniki. p: { name|n, parts, orders, lic }. */
+function packTip(p, y) {
+  const orders = (p.orders || []).map(o => (o && o.number) || o).join(', ');
+  return 'Pakiet startowy „' + (p.name || p.n) + '” na rok ' + y + ' (sezon ' + seasonLabel(y) + '). Reguła: w sezonie suma sztuk każdego składnika ze wszystkich zamówień ≥ ilość w zestawie. ' +
+    'Składniki kupione osobno: ' + (p.parts || []).map(x => x.name + ' ×' + x.got + ' (w zestawie ' + x.need + ')').join(', ') +
+    (orders ? '. Zamówienia: ' + orders : '') + (p.lic ? '. Ten sam rok: jest też licencja.' : '.');
 }
 
 /** Produkty licencji pogrupowane wg roku; bez roku — osobno, z informacją, gdzie go uzupełnić. */
@@ -353,7 +380,9 @@ const scheduleRun = debounce(run, 400);
 function commonParams() {
   const statusIds = [...$('statuses').querySelectorAll('input:checked')].map(c => c.value);
   if (BOOT.statuses.length && !statusIds.length) return { error: 'Zaznacz co najmniej jeden status zamówienia w ustawieniach zaawansowanych.' };
-  return { statusIds, products: selectedProducts() };
+  const out = { statusIds, products: selectedProducts() };
+  if (BOOT.packs && BOOT.packs.length && !$('packsOn').checked) out.packs = false; // domyślnie pakiety się liczą
+  return out;
 }
 
 function run() {
@@ -425,9 +454,9 @@ function render() {
   }, el('b', null, String(n)), el('span', null, label));
 
   const tabs = el('div', { class: 'tabs' },
-    tab('notBought', c.notBought, 'nie kupiło jeszcze licencji ' + y, 'Mieli licencję ' + y2 + ' lub ' + y1 + ', a licencji ' + y + ' jeszcze nie kupili — do przypomnienia'),
-    tab('bought', c.bought, 'kupiło już licencję ' + y, 'Mieli licencję ' + y2 + ' lub ' + y1 + ' i kupili już licencję ' + y),
-    tab('all', c.base, 'wszyscy z licencją ' + y2 + ' lub ' + y1, 'Cała baza przedłużeń: osoby (po e-mailu) z licencją ' + y2 + ' lub ' + y1),
+    tab('notBought', c.notBought, 'nie kupiło jeszcze licencji ' + y, 'Mieli licencję' + (packsActive() ? ' lub pakiet startowy ' : ' ') + y2 + ' lub ' + y1 + ', a licencji ' + y + ' jeszcze nie kupili — do przypomnienia'),
+    tab('bought', c.bought, 'kupiło już licencję ' + y, 'Mieli licencję' + (packsActive() ? ' lub pakiet startowy ' : ' ') + y2 + ' lub ' + y1 + ' i kupili już licencję ' + y),
+    tab('all', c.base, 'wszyscy z licencją ' + (packsActive() ? 'lub pakietem ' : '') + y2 + ' lub ' + y1, 'Cała baza przedłużeń: osoby (po e-mailu) z licencją' + (packsActive() ? ' lub pakietem startowym ' : ' ') + y2 + ' lub ' + y1),
     el('div', { class: 'tab static', title: 'Kupili licencję ' + y + ', ale nie mieli licencji w ' + y2 + ' ani ' + y1 + ' — nie ma ich na liście.' },
       el('b', null, String(c.newcomers)), el('span', null, 'nowych w ' + y + ' (spoza listy)')));
 
@@ -508,8 +537,14 @@ function orderLinksCell(r) {
 
 const yesNo = (v, yes, no) => el('span', { class: 'pill ' + (v ? 'yes' : 'no'), title: v ? yes : no }, v ? '✓' : '—');
 /** Licencje z kilku lat jako jedna komórka: małe „pigułki” z rokiem i ✓ / —. */
-const licPills = (flags, years) => el('div', { class: 'stack' }, years.map((y, i) =>
-  el('span', { class: 'lp' + (flags[i] ? ' yes' : ''), title: flags[i] ? 'Licencja ' + y + ': kupiona' : 'Licencja ' + y + ': brak' }, y + ' ' + (flags[i] ? '✓' : '—'))));
+const LIC_WORD = () => (packsActive() ? 'Licencja lub pakiet' : 'Licencja');
+const licPills = (flags, years, packs) => el('div', { class: 'stack' }, years.map((y, i) => {
+  const pk = packs && packs[i];
+  if (pk) {
+    return el('span', { class: 'lp yes pk', title: packTip(pk, y) }, y + ' ✓ ' + (pk.lic ? 'licencja + pakiet' : 'pakiet'));
+  }
+  return el('span', { class: 'lp' + (flags[i] ? ' yes' : ''), title: flags[i] ? 'Licencja ' + y + ': kupiona' : 'Licencja ' + y + ': brak' }, y + ' ' + (flags[i] ? '✓' : '—'));
+}));
 /** Osoba/orszak: pogrubiona nazwa, pod spodem e-mail (mailto, ucinany z title) i telefon (tel). */
 function contactLines(email, phone) {
   return [
@@ -525,7 +560,8 @@ function columns() {
       el('div', { class: 'cell-name' }, [r.lastName, r.firstName].filter(Boolean).join(' ') || el('span', { class: 'muted' }, '—')),
       contactLines(r.email, r.phone)) },
     { key: 'woj', label: 'Województwo', tip: 'Województwo z notatki orszaku w Selly; „kod” — przybliżenie wg kodu pocztowego z zamówienia licencji. Pod spodem miejscowość orszaku.', render: r => wojCell(r) },
-    { key: 'lic', label: 'Licencje', tip: 'Licencje ' + y2 + ', ' + y1 + ' i ' + y + ': ✓ kupiona, — brak. Sortowanie wg liczby kupionych licencji.', render: r => licPills(r.licenses, [y2, y1, y]) },
+    { key: 'lic', label: packsActive() ? 'Licencja lub pakiet' : 'Licencje', tip: (packsActive() ? 'Licencja lub pakiet startowy ' : 'Licencje ') + y2 + ', ' + y1 + ' i ' + y + ': ✓ kupiona, — brak' +
+      (packsActive() ? '; „pakiet” = pakiet startowy (najedź, by zobaczyć składniki)' : '') + '. Sortowanie wg liczby kupionych.', render: r => licPills(r.licenses, [y2, y1, y], r.packs) },
     { key: 'date', label: 'Zakup ' + y, tip: 'Data zakupu licencji ' + y + ', numer zamówienia (link do panelu Selly) i jego status', render: r => r.purchaseDate || r.orders
       ? el('div', null, el('div', { class: 'nw' }, r.purchaseDate || ''),
           el('div', { class: 'cell-sub' }, orderLinksCell(r)),
@@ -581,7 +617,7 @@ function listTable(rowsIn) {
   const columns = [
     { header: 'Email', type: 'text' }, { header: 'Imię', type: 'text' }, { header: 'Nazwisko', type: 'text' }, { header: 'Telefon', type: 'text' },
     { header: 'client_id', type: 'text' }, { header: 'Województwo', type: 'text' }, { header: 'Województwo wg', type: 'text' }, { header: 'Miejscowość orszaku', type: 'text' },
-    { header: 'Licencja ' + y2, type: 'center' }, { header: 'Licencja ' + y1, type: 'center' }, { header: 'Licencja ' + y, type: 'center' },
+    { header: LIC_WORD() + ' ' + y2, type: 'center' }, { header: LIC_WORD() + ' ' + y1, type: 'center' }, { header: LIC_WORD() + ' ' + y, type: 'center' },
     { header: 'Data zakupu ' + y, type: 'date' }, { header: 'Zamówienie ' + y, type: 'link' }, { header: 'Kolejne zamówienia ' + y, type: 'text' },
     { header: 'Status ' + y, type: 'text' }, { header: 'Sztuk ' + y, type: 'number' },
   ];
@@ -654,8 +690,8 @@ function units(Y) {
   const ex = new Set(ors.stEx);
   const out = [];
   if (ors.lic) for (const y of rangeYears(Y)) {
-    out.push({ grp: 'Licencja', head: String(y), short: 'Licencja ' + y,
-      title: 'Orszaki z licencją członkowską ' + y + (ex.size ? ' (bez odznaczonych statusów zamówień)' : '') + '. Orszak z licencjami z kilku lat jest w kilku kolumnach.',
+    out.push({ grp: packsActive() ? 'Licencja lub pakiet' : 'Licencja', head: String(y), short: LIC_WORD() + ' ' + y,
+      title: 'Orszaki z licencją członkowską ' + (packsActive() ? '(lub pakietem startowym) ' : '') + y + (ex.size ? ' (bez odznaczonych statusów zamówień)' : '') + '. Orszak z licencjami z kilku lat jest w kilku kolumnach.',
       test: e => { const s = licStatus(e, [y]); return s !== null && !ex.has(s); } });
   }
   if (ors.ord) out.push({ grp: 'Zamówienie', head: seasonLabel(Y), short: 'Zamówienie ' + seasonLabel(Y),
@@ -689,11 +725,12 @@ function presetMatches(set) {
 function countedName(C) {
   const ys = C.ys, all = ors.mode === 'all' && C.U.length > 1;
   if (!C.U.length) return { yes: 'wszystkie znane orszaki', no: 'pozostałe' };
-  const lic = !ors.lic ? '' : ys.length === 1 ? 'licencją ' + ys[0] : all ? 'licencją co roku ' + yearsLabel(ys) : 'licencją ' + yearsLabel(ys);
+  const pk = packsActive(), L = pk ? 'licencją lub pakietem' : 'licencją';
+  const lic = !ors.lic ? '' : ys.length === 1 ? L + ' ' + ys[0] : all ? L + ' co roku ' + yearsLabel(ys) : L + ' ' + yearsLabel(ys);
   const ord = ors.ord ? 'zamówieniem ' + seasonLabel(C.Y) : '';
   if (lic && !ord) {
-    if (all && ys.length === 2) return { yes: 'przedłużyli (licencja ' + ys[0] + ' i ' + ys[1] + ')', no: 'nie przedłużyli' };
-    return { yes: 'z ' + lic, no: all ? 'pozostałe' : 'bez ' + lic.replace('licencją', 'licencji') };
+    if (all && ys.length === 2) return { yes: 'przedłużyli (' + (pk ? 'licencja lub pakiet ' : 'licencja ') + ys[0] + ' i ' + ys[1] + ')', no: 'nie przedłużyli' };
+    return { yes: 'z ' + lic, no: all ? 'pozostałe' : 'bez ' + lic.replace(L, pk ? 'licencji lub pakietu' : 'licencji') };
   }
   if (ord && !lic) return { yes: 'z ' + ord, no: 'bez ' + ord.replace('zamówieniem', 'zamówienia') };
   return { yes: 'z ' + lic + (all ? ' i ' : ' lub ') + ord, no: 'pozostałe' };
@@ -816,7 +853,7 @@ function renderOrszaki() {
         const d = $('detail'); if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } }, 'Pokaż listę'));
   }
-  const what = ors.lic ? 'z licencją ' + yearsLabel(C.ys) : ors.ord ? 'z zamówieniem w sezonie ' + seasonLabel(Y) : '';
+  const what = ors.lic ? 'z licencją ' + (packsActive() ? 'lub pakietem ' : '') + yearsLabel(C.ys) : ors.ord ? 'z zamówieniem w sezonie ' + seasonLabel(Y) : '';
   // replaceChildren zamienia null na tekst „null” — puste sekcje odfiltrowujemy
   const result = sectionCard(1, 'Orszaki ' + (what ? what + ' ' : '') + 'wg województw',
     'Każda kolumna liczona osobno. Kliknij wiersz, żeby w sekcji 2 zobaczyć listę orszaków z tego województwa.', '',
@@ -864,8 +901,8 @@ function advancedPanel(C, set) {
   };
   const cards = [
     critCard({ key: 'lic', on: ors.lic, count: stats.licAny,
-      title: ys.length > 1 ? 'Licencja z lat ' + yearsLabel(ys) : 'Licencja ' + Y,
-      desc: 'Kupił licencję członkowską ' + orList(ys) + '. Zakres lat ustawiasz u góry strony (od–do); każdy rok to osobna kolumna tabeli.',
+      title: (packsActive() ? 'Licencja lub pakiet z ' : 'Licencja z ') + (ys.length > 1 ? 'lat ' + yearsLabel(ys) : 'roku ' + Y),
+      desc: 'Kupił licencję członkowską' + (packsActive() ? ' albo pakiet startowy ' : ' ') + orList(ys) + '. Zakres lat ustawiasz u góry strony (od–do); każdy rok to osobna kolumna tabeli.',
       extra: ors.lic ? statusFilter(stats.status, set) : null,
       warn: ors.lic ? coverageWarning(ys[0], state.orszaki.dataFrom, 'licencji ' + ys[0]) : '' }),
     critCard({ key: 'ord', on: ors.ord, count: ors.ord ? stats.tc[U.length - 1] : 0,
@@ -1218,7 +1255,8 @@ function renderDetail(C) {
       dHead('name', 'Orszak / klient', 'Orszak / klient'),
       dHead('town', ors.woj === null ? 'Miejscowość · województwo' : 'Miejscowość',
         'Miejscowość orszaku z notatki klienta w Selly' + (ors.woj === null ? '; pod nią województwo' : '')),
-      dHead('lic', 'Licencje', 'Licencje z lat ' + yearsLabel(licYears) + ': ✓ kupiona, — brak. Sortowanie wg liczby kupionych licencji.', -1),
+      dHead('lic', packsActive() ? 'Licencja lub pakiet' : 'Licencje', (packsActive() ? 'Licencje i pakiety startowe z lat ' : 'Licencje z lat ') + yearsLabel(licYears) + ': ✓ kupiona, — brak' +
+        (packsActive() ? '; „pakiet” = pakiet startowy (najedź, by zobaczyć składniki)' : '') + '. Sortowanie wg liczby kupionych.', -1),
       dHead('ord', 'Zam. ' + seasonLabel(Y), 'Czy orszak złożył dowolne zamówienie w sezonie ' + seasonLabel(Y) + ' (1 lipca ' + (Y - 1) + ' – 30 czerwca ' + Y + ')', -1),
       dHead('tags', 'Tagi', 'Tagi z notatki klienta w Selly (np. #nieaktywny)'));
     const body = el('tbody');
@@ -1236,7 +1274,7 @@ function renderDetail(C) {
           ors.woj === null && (WOJ_LABEL[e.woj] || e.wojLabel) ? el('div', { class: 'cell-sub' }, WOJ_LABEL[e.woj] || e.wojLabel) : null,
           // Województwo z kodu pocztowego to nie tag — opis pod miejscowością (jak kolumna „Województwo wg” w eksporcie)
           e.wojFrom ? el('div', { class: 'cell-sub', title: 'Brak województwa w notatce — przybliżenie wg kodu pocztowego z zamówienia licencji' }, 'wg kodu pocztowego ' + e.wojFrom) : null),
-        el('td', null, licPills(licYears.map(y => (e.lic || []).indexOf(y) >= 0), licYears)),
+        el('td', null, licPills(licYears.map(y => (e.lic || []).indexOf(y) >= 0), licYears, licYears.map(y => (e.packs || []).find(p => p.y === y)))),
         el('td', null, el('span', { class: 'lp' + (hasOrd ? ' yes' : ''), title: hasOrd ? 'Zamówienie w sezonie' : 'Bez zamówień w sezonie' }, hasOrd ? '✓' : '—')),
         el('td', null, (e.tags || []).map(t => el('span', { class: 'tag', title: 'Tag z notatki klienta w Selly — można go pominąć w opcjach zaawansowanych' }, '#' + t)))));
     }
@@ -1287,10 +1325,10 @@ function detailTable(rows, licYears, label, C) {
   const yn = b => (b ? 'tak' : 'nie');
   const T = h => ({ header: h, type: 'text' }), Cn = h => ({ header: h, type: 'center' });
   const columns = [T('Orszak / klient'), T('Miejscowość orszaku'), T('Województwo'), T('Województwo wg'), T('Rodzaj podmiotu'), T('Email'), T('Telefon')]
-    .concat(licYears.map(y => Cn('Licencja ' + y)), [Cn('Zamówienie w sezonie ' + seasonLabel(Y)), T('Tagi'), Cn(cap(countedName(C).yes))]);
+    .concat(licYears.map(y => Cn(LIC_WORD() + ' ' + y)), [Cn('Zamówienie w sezonie ' + seasonLabel(Y)), T('Tagi'), Cn(cap(countedName(C).yes))]);
   const data = rows.map(e => [e.name, e.town, WOJ_LABEL[e.woj] || e.wojLabel || '',
     e.wojFrom ? 'kod pocztowy ' + e.wojFrom : e.woj || e.wojLabel ? 'notatka' : '', e.kind, e.email, e.phone]
-    .concat(licYears.map(y => yn((e.lic || []).indexOf(y) >= 0)),
+    .concat(licYears.map(y => { const p = (e.packs || []).find(x => x.y === y); return p ? (p.lic ? 'licencja + pakiet' : 'pakiet') : yn((e.lic || []).indexOf(y) >= 0); }),
       [yn((e.ord || []).indexOf(Y) >= 0), (e.tags || []).map(t => '#' + t).join(' '), ors.list === 'inactive' ? 'nie' : 'tak']));
   const slug = norm(label).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const kind = ors.list === 'inactive' ? 'pozostale' : 'liczone';

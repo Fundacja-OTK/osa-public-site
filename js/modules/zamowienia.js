@@ -1,6 +1,6 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb } from '../core/ui.js';
+import { el, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect } from '../core/ui.js';
 import { api, ctx } from '../core/client.js';
 import { go, setLeaveGuard } from '../core/router.js';
 import { buildOrderCard, productPicker } from './zamowieniaKarta.js';
@@ -123,9 +123,10 @@ function buildList() {
   u.size = el('select', { id: 'ordSize', 'aria-label': 'Wierszy na stronie', title: 'Ile zamówień pokazać na jednej stronie listy',
     onchange: () => { store('osa-ord-size', Number(u.size.value)); setQ({}); } },
     SIZES.map(n => el('option', { value: String(n) }, String(n))));
-  const mkSel = (id, aria, tip, field) => el('select', { id, 'aria-label': aria, title: tip, onchange: ev => setQ({ [field]: ev.target.value }) });
-  u.payment = mkSel('ordPayment', 'Płatność', 'Tylko zamówienia z wybranym sposobem płatności', 'payment');
-  u.deliverySel = mkSel('ordDelivery', 'Dostawa', 'Tylko zamówienia z wybranym sposobem dostawy', 'delivery');
+  const mkMs = (id, all, short, noun, tip, field) => multiSelect({ id, all, short, noun, tip, none: false, onChange: csv => setQ({ [field]: csv }) });
+  u.payment = mkMs('ordPayment', 'Wszystkie płatności', 'Płatność', 'Płatność', 'Tylko zamówienia z wybranymi sposobami płatności — można zaznaczyć kilka', 'payment');
+  u.deliverySel = mkMs('ordDelivery', 'Wszystkie dostawy', 'Dostawa', 'Dostawa', 'Tylko zamówienia z wybranymi sposobami dostawy — można zaznaczyć kilka', 'delivery');
+  u.statusMs = mkMs('ordStatusMs', 'Wszystkie statusy', 'Status', 'Status', 'Tylko zamówienia w wybranych statusach — można zaznaczyć kilka (to samo wybierzesz przyciskami nad tabelą). Liczby to zamówienia w statusie.', 'status');
   u.prodLabel = el('span', { class: 'ord-prod-on', id: 'ordProdOn', hidden: true });
   u.prodPick = productPicker({ id: 'ordProdSearch', placeholder: 'Szukaj produktu…', tip: 'Tylko zamówienia zawierające wybrany produkt. Wpisz nazwę, kod lub EAN i wybierz produkt z listy.', onPick: p => setQ({ product: String(p.id), pname: p.name || '' }) });
   u.prodClear = el('button', { type: 'button', class: 'ghost', id: 'ordProdClear', title: 'Usuń filtr produktu', onclick: () => setQ({ product: '', pname: '' }) }, 'Usuń');
@@ -134,8 +135,9 @@ function buildList() {
   u.filtersInner = el('div', { class: 'opts-box ord-filters' },
     // filtry z notatki klienta (województwo, rodzaj podmiotu, tytuł, tag, licencja) — tworzone niżej, wstawiane na początek
     el('div', { class: 'ord-filter-row' },
-      el('label', { class: 'field-inline' }, 'Płatność', u.payment),
-      el('label', { class: 'field-inline' }, 'Dostawa', u.deliverySel),
+      el('div', { class: 'field-inline' }, 'Status', u.statusMs.node),
+      el('div', { class: 'field-inline' }, 'Płatność', u.payment.node),
+      el('div', { class: 'field-inline' }, 'Dostawa', u.deliverySel.node),
       el('div', { class: 'field-inline ord-prodf' }, 'Produkt', u.prodPick.node, u.prodLabel, u.prodClear)),
     el('div', { class: 'ord-filter-row' },
       el('label', { class: 'field-inline' }, 'Od dnia', u.from),
@@ -147,12 +149,19 @@ function buildList() {
   u.osa = osaBar({ prefix: 'ordOsa', withLicense: true, plain: true, getQ: () => S.Q, apply: patch => setQ(patch), facets: () => S.meta && S.meta.facets });
   u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Status zamówienia' });
   u.exportBtn = menuButton({ id: 'ordExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz zamówienia z tabeli do pliku Excel lub CSV — zaznaczone albo cały wynik filtra', items: exportItems });
+  u.colMenu = columnMenu({ id: 'ordColsBtn', storeKey: 'osa-ord-cols', onChange: () => { if (S.data) renderList(); },
+    cols: [
+      { key: 'nr', label: 'Nr i status', locked: true },
+      { key: 'client', label: 'Klient', tip: 'Nazwisko, firma, miasto i plakietki z notatki klienta' },
+      { key: 'items', label: 'Zamówione produkty', tip: 'Pozycje zamówienia z ilościami i miniaturami' },
+      { key: 'total', label: 'Wartość', locked: true },
+      { key: 'info', label: 'Informacje dodatkowe', tip: 'Komentarz klienta, uwaga do zamówienia i numer przesyłki' }] });
   u.info = el('div', { class: 'muted small ord-info' });
   u.dlg = el('div', { id: 'ordDlg' });
   u.bulk = el('div', { class: 'ord-bulk', id: 'ordBulk', hidden: true });
   u.results = el('div', { id: 'ordResults' });
-  u.layout = filterLayout({ key: 'zamowienia', panelId: 'ordFilters', panelNodes: [u.filtersInner], defaultOpen: window.innerWidth >= 1100,
-    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.exportBtn, el('span', { class: 'spacer' }), u.info), u.dlg, u.bulk, u.results] });
+  u.layout = filterLayout({ key: 'zamowienia', panelId: 'ordFilters', panelNodes: [u.filtersInner], defaultOpen: window.innerWidth >= 1500,
+    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info), u.dlg, u.bulk, u.results] });
   u.filters = u.layout.panel;
   S.listBox = el('div', { class: 'ord-list' },
     el('div', { class: 'card' },
@@ -183,9 +192,9 @@ function syncList() {
   if (u.search.value.trim() !== Q.q) u.search.value = Q.q;
   u.from.value = Q.from; u.to.value = Q.to; u.size.value = String(pageSize());
   u.filtersBtn.textContent = filtersLabel(u.layout.isOpen());
-  const fillSel = (sel, items, cur, first) => { sel.replaceChildren(el('option', { value: '' }, first), ...items.map(x => el('option', { value: String(x.id) }, x.name)), ...(cur && !items.some(x => String(x.id) === cur) ? [el('option', { value: cur }, '#' + cur)] : [])); sel.value = cur; sel.classList.toggle('on', !!cur); };
-  fillSel(u.payment, S.meta.payments || [], Q.payment, 'Wszystkie płatności');
-  fillSel(u.deliverySel, S.meta.deliveries || [], Q.delivery, 'Wszystkie dostawy');
+  u.payment.set((S.meta.payments || []).map(x => ({ key: String(x.id), label: x.name })), Q.payment);
+  u.deliverySel.set((S.meta.deliveries || []).map(x => ({ key: String(x.id), label: x.name })), Q.delivery);
+  u.statusMs.set((S.meta.statuses || []).map(x => ({ key: String(x.id), label: x.name, n: countOf(x.id) })), Q.status);
   u.prodLabel.hidden = u.prodClear.hidden = !Q.product; u.prodLabel.textContent = Q.product ? '„' + (Q.pname || 'produkt #' + Q.product) + '”' : '';
   const extra = !!(Q.from || Q.to || Q.payment || Q.delivery || Q.product) || pageSize() !== 50;
   u.filtersBtn.classList.toggle('on', extra);
@@ -238,12 +247,12 @@ async function loadList() {
 }
 
 const COLS = [
-  { label: 'Nr i status', tip: 'Numer zamówienia, data złożenia, status w Selly oraz stan płatności (opłacone / nieopłacone). Kliknij Nr, Data lub Status, aby sortować.', tipHeader: true, sorts: [
+  { key: 'nr', label: 'Nr i status', tip: 'Numer zamówienia, data złożenia, status w Selly oraz stan płatności (opłacone / nieopłacone). Kliknij Nr, Data lub Status, aby sortować.', tipHeader: true, sorts: [
     { label: 'Nr', sort: 'number', tip: 'Sortuj po numerze zamówienia' }, { label: 'Data', sort: 'date', firstDir: 'desc', tip: 'Sortuj po dacie i godzinie złożenia' }, { label: 'Status', sort: 'status', tip: 'Sortuj po statusie zamówienia' }] },
-  { label: 'Klient', tip: 'Nazwisko klienta (z faktury), firma i miasto. Najedź na nazwisko, aby zobaczyć e-mail i telefon. Plakietki: dane z notatki orszaku klienta.', tipHeader: true },
-  { label: 'Zamówione produkty', tip: 'Produkty z zamówienia z ilościami (jak w Selly). Po trzech pozycjach reszta jest zwinięta.', tipHeader: true },
-  { label: 'Wartość', sort: 'total', num: true, tip: 'Wartość zamówienia z dostawą, w złotych; pod spodem koszt dostawy i sposób płatności', tipHeader: true },
-  { label: 'Informacje dodatkowe', tip: 'Komentarz klienta, uwaga do zamówienia i numer przesyłki (jeśli są)', tipHeader: true },
+  { key: 'client', label: 'Klient', tip: 'Nazwisko klienta (z faktury), firma i miasto. Najedź na nazwisko, aby zobaczyć e-mail i telefon. Plakietki: dane z notatki orszaku klienta.', tipHeader: true },
+  { key: 'items', label: 'Zamówione produkty', tip: 'Produkty z zamówienia z ilościami (jak w Selly). Po trzech pozycjach reszta jest zwinięta.', tipHeader: true },
+  { key: 'total', label: 'Wartość', sort: 'total', num: true, tip: 'Wartość zamówienia z dostawą, w złotych; pod spodem koszt dostawy i sposób płatności', tipHeader: true },
+  { key: 'info', label: 'Informacje dodatkowe', tip: 'Komentarz klienta, uwaga do zamówienia i numer przesyłki (jeśli są)', tipHeader: true },
 ];
 
 const parseItems = r => {
@@ -284,11 +293,13 @@ function renderList() {
   const size = d.pageSize || pageSize(), pages = Math.max(1, Math.ceil(d.total / size));
   const synced = d.syncedMs ? new Date(d.syncedMs).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
   u.info.replaceChildren(d.sumTotal != null ? el('span', { class: 'tip', id: 'ordSum', title: 'Suma wartości wszystkich zamówień pasujących do filtrów (nie tylko tej strony), z kosztami dostawy' }, 'Suma na liście: ' + money(d.sumTotal) + ' zł · ') : null, el('span', { class: 'tip', title: 'Lista pochodzi z kopii zamówień, którą panel synchronizuje z Selly co minutę — najświeższe zmiany mogą pojawić się z opóźnieniem do ok. minuty.' }, 'dane z: ' + synced));
+  const cols = COLS.filter(c => u.colMenu.isOn(c.key));
   const head = el('tr', null,
     el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'ordSelAll', 'aria-label': 'Zaznacz wszystkie na tej stronie', title: 'Zaznacz lub odznacz wszystkie zamówienia na tej stronie',
       onchange: ev => { for (const r of d.rows) { if (ev.target.checked) S.sel.set(r.id, r); else S.sel.delete(r.id); } refreshSel(); } })),
-    COLS.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
+    cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
   const body = el('tbody');
+  const cell = (key, td) => (u.colMenu.isOn(key) ? td : null);
   for (const r of d.rows) {
     const nm = fullName(r.firstName, r.lastName), name = nm || r.company || r.email || '—';
     const contact = [r.email, r.phone].filter(Boolean).join('\n');
@@ -299,21 +310,21 @@ function renderList() {
         el('a', { href: '#/zamowienia/' + encodeURIComponent(r.id), class: 'big-id ord-no', title: 'Otwórz zamówienie', onclick: () => { S.listHash = location.hash; } }, r.number || r.id),
         el('div', { class: 'ord-meta nw', title: 'Data i godzina złożenia zamówienia' }, dateStr(r.date)),
         statusPill(r.statusId), paidBadge(r))),
-      el('td', null, el('div', { title: contact || null }, el('div', { class: 'cell-name' }, name), r.company && nm ? el('div', { class: 'cell-sub' }, r.company) : null,
+      cell('client', el('td', null, el('div', { title: contact || null }, el('div', { class: 'cell-name' }, name), r.company && nm ? el('div', { class: 'cell-sub' }, r.company) : null,
         r.city ? el('div', { class: 'cell-sub', title: 'Miasto z danych zamówienia' }, r.city) : null),
-        osaBadges(r, patch => setQ(patch), true, S.meta && S.meta.facets)),
-      el('td', { class: 'ord-prods' }, itemsCell(r)),
+        osaBadges(r, patch => setQ(patch), true, S.meta && S.meta.facets))),
+      cell('items', el('td', { class: 'ord-prods' }, itemsCell(r))),
       el('td', { class: 'n' }, el('div', { class: 'ord-sum nw' }, money(r.total) + ' zł'),
         deliv ? el('div', { class: 'cell-sub', title: 'Sposób i koszt dostawy' }, deliv) : null,
         r.payment ? el('div', { class: 'cell-sub', title: 'Sposób płatności' }, r.payment) : null),
-      el('td', null, el('div', { class: 'ord-info-cell' },
+      cell('info', el('td', null, el('div', { class: 'ord-info-cell' },
         r.comment ? el('div', { class: 'note', title: 'Komentarz klienta: ' + r.comment }, '💬 ' + r.comment) : null,
         r.attention ? el('div', { class: 'note attn', title: 'Uwaga do zamówienia: ' + r.attention }, '⚠ ' + r.attention) : null,
-        r.tracking ? el('div', { class: 'cell-sub', title: 'Numer przesyłki' }, '📦 ' + r.tracking) : null)));
+        r.tracking ? el('div', { class: 'cell-sub', title: 'Numer przesyłki' }, '📦 ' + r.tracking) : null))));
     body.append(tr);
   }
   const filtered = !!(Q.status || Q.q || Q.from || Q.to || Q.payment || Q.delivery || Q.product || osaActive(Q));
-  if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: '6', class: 'empty' },
+  if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length + 1), class: 'empty' },
     filtered ? 'Brak zamówień pasujących do wybranych filtrów.' : 'Brak zamówień.', ' ',
     filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ status: '', q: '', from: '', to: '', ...EXTRA_CLEAR, ...OSA_CLEAR }) }, 'Wyczyść filtry') : null)));
   const pg = pager({ prefix: 'ord', page: Q.page, pages, total: d.total, noun: ['zamówienie', 'zamówienia', 'zamówień'], onPage: p => setQ({ page: p }),

@@ -1,5 +1,5 @@
 // Dane orszaków („OSA”) z notatki klienta: pasek filtrów, oznaczenia (badge) i helpery wspólne dla modułów Zamówienia i Klienci.
-import { el, store } from './ui.js';
+import { el, store, multiSelect } from './ui.js';
 import { postcodeWojewodztwo } from '../lib/noteParser.js';
 
 export const NONE = '__none';
@@ -100,26 +100,11 @@ export function osaDetailPairs(r) {
  */
 export function osaBar(o) {
   const id = n => o.prefix + n;
-  const NODATA = '— bez danych —';
-  const mkSel = (suffix, field, aria, tip) => el('select', { id: id(suffix), class: 'osa-sel', 'aria-label': aria, title: tip, onchange: ev => o.apply({ [field]: ev.target.value }) });
-  const woj = mkSel('Woj', 'woj', 'Województwo', 'Tylko klienci z tego województwa (z notatki klienta). Liczby w nawiasach to liczba klientów.');
-  const kind = mkSel('Kind', 'kind', 'Rodzaj podmiotu', 'Tylko klienci tego rodzaju podmiotu (szkoła, parafia…). Liczby w nawiasach to liczba klientów.');
-  const tag = mkSel('Tag', 'tag', 'Tag', 'Tylko klienci z tym tagiem w notatce (#tag). Liczby w nawiasach to liczba klientów.');
-  const title = el('input', { type: 'text', id: id('Title'), class: 'osa-title', list: id('TitleList'), placeholder: 'Tytuł orszaku…', 'aria-label': 'Tytuł orszaku', autocomplete: 'off',
-    title: 'Tylko klienci z tym tytułem orszaku. Zacznij pisać, aby wyszukać na liście; „— bez danych —” pokazuje klientów bez tytułu.',
-    onchange: () => commitTitle() });
-  const dlist = el('datalist', { id: id('TitleList') });
-  let titleMap = new Map();
-  function commitTitle() {
-    const v = title.value.trim();
-    if (!v) { o.apply({ title: '' }); return; }
-    const k = titleMap.get(v.toLowerCase());
-    if (k) { o.apply({ title: k }); return; }
-    sync(); // nieznany tytuł — wracamy do bieżącej wartości
-    title.setCustomValidity('Wybierz tytuł z podpowiedzi');
-    if (title.reportValidity) title.reportValidity();
-    setTimeout(() => title.setCustomValidity(''), 1500);
-  }
+  const mkMs = (suffix, field, all, short, noun, tip) => multiSelect({ id: id(suffix), all, short, noun, tip, onChange: csv => o.apply({ [field]: csv }) });
+  const woj = mkMs('Woj', 'woj', 'Wszystkie województwa', 'Woj.', 'Województwo', 'Tylko klienci z wybranych województw (z notatki klienta) — można zaznaczyć kilka. Liczby to liczba klientów.');
+  const kind = mkMs('Kind', 'kind', 'Wszystkie podmioty', 'Rodzaj', 'Rodzaj podmiotu', 'Tylko klienci wybranych rodzajów podmiotu (szkoła, parafia…) — można zaznaczyć kilka. Liczby to liczba klientów.');
+  const tag = mkMs('Tag', 'tag', 'Wszystkie tagi', 'Tagi', 'Tag', 'Tylko klienci z którymkolwiek z wybranych tagów w notatce (#tag) — można zaznaczyć kilka. Liczby to liczba klientów.');
+  const title = mkMs('Title', 'title', 'Wszystkie tytuły orszaku', 'Tytuł', 'Tytuł orszaku', 'Tylko klienci z wybranymi tytułami orszaku — można zaznaczyć kilka; wyszukiwarka na liście pomaga znaleźć tytuł. „— bez danych —” pokazuje klientów bez tytułu.');
   const nodata = el('input', { type: 'checkbox', id: id('NoData'), onchange: ev => o.apply({ nodata: ev.target.checked }) });
   const nodataL = el('label', { class: 'osa-chk', id: id('NoDataL') }, nodata, ' pokaż bez danych');
   const lic = el('input', { type: 'checkbox', id: id('Lic'), onchange: ev => o.apply({ lic: ev.target.checked }) });
@@ -135,29 +120,14 @@ export function osaBar(o) {
   // plain: wiersz w zwykłym panelu „Filtry” (Zamówienia) — bez wyróżnionego paska i napisu „★ OSA”
   const star = o.plain ? el('span', { class: 'label tip', title: 'Dane z notatki klienta w sklepie: województwo, rodzaj podmiotu, tytuł orszaku i tagi. Liczby to liczba klientów.' }, 'Orszak') : el('span', { class: 'osa-star tip', title: 'Filtry z notatki klienta w sklepie: województwo, rodzaj podmiotu, tytuł orszaku i tagi. Liczby to liczba klientów.' }, '★ OSA');
   const node = el('div', { class: o.plain ? 'osa-inline' : 'osa-bar', id: id('Bar') },
-    el('div', { class: 'osa-row' }, star, woj, kind, title, dlist, tag, nodataL, licL, clear, viewBtn), view);
+    el('div', { class: 'osa-row' }, star, woj.node, kind.node, title.node, tag.node, nodataL, licL, clear, viewBtn), view);
 
-  function fill(select, firstLabel, items, cur) {
-    const opts = [el('option', { value: '' }, firstLabel), el('option', { value: NONE }, NODATA)];
-    let seen = !cur || cur === NONE;
-    for (const it of items) { if (it.key === cur) seen = true; opts.push(el('option', { value: it.key }, it.label + ' (' + it.n + ')')); }
-    if (!seen) opts.push(el('option', { value: cur }, cur));
-    select.replaceChildren(...opts);
-    select.value = cur || '';
-    select.classList.toggle('on', !!cur);
-  }
   function sync() {
     const Q = o.getQ(), F = o.facets() || {};
-    fill(woj, 'Wszystkie województwa', (F.woj || []).map(x => ({ key: x.key, label: wojLabel(x.key), n: x.n })), Q.woj);
-    fill(kind, 'Wszystkie podmioty', (F.kinds || []).map(x => ({ key: x.key, label: x.label || x.key, n: x.n })), Q.kind);
-    fill(tag, 'Wszystkie tagi', (F.tags || []).map(x => ({ key: x.key, label: '#' + x.key, n: x.n })), Q.tag);
-    titleMap = new Map([[NODATA.toLowerCase(), NONE]]);
-    const keyLabel = new Map();
-    const opts = [el('option', { value: NODATA })];
-    for (const t of F.titles || []) { const l = t.label || t.key; titleMap.set(l.toLowerCase(), t.key); keyLabel.set(t.key, l); opts.push(el('option', { value: l }, l + ' (' + t.n + ')')); }
-    dlist.replaceChildren(...opts);
-    title.value = !Q.title ? '' : Q.title === NONE ? NODATA : (keyLabel.get(Q.title) || Q.title);
-    title.classList.toggle('on', !!Q.title);
+    woj.set((F.woj || []).map(x => ({ key: x.key, label: wojLabel(x.key), n: x.n })), Q.woj);
+    kind.set((F.kinds || []).map(x => ({ key: x.key, label: x.label || x.key, n: x.n })), Q.kind);
+    tag.set((F.tags || []).map(x => ({ key: x.key, label: '#' + x.key, n: x.n })), Q.tag);
+    title.set((F.titles || []).map(x => ({ key: x.key, label: x.label || x.key, n: x.n })), Q.title);
     const filt = !!(Q.woj || Q.kind || Q.title || Q.tag);
     nodata.checked = !!Q.nodata; nodata.disabled = !filt;
     nodataL.title = filt ? 'Oprócz pasujących pokazuje też rekordy, które w wybranym polu nie mają żadnych danych (np. klienci bez województwa w notatce)'

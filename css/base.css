@@ -219,6 +219,7 @@ tbody.subtotal td { font-weight: 700; background: var(--surface-2); }
 .stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .lp { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; border: 1px solid var(--border); color: var(--muted); }
 .lp.yes { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.lp.pk { border: 1px dashed var(--ok); cursor: help; }
 .pill { display: inline-block; min-width: 26px; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; text-align: center; }
 .pill.yes { background: var(--ok-soft); color: var(--ok); }
 .pill.no { color: var(--muted); }
@@ -565,3 +566,80 @@ table.rich th { padding-top: 10px; padding-bottom: 10px; }
 .ord-info-cell { display: grid; gap: 4px; font-size: var(--fs-sm); min-width: 0; }
 .ord-info-cell .note { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .ord-info-cell .attn { color: var(--warn); }
+
+/* ─── Dopracowanie wyglądu (karty, tabele, kafelki) — kolory tylko z tokenów motywu ─── */
+:root {
+  --edge: rgba(255, 255, 255, .6);
+  --zebra: color-mix(in srgb, var(--surface-2) 42%, var(--surface));
+  --shadow-pop: 0 10px 30px -8px rgba(60, 40, 15, .28), 0 2px 6px rgba(60, 40, 15, .1);
+  --shadow-card: inset 0 1px 0 var(--edge), 0 1px 2px rgba(80, 55, 20, .06), 0 6px 18px -10px rgba(80, 55, 20, .18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --edge: rgba(255, 255, 255, .05); --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .4); --shadow-card: inset 0 1px 0 var(--edge), 0 1px 2px rgba(0, 0, 0, .4), 0 10px 24px -14px rgba(0, 0, 0, .7); }
+}
+:root[data-theme="dark"] { --edge: rgba(255, 255, 255, .05); --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .4); --shadow-card: inset 0 1px 0 var(--edge), 0 1px 2px rgba(0, 0, 0, .4), 0 10px 24px -14px rgba(0, 0, 0, .7); }
+::selection { background: var(--accent-soft); color: var(--text); }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+/* Karty i panele: obramowanie, wewnętrzny blask od góry, miękki cień */
+.card, .settingsbar, .opts-box, .view-stack > div > .loading, .view-stack > div > .empty { box-shadow: var(--shadow-card); }
+.card { border-radius: var(--r3); }
+.filter-panel { box-shadow: inset 0 1px 0 var(--edge); }
+.menu-pop, .tb-menu, .ord-pick-list { box-shadow: var(--shadow-pop); }
+.toast-item { border-left: 4px solid var(--accent); box-shadow: var(--shadow-pop); }
+div.empty:not(td) { border: 1px dashed var(--border-strong); border-radius: var(--r2); background: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+div.empty.error { border-color: var(--no); background: var(--no-soft); }
+.page-toolbar .pt-title h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } /* tytuł jest już w nagłówku strony */
+.page-toolbar .pt-title .sub { color: var(--muted); font-size: var(--fs-sm); max-width: 760px; }
+
+/* Przyciski: lekka głębia i reakcja na klik */
+button.primary, a.btn-primary, .zs-add, .btn-link, .btn-primary-link { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 1px 2px rgba(0, 0, 0, .18); }
+button.primary:active:not(:disabled), button.secondary:active:not(:disabled), a.btn-primary:active { transform: translateY(1px); }
+button.secondary { box-shadow: inset 0 1px 0 var(--edge); }
+
+/* Tabele: nagłówek z tłem, paski co drugi wiersz, hover, zaznaczenie, kolumny liczb */
+.table-wrap { background: var(--surface); border-color: var(--border); border-radius: var(--r3); box-shadow: var(--shadow-card); }
+th { background: var(--surface-2); border-bottom: 2px solid var(--border-strong); box-shadow: 0 1px 0 var(--edge) inset; }
+td { border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent); }
+tbody:not(.subtotal) tr:nth-child(even) > td { background: var(--zebra); }
+tbody:not(.subtotal) tr:hover > td { background: var(--hover); }
+tbody:not(.subtotal) tr.sel > td, table.rich tbody:not(.subtotal) tr.sel > td { background: var(--accent-soft); }
+tbody tr.pick:hover > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+tbody tr { transition: none; } tbody tr > td { transition: background-color .1s; }
+td.n, th.n, td.num { font-variant-numeric: tabular-nums; }
+th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--accent-strong); box-shadow: inset 0 -2px 0 var(--accent); }
+th[aria-sort] button { transition: color .12s; }
+tfoot td { background: var(--surface-2); }
+.table-wrap > table:not(.rich) td, table:not(.rich) td { padding-top: 8px; padding-bottom: 8px; }
+.empty td, td.empty { background: transparent !important; }
+
+/* Kafelki z liczbami (zakładki wyników): etykieta nad liczbą, akcent z lewej */
+.tabs { gap: var(--s3); }
+.tab { position: relative; display: flex; flex-direction: column; overflow: hidden; padding: var(--s3) var(--s4) var(--s3) calc(var(--s4) + 3px); border-radius: var(--r3); box-shadow: var(--shadow-card); }
+.tab::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--border-strong); transition: background-color .12s; }
+.tab span { order: -1; margin: 0 0 4px; font-size: var(--fs-sm); font-weight: 600; line-height: 1.3; }
+.tab b { font-size: var(--fs-kpi); font-weight: 700; }
+.tab:hover { border-color: var(--border-strong); }
+.tab:hover::before, .tab[aria-pressed=true]::before { background: var(--accent); }
+.tab.static { box-shadow: none; }
+.tab.static::before { background: var(--border); }
+@media (max-width: 640px) { .tab span { font-size: var(--fs-xs); } .tab { padding: var(--s2) var(--s3) var(--s2) calc(var(--s3) + 3px); } }
+.chip { box-shadow: inset 0 1px 0 var(--edge); }
+.seg, .year, .viewnav { box-shadow: inset 0 1px 0 var(--edge); }
+
+/* Lista wielokrotnego wyboru (województwa, statusy, płatności…) */
+.ms { display: inline-flex; max-width: 100%; position: relative; }
+.ms-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: var(--s2); min-width: 190px; max-width: 100%; min-height: 36px; padding: 6px 10px; text-align: left; cursor: pointer;
+  font: inherit; font-size: var(--fs-sm); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r2); }
+.ms-btn:hover { background: var(--hover); }
+.ms-btn.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.ms-btn .ms-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-btn .caret { font-size: .8em; color: var(--muted); }
+.ms-pop { left: 0; right: auto; min-width: 260px; display: grid; gap: var(--s1); }
+.ms-pop .ms-search { width: 100%; min-height: 32px; padding: 4px 10px; }
+.ms-tools { display: flex; justify-content: space-between; padding: 0 var(--s2); }
+.ms-list { max-height: 280px; overflow: auto; display: grid; align-content: start; }
+.ms-list .menu-check { align-items: center; padding: 5px 10px; font-size: var(--fs-sm); }
+.ms-list .menu-check input { margin: 0; }
+.filter-panel .ms, .filter-panel .ms-btn { width: 100%; }
+.filter-panel .ms-pop { min-width: 100%; }

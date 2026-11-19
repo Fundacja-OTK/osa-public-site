@@ -14,6 +14,12 @@ export function pageError(msg) {
   $('pageErrors').append(d);
 }
 
+// Zabezpieczenie: null / undefined / false przekazane do replaceChildren, append i prepend nie mogą wyciec na stronę jako tekst „null”
+for (const m of ['replaceChildren', 'append', 'prepend']) {
+  const orig = Element.prototype[m];
+  Element.prototype[m] = function (...nodes) { return orig.apply(this, nodes.filter(n => n != null && n !== false)); };
+}
+
 export function el(tag, attrs, ...children) {
   const e = document.createElement(tag);
   if (attrs) for (const k in attrs) {
@@ -380,7 +386,7 @@ export const money = v => (v == null || v === '' || isNaN(Number(v)) ? '—' : N
 export const dateStr = d => (d ? String(d).replace('T', ' ').slice(0, 16) : '');
 export const fullName = (a, b) => [a, b].filter(Boolean).join(' ').trim();
 export const cnt = (n, one, few, many) => n + ' ' + plural(n, one, few, many);
-export const isUnavailable = e => e && (e.code === 501 || /nieznana akcja|unknown action/i.test(e.message || ''));
+export const isUnavailable = e => e && (e.code === 501 || e.code === 'd1_unavailable' || /nieznana akcja|unknown action/i.test(e.message || ''));
 export const syncedLabel = ms => (ms ? new Date(ms).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
 export function loadingBox(text) {
@@ -431,6 +437,99 @@ export function pager(o) {
 }
 
 // ─── Wspólne klocki widoków list (Produkty, Zamówienia): pasek tytułu, panel filtrów, wiersze rozbudowane ──
+
+/**
+ * Menu „Kolumny ▾” z polami wyboru (zostaje otwarte przy przełączaniu); wybór pamiętany w localStorage (`storeKey`).
+ * o: { id, storeKey, cols: [{ key, label, tip, def?: bool, locked?: bool }], onChange() }. Zwraca { node, isOn(key) }.
+ */
+export function columnMenu(o) {
+  const saved = store(o.storeKey) || {};
+  const isOn = key => { const c = o.cols.find(x => x.key === key); return !c || c.locked || (saved[key] != null ? !!saved[key] : c.def !== false); };
+  const btn = el('button', { type: 'button', class: 'secondary', id: o.id, 'aria-haspopup': 'true', 'aria-expanded': 'false',
+    title: 'Wybierz, które kolumny tabeli są widoczne. Wybór jest zapamiętywany w tej przeglądarce.' }, 'Kolumny', el('span', { class: 'caret', 'aria-hidden': 'true' }, '▾'));
+  const pop = el('div', { class: 'menu-pop wide', id: o.id + 'Pop', hidden: true }, o.cols.map(c => {
+    const cb = el('input', { type: 'checkbox', checked: isOn(c.key), disabled: !!c.locked, 'data-col': c.key,
+      onchange: () => { saved[c.key] = cb.checked; store(o.storeKey, saved); o.onChange(); } });
+    return el('label', { class: 'menu-check' + (c.locked ? ' dis' : ''), title: c.locked ? 'Ta kolumna jest zawsze widoczna' : c.tip || null }, cb, el('span', null, c.label));
+  }));
+  const node = el('span', { class: 'menu' }, btn, pop);
+  const onDoc = ev => { if (!node.contains(ev.target)) close(); };
+  function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); }
+  btn.addEventListener('click', () => {
+    if (!pop.hidden) { close(); return; }
+    pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); document.addEventListener('mousedown', onDoc, true);
+  });
+  node.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !pop.hidden) { ev.stopPropagation(); close(); btn.focus(); } });
+  return { node, isOn };
+}
+
+/**
+ * Lista wielokrotnego wyboru w rozwijanym okienku: pola wyboru, wyszukiwarka (dla długich list), „Zaznacz wszystkie / Wyczyść”,
+ * podsumowanie na przycisku („Woj.: mazowieckie +2”). Wartość to klucze oddzielone przecinkami (jak w adresie strony).
+ * o: { id, all: 'Wszystkie województwa', short: 'Woj.', noun, tip, none?: 'bez danych', onChange(csv) }.
+ * Zwraca { node, btn, set(options: [{ key, label, n? }], csv) }; `btn.value` = bieżące klucze (csv).
+ */
+export function multiSelect(o) {
+  let opts = [], sel = new Set(), sig = '', timer = 0;
+  const NONE = '__none';
+  const btn = el('button', { type: 'button', id: o.id, class: 'osa-sel ms-btn', 'aria-haspopup': 'true', 'aria-expanded': 'false', title: o.tip || null });
+  const search = el('input', { type: 'search', class: 'ms-search', placeholder: 'Szukaj…', 'aria-label': 'Szukaj na liście: ' + (o.noun || o.all), oninput: () => filter() });
+  const list = el('div', { class: 'ms-list', role: 'group', 'aria-label': o.noun || o.all });
+  const allBtn = el('button', { type: 'button', class: 'link small', title: 'Zaznacza wszystkie pozycje widoczne na liście (po wyszukaniu — tylko pasujące)', onclick: () => { for (const k of visibleKeys()) sel.add(k); commit(); } }, 'Zaznacz wszystkie');
+  const clearBtn = el('button', { type: 'button', class: 'link small', title: 'Odznacza wszystko — filtr przestaje działać', onclick: () => { sel.clear(); commit(); } }, 'Wyczyść');
+  const pop = el('div', { class: 'menu-pop wide ms-pop', hidden: true }, search, el('div', { class: 'ms-tools' }, allBtn, clearBtn), list);
+  const node = el('span', { class: 'menu ms' }, btn, pop);
+  const rows = new Map();
+  const visibleKeys = () => [...rows].filter(([, r]) => !r.hidden).map(([k]) => k);
+  const labelOf = k => k === NONE ? '— ' + (o.none || 'bez danych') + ' —' : (opts.find(x => x.key === k) || { label: k }).label;
+  function paint() {
+    const keys = [...sel];
+    btn.value = keys.join(',');
+    btn.textContent = '';
+    btn.classList.toggle('on', keys.length > 0);
+    const txt = !keys.length ? o.all : keys.length === 1 ? labelOf(keys[0]) : (o.short || o.noun || '') + ': ' + labelOf(keys[0]) + ' +' + (keys.length - 1);
+    btn.append(el('span', { class: 'ms-txt' }, txt), el('span', { class: 'caret', 'aria-hidden': 'true' }, '▾'));
+    btn.title = (o.tip || '') + (keys.length ? '\n\nWybrane: ' + keys.map(labelOf).join(', ') : '');
+    for (const [k, r] of rows) r.cb.checked = sel.has(k);
+  }
+  function commit() { paint(); clearTimeout(timer); timer = setTimeout(() => o.onChange([...sel].join(',')), 250); }
+  function filter() {
+    const q = search.value.trim().toLowerCase();
+    for (const [, r] of rows) { r.hidden = !!q && !r.text.includes(q); r.node.hidden = r.hidden; }
+  }
+  function build() {
+    rows.clear();
+    const all = o.none === false ? opts : [{ key: NONE, label: '— ' + (o.none || 'bez danych') + ' —' }, ...opts];
+    list.replaceChildren(...all.map(x => {
+      const cb = el('input', { type: 'checkbox', 'data-key': x.key, onchange: () => { if (cb.checked) sel.add(x.key); else sel.delete(x.key); commit(); } });
+      const node = el('label', { class: 'menu-check' }, cb, el('span', null, x.label), x.n == null ? null : el('span', { class: 'menu-count' }, String(x.n)));
+      rows.set(x.key, { cb, node, text: String(x.label).toLowerCase(), hidden: false });
+      return node;
+    }));
+    search.hidden = all.length <= 8;
+    filter();
+  }
+  const onDoc = ev => { if (!node.contains(ev.target)) close(); };
+  function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); }
+  btn.addEventListener('click', () => {
+    if (!pop.hidden) { close(); return; }
+    pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); document.addEventListener('mousedown', onDoc, true);
+    if (!search.hidden) search.focus();
+  });
+  node.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !pop.hidden) { ev.stopPropagation(); close(); btn.focus(); } });
+  paint();
+  return {
+    node, btn,
+    set(options, csv) {
+      opts = options;
+      sel = new Set(String(csv || '').split(',').filter(Boolean));
+      for (const k of sel) if (k !== NONE && !opts.some(x => x.key === k)) opts = [...opts, { key: k, label: k }];
+      const s2 = opts.map(x => x.key + '|' + x.label + '|' + x.n).join('|');
+      if (s2 !== sig || !rows.size) { sig = s2; build(); }
+      paint();
+    },
+  };
+}
 
 /** Pasek strony: tytuł + opis po lewej, akcje po prawej (główna — ostatnia). */
 export function pageToolbar({ title, sub, actions }) {

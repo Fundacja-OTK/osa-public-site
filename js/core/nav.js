@@ -131,6 +131,8 @@ export const SECTIONS = [
   ] },
   { id: 'konto', title: 'Konto', icon: 'user', items: [
     { id: 'uzytkownicy', title: 'Dostęp do panelu OSA', kind: 'osa', admin: true, tip: 'Kto może logować się do panelu OSA (tylko administrator)' },
+    { id: 'selly-zmiany', title: 'Zmiany w Selly', kind: 'osa', admin: true, tip: 'Co zmieniło się w panelu Selly po jego aktualizacjach (wykrywa rozszerzenie; tylko administrator)' },
+    { id: 'zgloszenia-osa', title: 'Zgłoszenia z panelu', kind: 'osa', admin: true, tip: 'Uwagi i błędy zgłoszone przyciskiem „Zgłoś” w panelu OSA oraz błędy z przeglądarek (tylko administrator)' },
     '-',
     { id: 'zgloszenia', title: 'Zgłoszenia', a: 'support', kind: 'selly' },
     { id: 'platnosci', title: 'Płatności', a: 'billing', kind: 'selly' },

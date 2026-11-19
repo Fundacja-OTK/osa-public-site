@@ -4,6 +4,7 @@
 // Błędy aplikacyjne (ok:false z kodem, np. 401/403) NIE przełączają backendu.
 // Bez zależności od przeglądarki — fetch, storage i zegar można wstrzyknąć (testy w node).
 
+export const D1_UNAVAILABLE = 'd1_unavailable';
 export const DOWN_KEY = 'osa-be-down';
 export const DOWN_MS = 5 * 60 * 1000;
 
@@ -28,7 +29,8 @@ function memoryStorage() {
 }
 
 /**
- * @param {{ config, getToken: (force:boolean)=>Promise<string>, fetchImpl?, storage?, now?: ()=>number }} o
+ * @param {{ config, getToken: (force:boolean)=>Promise<string>, fetchImpl?, storage?, now?: ()=>number, onFailure?: (f:{action,backend,message,code?})=>void }} o
+ *   onFailure — raport nieudanego wywołania (sieć, HTTP 5xx, zła odpowiedź, ok:false z kodem ≥ 500 poza 501); błędy 4xx i 501 to nie awarie
  * @returns {{ api: (action, params?, retried?) => Promise<any>, apiInfo: () => object|null, onInfo: (cb) => void }}
  */
 export function createApi(o) {
@@ -63,27 +65,34 @@ export function createApi(o) {
     return up.concat(down);
   };
 
+  const failed = (b, action, message, code) => { try { if (o.onFailure) o.onFailure({ action, backend: backendLabel(b), message, code }); } catch (e) { /* raport nie psuje zapytania */ } };
+
   async function api(action, params, retried) {
     if (!backends.length || !config.clientId) throw new Error(MSG_NOT_CONFIGURED);
     const idToken = await o.getToken(!!retried);
-    let lastErr = new Error(MSG_NETWORK);
+    let lastErr = new Error(MSG_NETWORK), d1Down = false;
     for (const b of candidates()) {
       let res, body;
       try {
         // Treść jako tekst — bez nagłówków własnych, więc bez zapytania CORS preflight
         res = await fetchImpl(b.url, { method: 'POST', body: JSON.stringify({ idToken, action, params }) });
-      } catch (e) { markDown(b.url); lastErr = new Error(MSG_NETWORK); continue; }
-      if (res.status >= 500) { markDown(b.url); lastErr = new Error(MSG_BAD_REPLY); continue; }
-      try { body = await res.json(); } catch (e) { markDown(b.url); lastErr = new Error(MSG_BAD_REPLY); continue; }
-      if (!body || typeof body !== 'object') { markDown(b.url); lastErr = new Error(MSG_BAD_REPLY); continue; }
+      } catch (e) { markDown(b.url); failed(b, action, 'brak połączenia'); lastErr = new Error(MSG_NETWORK); continue; }
+      if (res.status >= 500) { markDown(b.url); failed(b, action, 'HTTP ' + res.status, res.status); lastErr = new Error(MSG_BAD_REPLY); continue; }
+      try { body = await res.json(); } catch (e) { markDown(b.url); failed(b, action, 'odpowiedź nie jest JSON-em'); lastErr = new Error(MSG_BAD_REPLY); continue; }
+      if (!body || typeof body !== 'object') { markDown(b.url); failed(b, action, 'nieoczekiwana odpowiedź'); lastErr = new Error(MSG_BAD_REPLY); continue; }
       markUp(b.url);
-      info = { url: b.url, kind: b.kind, label: backendLabel(b), fallback: b.url !== backends[0].url, at: now() };
+      info = { url: b.url, kind: b.kind, label: backendLabel(b), fallback: b.url !== backends[0].url, at: now(),
+        // baza panelu (D1) niedostępna: inny backend odpowiada za główny albo odpowiedź idzie z Selly na żywo / z kopii
+        degraded: d1Down || !!(body.ok && body.data && body.data.degraded) };
       listeners.forEach(f => { try { f(info); } catch (e) { /* słuchacz nie psuje zapytania */ } });
       if (!body.ok) {
         if (body.code === 401 && !retried) return api(action, params, true);
         // 501 = ten backend nie zna (jeszcze) tej akcji — moduły przenoszone na Cloudflare pojedynczo;
         // próbujemy następnego backendu, bez oznaczania tego jako niezdrowy
         if (body.code === 501) { lastErr = Object.assign(new Error(body.error), { code: 501 }); continue; }
+        // d1_unavailable = baza panelu chwilowo niedostępna (np. dzienny limit Cloudflare D1) — jak 501: próbujemy zapasowego backendu
+        if (body.code === D1_UNAVAILABLE) { d1Down = true; info.degraded = true; listeners.forEach(f => { try { f(info); } catch (e) { /* ok */ } }); lastErr = Object.assign(new Error(body.error), { code: D1_UNAVAILABLE }); continue; }
+        if (body.code >= 500) failed(b, action, String(body.error || 'błąd serwera').slice(0, 150), body.code);
         const err = new Error(body.error);
         err.code = body.code;
         throw err;

@@ -49,6 +49,8 @@ function containerFor(mod) {
 // Strażnik wyjścia (np. niezapisane zmiany w karcie): zwraca komunikat → potwierdzenie; „Anuluj” przywraca poprzedni adres
 let leaveGuard = null, lastHash = null;
 export function setLeaveGuard(fn) { leaveGuard = fn; }
+/** Komunikat strażnika dla bieżącego adresu (np. niezapisane zmiany) albo null — dla odświeżenia strony poza routerem. */
+export function leaveMessage() { return leaveGuard ? leaveGuard(location.hash) : null; }
 
 let resolveSeq = 0;
 async function resolve() {

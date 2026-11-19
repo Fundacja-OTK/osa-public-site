@@ -1,0 +1,23 @@
+/* Zgłoszenia z panelu: okno „Zgłoś”, pasek nowej wersji, ekran administratora. */
+.fb-overlay { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: var(--s4); background: rgba(20, 14, 8, .45); }
+.fb-dialog { width: min(560px, 100%); max-height: calc(100vh - 2 * var(--s4)); overflow: auto; margin-top: 0; }
+.fb-body { display: grid; gap: var(--s3); margin: var(--s3) 0; }
+.fb-body textarea { width: 100%; min-height: 120px; resize: vertical; font: inherit; padding: var(--s2) var(--s3); border: 1px solid var(--border-strong); border-radius: var(--r2); background: var(--surface); color: var(--text); }
+.fb-check { display: inline-flex; align-items: center; gap: var(--s2); }
+.fb-details summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
+.fb-preview { margin: var(--s2) 0 0; padding: var(--s2) var(--s3); background: var(--surface-2); border-radius: var(--r2); font-size: var(--fs-xs); white-space: pre-wrap; max-height: 160px; overflow: auto; }
+.fb-status .notice { margin-top: 0; }
+.fb-status .ord-actions { margin-top: var(--s2); }
+.notice.ok { background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok-soft); }
+.fb-path { display: block; margin-top: 4px; font-size: var(--fs-xs); opacity: .85; }
+@media (max-width: 700px) { .tb-fb-text { display: none; } }
+
+.newver { position: fixed; left: 50%; bottom: var(--s4); transform: translateX(-50%); z-index: 150; display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap;
+  padding: var(--s2) var(--s3); background: var(--surface); color: var(--text); border: 1px solid var(--accent); border-radius: var(--r2); box-shadow: 0 8px 28px rgba(0, 0, 0, .22); max-width: calc(100vw - 2 * var(--s4)); }
+
+.fbk-item { display: grid; gap: var(--s2); padding: var(--s3) 0; border-top: 1px solid var(--border); }
+.fbk-item:first-child { border-top: 0; }
+.fbk-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: var(--fs-sm); color: var(--muted); }
+.fbk-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.fbk-item.closed .fbk-text { color: var(--muted); }
+.fbk-health { display: grid; gap: var(--s1); }

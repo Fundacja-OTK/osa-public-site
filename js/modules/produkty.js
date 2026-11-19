@@ -1,6 +1,6 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, thumb, rowActions } from '../core/ui.js';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js';
 import { api, ctx } from '../core/client.js';
 import { go } from '../core/router.js';
 
@@ -133,6 +133,11 @@ function buildList() {
     title: 'Pokaż lub ukryj panel filtrów po lewej (kategoria, producent, magazyn, widoczność, próg niskiego stanu). Wybór jest zapamiętywany.', onclick: () => { L.setOpen(!L.isOpen()); syncFiltersBtn(); } });
   u.clear = el('button', { type: 'button', class: 'ghost', id: 'prodClear', title: 'Usuń wyszukiwanie i wszystkie filtry', onclick: () => setQ({ ...CLEAR }) }, 'Wyczyść filtry');
   u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Które produkty pokazać' });
+  u.colMenu = columnMenu({ id: 'prodColsBtn', storeKey: 'osa-prod-cols', onChange: () => { if (S.data) renderList(); },
+    cols: [
+      { key: 'prod', label: 'Produkt', locked: true }, { key: 'price', label: 'Ceny i magazyn', locked: true },
+      { key: 'opts', label: 'Opcje', tip: 'Widoczność produktu w sklepie (pole do zmiany w tabeli)' },
+      { key: 'act', label: 'Działanie', tip: 'Skróty: szczegóły, podgląd w sklepie, zamówienia produktu, Selly' }] });
   u.exportBtn = menuButton({ id: 'prodExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz cały wynik filtra do pliku Excel lub CSV', items: () => {
     const tot = Math.min(S.data ? S.data.total : 0, EXPORT_MAX);
     const tip = 'Wszystkie produkty pasujące do bieżących filtrów, nie tylko ta strona';
@@ -153,7 +158,7 @@ function buildList() {
     filterSection('Niski stan', field('Niski stan: do (szt.)', u.low, 'Segment „Niski stan” pokazuje produkty, których stan w Selly jest większy od 0 i nie większy niż ta wartość'), { fold: true, tip: 'Ustawienia zaawansowane' }),
     u.clear];
   const L = filterLayout({ key: 'produkty', panelId: 'prodFilters', panelNodes,
-    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.exportBtn, el('span', { class: 'spacer' }), u.info), u.notice, u.results, u.bar.node] });
+    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info), u.notice, u.results, u.bar.node] });
   u.layout = L;
   const syncFiltersBtn = () => { const n = ['cat', 'prd', 'wh', 'vis', 'zdj'].filter(k => S.Q && S.Q[k]).length; u.filtersBtn.setAttribute('aria-expanded', String(L.isOpen())); u.filtersBtn.textContent = 'Filtry' + (n ? ' (' + n + ')' : '') + (L.isOpen() ? ' ◂' : ' ▸'); u.filtersBtn.classList.toggle('on', n > 0); };
   u.syncFiltersBtn = syncFiltersBtn;
@@ -224,18 +229,19 @@ function renderList() {
   u.info.replaceChildren(el('span', { class: 'tip', title: 'Lista pochodzi z kopii produktów synchronizowanej z Selly w tle — najświeższe zmiany mogą pojawić się z opóźnieniem.' }, 'dane z: ' + syncedLabel(d.syncedMs)));
   u.notice.replaceChildren(d.loading ? el('div', { class: 'notice warn', id: 'prodLoading', role: 'status' }, 'Trwa pierwsze pobieranie produktów ze sklepu — lista może być niepełna. Odśwież stronę za chwilę.') : null);
   const COLS = [
-    { label: 'Produkt', tip: 'ID, zdjęcie, nazwa (do poprawienia w tabeli), kod, symbol i EAN produktu', tipHeader: true, sorts: [
+    { key: 'prod', label: 'Produkt', tip: 'ID, zdjęcie, nazwa (do poprawienia w tabeli), kod, symbol i EAN produktu', tipHeader: true, sorts: [
       { label: 'Nazwa', sort: 'name', tip: 'Sortuj po nazwie produktu' }, { label: 'ID', sort: 'id', num: true, tip: 'Sortuj po numerze ID produktu' }, { label: 'Kod', sort: 'code', tip: 'Sortuj po kodzie producenta' }] },
-    { label: 'Ceny i magazyn', tip: 'Cena brutto (do poprawienia w tabeli), cena poprzednia oraz stan wg Selly (suma ze wszystkich magazynów). Czerwony stan: brak; żółty: niski (do ' + Q.low + ' szt.).', tipHeader: true, sorts: [
+    { key: 'price', label: 'Ceny i magazyn', tip: 'Cena brutto (do poprawienia w tabeli), cena poprzednia oraz stan wg Selly (suma ze wszystkich magazynów). Czerwony stan: brak; żółty: niski (do ' + Q.low + ' szt.).', tipHeader: true, sorts: [
       { label: 'Cena', sort: 'price', num: true, tip: 'Sortuj po cenie brutto w złotych' }, { label: 'Stan', sort: 'qty', num: true, tip: 'Sortuj po stanie wg Selly' }] },
-    { label: 'Opcje', tip: 'Widoczność produktu w sklepie (do zmiany w tabeli). Pozostałe opcje z Selly (hit dnia, promocje, porównywarki) zmienisz w panelu Selly — API sklepu ich nie udostępnia.', tipHeader: true },
-    { label: 'Działanie', tip: 'Skróty: szczegóły produktu, podgląd w sklepie, zamówienia z tym produktem, otwarcie w Selly', tipHeader: true },
+    { key: 'opts', label: 'Opcje', tip: 'Widoczność produktu w sklepie (do zmiany w tabeli). Pozostałe opcje z Selly (hit dnia, promocje, porównywarki) zmienisz w panelu Selly — API sklepu ich nie udostępnia.', tipHeader: true },
+    { key: 'act', label: 'Działanie', tip: 'Skróty: szczegóły produktu, podgląd w sklepie, zamówienia z tym produktem, otwarcie w Selly', tipHeader: true },
   ];
-  const head = el('tr', null, COLS.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
+  const cols = COLS.filter(c => u.colMenu.isOn(c.key));
+  const head = el('tr', null, cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
   const body = el('tbody');
   for (const r of d.rows) body.append(productRow(r));
   const filtered = FILTER_KEYS.some(k => Q[k]);
-  if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(COLS.length), class: 'empty' },
+  if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length), class: 'empty' },
     filtered ? 'Brak produktów pasujących do wybranych filtrów.' : 'Brak produktów.', ' ',
     filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ ...CLEAR }) }, 'Wyczyść filtry') : null)));
   u.results.replaceChildren(S.err ? el('div', { class: 'notice error' }, S.err) : null,
@@ -246,6 +252,7 @@ function renderList() {
 }
 
 function productRow(r) {
+  const cell = (key, td) => (S.ui.colMenu.isOn(key) ? td : null);
   const Q = S.Q, qty = Number(r.qty), stCls = qty <= 0 ? 'stk-zero' : qty <= Q.low ? 'stk-low' : '';
   const label = (r.name || ('Produkt ' + r.id)).slice(0, 40);
   const inName = inlineInput({ value: r.name || '', cls: 'name', label: 'Nazwa produktu ' + r.id, tip: 'Nazwa produktu w sklepie — popraw i zapisz paskiem na dole', onChange: refreshDirty, attrs: { maxlength: '500', 'data-f': 'name' } });
@@ -271,14 +278,14 @@ function productRow(r) {
       Number(r.prevPrice) ? el('div', { class: 'pb-row', title: 'Cena przed obniżką (tylko do odczytu — zmienisz ją w panelu Selly)' }, el('span', { class: 'tip' }, 'Poprzednia'), el('span', { class: 'v' }, money(r.prevPrice))) : null,
       el('div', { class: 'pb-row', title: 'Stan wg Selly (suma ze wszystkich magazynów). Stan w poszczególnych magazynach zmienisz w szczegółach produktu.' }, el('span', { class: 'tip' }, 'Stan'),
         el('span', { class: 'v ' + stCls }, num(r.qty) + ' szt.')))),
-    el('td', null, el('div', { class: 'opt-list' },
+    cell('opts', el('td', null, el('div', { class: 'opt-list' },
       el('label', { title: 'Czy produkt jest widoczny dla klientów w sklepie' }, inVis, 'wyświetlany'),
-      Number(r.visible) ? null : el('span', { class: 'tag bad', title: 'Produkt jest ukryty w sklepie' }, 'ukryty'))),
-    el('td', null, rowActions([
+      Number(r.visible) ? null : el('span', { class: 'tag bad', title: 'Produkt jest ukryty w sklepie' }, 'ukryty')))),
+    cell('act', el('td', null, rowActions([
       { label: 'edytuj produkt', href: detailHref, icon: '✎', tip: 'Szczegóły produktu: stany w magazynach, warianty, ruchy magazynowe', onclick: () => openProduct(r.id) },
       /^https?:\/\//i.test(r.uri || '') ? { label: 'podgląd', href: r.uri, icon: '👁', ext: true, tip: 'Strona produktu w sklepie (nowa karta)' } : null,
       { label: ['zamówienia produktu ', el('span', { class: 'muted' }, '(' + (r.ordersCount || 0) + ')')], href: '#/zamowienia?product=' + encodeURIComponent(r.id) + '&pname=' + encodeURIComponent(r.name || ''), icon: '🧾', tip: 'Zamówienia zawierające ten produkt: ' + (r.ordersCount || 0) },
-      { label: 'w panelu Selly', href: sellyProductUrl(r.id), icon: '↗', ext: true, tip: 'Otwiera produkt w panelu Selly (tam: hit dnia, promocje, porównywarki, Allegro, usuwanie)' }])));
+      { label: 'w panelu Selly', href: sellyProductUrl(r.id), icon: '↗', ext: true, tip: 'Otwiera produkt w panelu Selly (tam: hit dnia, promocje, porównywarki, Allegro, usuwanie)' }]))));
   S.edits.set(r.id, {
     id: r.id, tr, label,
     fields: () => [inName.isDirty() && 'name', inPrice.isDirty() && 'price', inVis.checked !== visOrig && 'visible'].filter(Boolean),
