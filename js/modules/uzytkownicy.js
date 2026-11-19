@@ -1,6 +1,6 @@
 // Moduł „Użytkownicy” (tylko administrator): lista dostępu do panelu OSA (akcje users:list, users:save).
-import { el, flash, loadingBox, isUnavailable, dateStr, field } from '../core/ui.js?v=0ec2249';
-import { api, ctx } from '../core/client.js?v=0ec2249';
+import { el, flash, loadingBox, isUnavailable, dateStr, field } from '../core/ui.js?v=5ee428c';
+import { api, ctx } from '../core/client.js?v=5ee428c';
 
 const MSG_UNAVAILABLE = 'Moduł Użytkownicy wymaga backendu Cloudflare — chwilowo niedostępny.';
 const OWNER_TIP = 'Właściciel panelu ma dostęp zawsze — niezależnie od tej listy. Odebranie sobie roli administratora nie odetnie właściciela, ale inne konto straci uprawnienia.';

@@ -1,18 +1,18 @@
 // Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu sekcji z wysuwanymi listami
 // (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K), okruszki i tytuł strony, logowanie/start, stopka.
-import { $, el, store, pageError } from './ui.js?v=0ec2249';
-import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=0ec2249';
-import { signOut, freshToken, hasToken, tokenEmail } from './auth.js?v=0ec2249';
-import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=0ec2249';
-import { initErrorReporting } from './errors.js?v=0ec2249';
-import { setReporter } from './errorHook.js?v=0ec2249';
-import { initFeedback } from './feedback.js?v=0ec2249';
-import { watchVersion, showNewVersion } from './update.js?v=0ec2249';
-import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=0ec2249';
-import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=0ec2249';
-import { initPalette, openPalette } from './palette.js?v=0ec2249';
-import { installShortcuts, shortcuts } from './shortcuts.js?v=0ec2249';
-import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=0ec2249';
+import { $, el, store, pageError } from './ui.js?v=5ee428c';
+import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=5ee428c';
+import { signOut, freshToken, hasToken, tokenEmail } from './auth.js?v=5ee428c';
+import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=5ee428c';
+import { initErrorReporting } from './errors.js?v=5ee428c';
+import { setReporter } from './errorHook.js?v=5ee428c';
+import { initFeedback } from './feedback.js?v=5ee428c';
+import { watchVersion, showNewVersion } from './update.js?v=5ee428c';
+import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=5ee428c';
+import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=5ee428c';
+import { initPalette, openPalette } from './palette.js?v=5ee428c';
+import { installShortcuts, shortcuts } from './shortcuts.js?v=5ee428c';
+import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=5ee428c';
 
 const ROUTE_KEY = 'osa-route';
 const RECORD_MODS = new Set(['zamowienia', 'klienci', 'produkty']);   // karta rekordu zapisuje się sama (z nazwą)
@@ -24,10 +24,12 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
 
 /** Moduły ładowane przy pierwszym wejściu (nowe ekrany; brak pliku → strona „w planie”). */
 const LAZY = {
-  pulpit: () => import('../modules/pulpit.js?v=0ec2249'),
-  przesylki: () => import('../modules/przesylki.js?v=0ec2249'),
-  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=0ec2249'),
-  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=0ec2249'),
+  pulpit: () => import('../modules/pulpit.js?v=5ee428c'),
+  przesylki: () => import('../modules/przesylki.js?v=5ee428c'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=5ee428c'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=5ee428c'),
+  raporty: () => import('../modules/raporty.js?v=5ee428c'),
+  'zmiana-cen': () => import('../modules/masowe.js?v=5ee428c'), 'zmiana-danych': () => import('../modules/masowe.js?v=5ee428c').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=5ee428c').then(m => ({ default: m.modes.kat })),
 };
 
 // ─── Błędy strony ───────────────────────────────────────────────────────────
@@ -240,7 +242,7 @@ export function startShell(modules) {
   for (const m of modules) register(m);
   for (const [id, load] of Object.entries(LAZY)) if (!getModule(id)) register({ id, title: (itemById(id) || {}).title || '', load: () => load().then(m => m.default) });
   // Ekrany uniwersalne (lista → karta → formularz ze specyfikacji API): kind 'resource'
-  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=0ec2249').then(m => m.createResource(i.id)) });
+  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=5ee428c').then(m => m.createResource(i.id)) });
   // Pozycje bez własnego ekranu: strona „w planie / tylko w Selly” z linkiem
   for (const i of ITEMS) if (!getModule(i.id)) register(createPlaceholder({ id: i.id, title: i.title, sellyQuery: i.a ? '?a=' + i.a : '', adminUrl, kind: i.kind, tip: i.tip }));
   $('signOut').addEventListener('click', signOut);

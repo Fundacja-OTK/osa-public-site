@@ -1,7 +1,7 @@
 // Moduł-zaślepka dla pozycji menu bez ekranu OSA: „w planie” (Selly ma API) albo „tylko w Selly”.
 // Z rozszerzeniem OSA ekran Selly otwiera się w iframe w układzie panelu (docs/selly-embed.md); bez — link do Selly.
-import { el } from '../core/ui.js?v=0ec2249';
-import { hasExtension } from '../core/extBridge.js?v=0ec2249';
+import { el } from '../core/ui.js?v=5ee428c';
+import { hasExtension } from '../core/extBridge.js?v=5ee428c';
 
 export const SELLY_ADMIN = 'https://takimarket.pl/adm/';
 export const BUILDING_TIP = 'W budowie — na razie użyj panelu Selly';
@@ -24,26 +24,46 @@ function currentTheme() {
 
 /** @param {{ id, title, sellyQuery?: string, adminUrl?: () => string, kind?: 'soon'|'selly', tip?: string }} def */
 export function createPlaceholder(def) {
-  let box = null, onMsg = null, timer = null;
+  let box = null, onMsg = null, timer = null, stopVis = null;
   const cleanup = () => { clearTimeout(timer); if (onMsg) window.removeEventListener('message', onMsg); onMsg = null; };
+  const cleanAll = () => { cleanup(); if (stopVis) stopVis(); stopVis = null; };
 
   function mountEmbed(root, url) {
     const src = embedUrl(url, currentTheme());
     const shopOrigin = new URL(url).origin;
     const frame = el('iframe', { title: def.title + ' — ekran Selly', referrerpolicy: 'no-referrer-when-downgrade' });
     const loading = el('div', { class: 'embed-msg' }, el('p', { class: 'muted' }, 'Ładuję ekran Selly…'));
-    const failed = el('div', { class: 'embed-msg', hidden: true },
-      el('p', null, el('strong', null, 'Zaloguj się do Selly w tej przeglądarce')),
-      el('p', { class: 'muted' }, 'Ekran nie załadował się — zwykle dlatego, że nie jesteś zalogowany do Selly.'),
-      el('a', { href: sellyUrl(new URL(url).origin + '/adm/'), target: '_blank', rel: 'noopener', class: 'btn-primary-link', title: 'Otwiera stronę logowania Selly w nowej karcie; po zalogowaniu wróć i kliknij „Odśwież”' }, 'Otwórz logowanie do Selly ↗'));
-    const start = () => {
-      cleanup(); loading.hidden = false; failed.hidden = true;
+    const loginUrl = sellyUrl(new URL(url).origin + "/adm/");
+    const failed = el("div", { class: "embed-msg", hidden: true },
+      el("p", null, el("strong", null, "Zaloguj się do Selly w zwykłej karcie")),
+      el("p", { class: "muted" }, "Ekran nie załadował się — zwykle dlatego, że nie jesteś zalogowany do Selly. Zaloguj się w zwykłej karcie (przycisk niżej), potem wróć tutaj — ekran odświeży się sam, albo kliknij „Odśwież”."),
+      el("div", { class: "embed-actions" },
+        el("a", { href: loginUrl, target: "_blank", rel: "noopener", class: "btn-primary-link", title: "Otwiera stronę logowania Selly w nowej karcie; po zalogowaniu wróć do panelu" }, "Zaloguj się do Selly ↗"),
+        el("button", { type: "button", class: "secondary", title: "Wczytuje ekran Selly ponownie", onclick: () => start() }, "Odśwież")));
+    let retryOnReturn = false;
+    const showFailed = () => { loading.hidden = true; failed.hidden = false; retryOnReturn = true; };
+    const onVisible = () => { if (document.visibilityState === "visible" && retryOnReturn) { retryOnReturn = false; start(); } };   // jednorazowa próba po powrocie do karty panelu
+    document.addEventListener("visibilitychange", onVisible);
+    stopVis = () => document.removeEventListener("visibilitychange", onVisible);
+    // Most zgłasza kartę panelu do rozszerzenia (reguły sesyjne z sesją Selly dla ramki) i potwierdza „embed-armed”; bez potwierdzenia po 1,5 s ładujemy mimo to.
+    const arm = () => new Promise(res => {
+      const t = setTimeout(() => { window.removeEventListener("message", h); res(); }, 1500);
+      const h = ev => { if (ev.source === window && ev.origin === location.origin && ev.data && ev.data.osa === "embed-armed") { clearTimeout(t); window.removeEventListener("message", h); res(); } };
+      window.addEventListener("message", h);
+      window.postMessage({ osa: "embed-open" }, location.origin);
+    });
+    const start = async () => {
+      cleanup(); loading.hidden = false; failed.hidden = true; retryOnReturn = false;
       onMsg = ev => {
-        if (ev.source !== frame.contentWindow || ev.origin !== shopOrigin || !ev.data || ev.data.osa !== 'embed-ready') return;
-        cleanup(); loading.hidden = true;
+        if (ev.source !== frame.contentWindow || ev.origin !== shopOrigin || !ev.data) return;
+        if (ev.data.osa === "embed-ready") { cleanup(); loading.hidden = true; }
+        else if (ev.data.osa === "embed-login") { cleanup(); showFailed(); }   // ekran logowania Selly — podpowiedź od razu
       };
-      window.addEventListener('message', onMsg);
-      timer = setTimeout(() => { loading.hidden = true; failed.hidden = false; }, LOAD_TIMEOUT_MS);
+      window.addEventListener("message", onMsg);
+      const my = onMsg;
+      await arm();
+      if (onMsg !== my) return;   // w międzyczasie nowy start / zamknięcie
+      timer = setTimeout(showFailed, LOAD_TIMEOUT_MS);
       frame.src = src;
     };
     const bar = el('div', { class: 'embed-bar' },
@@ -75,6 +95,6 @@ export function createPlaceholder(def) {
         el('p', { class: 'muted embed-hint tip', title: 'Rozszerzenie OSA pozwala wyświetlić ekran Selly wewnątrz panelu (w ramce), bez przełączania kart. Wymaga zalogowania do Selly w tej samej przeglądarce.' }, 'Zainstaluj rozszerzenie OSA, aby otwierać ten ekran w panelu')));
       root.replaceChildren(box);
     },
-    unmount() { cleanup(); box = null; },
+    unmount() { cleanAll(); box = null; },
   };
 }

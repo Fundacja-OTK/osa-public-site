@@ -1,10 +1,11 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=0ec2249';
-import { api, ctx } from '../core/client.js?v=0ec2249';
-import { go } from '../core/router.js?v=0ec2249';
-import { noteVisit } from '../core/recents.js?v=0ec2249';
-import { registerListKeys } from '../core/listKeys.js?v=0ec2249';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=5ee428c';
+import { api, ctx } from '../core/client.js?v=5ee428c';
+import { go } from '../core/router.js?v=5ee428c';
+import { renderProductCard, closeProductCard } from './produktKarta.js?v=5ee428c';
+import { noteVisit } from '../core/recents.js?v=5ee428c';
+import { registerListKeys } from '../core/listKeys.js?v=5ee428c';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'code', 'price', 'qty', 'id', 'loc', 'ean', 'symbol'];
@@ -171,8 +172,8 @@ function buildList() {
   u.filters = L.panel;
   S.listBox = el('div', { class: 'ord-list' }, el('div', { class: 'card' },
     pageToolbar({ title: 'Produkty', sub: 'Lista produktów ze sklepu (kopia odświeżana w tle). Ceny i widoczność poprawisz bezpośrednio w tabeli i zapiszesz wszystko naraz.',
-      actions: [u.filtersBtn, el('a', { class: 'btn-primary', id: 'prodAdd', href: adminUrl() + '?a=produkty.nowyProdukt', target: '_blank', rel: 'noopener',
-        title: 'Dodawanie produktów odbywa się w panelu Selly (panel OSA nie tworzy nowych produktów). Otwiera się w nowej karcie.' }, '+ Dodaj produkt')] }),
+      actions: [u.filtersBtn, el('a', { class: 'btn-primary', id: 'prodAdd', href: '#/produkty/nowy',
+        title: 'Otwiera formularz nowego produktu (powstaje jako ukryty, dopóki go nie włączysz). Pełny formularz Selly jest dostępny z jego poziomu.' }, '+ Dodaj produkt')] }),
     L.node));
   S.root.append(S.listBox);
 }
@@ -338,148 +339,10 @@ async function exportAll(kind) {
 
 // ─── Szczegóły ──────────────────────────────────────────────────────────────
 
-const MOVE = { przyjecie: 'Przyjęcie', przesuniecie: 'Przesunięcie', wydanie: 'Wydanie', korekta: 'Korekta' };
-const textVal = v => (v == null ? '' : typeof v === 'object' ? (Array.isArray(v) ? v.map(textVal).filter(Boolean).join(', ') : Object.entries(v).map(([k, x]) => k + ': ' + textVal(x)).join(', ')) : String(v));
-const th = (label, tip, cls) => el('th', { class: cls || null }, el('span', { title: tip || label }, label));
 
-async function renderDetail(id) {
-  const my = ++S.routeSeq, box = S.detailBox;
-  box.replaceChildren(el('div', { class: 'card' }, loadingBox('Pobieram produkt…')));
-  let r;
-  try { r = await api('products:get', { id }); } catch (e) {
-    if (my !== S.routeSeq) return;
-    box.replaceChildren(isUnavailable(e) ? unavailableBox() : el('div', { class: 'card' }, el('div', { class: 'empty error' }, 'Nie udało się pobrać produktu: ' + (e.message || 'błąd'),
-      el('div', null, el('a', { href: S.listHash, class: 'btn-link' }, '← Wróć do listy'), ' ', el('button', { type: 'button', class: 'secondary', onclick: () => renderDetail(id) }, 'Spróbuj ponownie')))));
-    return;
-  }
-  if (my !== S.routeSeq) return;
-  const p = r.product || {};
-  noteVisit({ t: 'product', id, label: p.name || ('Produkt ' + id) });
-  const whName = wid => { const w = (r.warehouses || []).find(x => String(x.id) === String(wid)); return w ? w.name : (wid ? 'Magazyn ' + wid : '—'); };
-  const editable = new Set(r.editable || []);
-  const reload = () => { S.data = null; if (my === S.routeSeq) renderDetail(id); };
-
-  // Dane podstawowe + edycja
-  const inputs = {};
-  const dlgSave = el('div', { id: 'prodSaveMsg', role: 'status' });
-  const initial = {
-    name: p.name || '', price: p.price == null ? '' : String(p.price), visible: isOn(p.visible),
-    availability_id: p.availability_id == null ? '' : String(p.availability_id), warehouse_localisation: p.warehouse_localisation || '', ean: p.ean || '',
-  };
-  // Dostępność: lista nazw zebrana z produktów w bazie (API Selly nie ma słownika); bez listy — numer
-  const availField = () => {
-    if (!editable.has('availability_id')) return null;
-    const opts = (r.availabilities || []).slice();
-    if (!opts.length) return mk('availability_id', 'Dostępność (nr w Selly)', 'Numer dostępności z Selly. Bieżąca: ' + (p.availability || 'brak danych') + '.', { type: 'number', min: '0', step: '1' });
-    if (initial.availability_id !== '' && !opts.some(o => String(o.id) === initial.availability_id)) opts.push({ id: initial.availability_id, name: p.availability || 'Dostępność nr ' + initial.availability_id });
-    const sel = el('select', { id: 'prodF_availability_id', 'aria-label': 'Dostępność' }, opts.map(o => el('option', { value: String(o.id), selected: String(o.id) === initial.availability_id }, o.name || 'Dostępność nr ' + o.id)));
-    inputs.availability_id = sel;
-    return field('Dostępność', sel, 'Komunikat o dostępności widoczny w sklepie. Lista pochodzi z produktów w sklepie — nowe rodzaje dostępności dodasz w panelu Selly.');
-  };
-  const mk = (key, label, tip, attrs) => {
-    if (!editable.has(key)) return null;
-    const inp = el('input', Object.assign({ id: 'prodF_' + key, value: initial[key], 'aria-label': label }, attrs));
-    inputs[key] = inp;
-    return field(label, inp, tip);
-  };
-  const visInp = editable.has('visible') ? el('input', { type: 'checkbox', id: 'prodF_visible', checked: initial.visible, 'aria-label': 'Widoczny w sklepie' }) : null;
-  if (visInp) inputs.visible = visInp;
-  const form = el('div', { class: 'prod-form' },
-    mk('name', 'Nazwa', 'Nazwa produktu widoczna w sklepie (nie może być pusta)', { type: 'text', maxlength: '500' }),
-    mk('price', 'Cena brutto (zł)', 'Cena produktu w sklepie, w złotych brutto. Liczba nie mniejsza niż 0.', { type: 'number', min: '0', step: '0.01' }),
-    visInp ? field('Widoczny w sklepie', visInp, 'Odznacz, aby ukryć produkt przed klientami') : null,
-    availField(),
-    mk('warehouse_localisation', 'Lokalizacja w magazynie', 'Opis miejsca składowania, np. regał i półka', { type: 'text', maxlength: '500' }),
-    mk('ean', 'Kod EAN', 'Kod kreskowy produktu', { type: 'text', maxlength: '500' }));
-  const collect = () => {
-    const changed = {};
-    for (const k of Object.keys(inputs)) {
-      if (k === 'visible') { if (inputs.visible.checked !== initial.visible) changed.visible = inputs.visible.checked; continue; }
-      const v = inputs[k].value;
-      if (k === 'price' || k === 'availability_id') { if (v !== '' && Number(v) !== Number(initial[k])) changed[k] = Number(v); else if (v === '' && initial[k] !== '') changed[k] = NaN; }
-      else if (v !== initial[k]) changed[k] = v;
-    }
-    return changed;
-  };
-  const saveBtn = el('button', { type: 'button', class: 'primary', id: 'prodSave', title: 'Zapisuje w Selly tylko te pola, które zmieniłeś', onclick: async () => {
-    const ch = collect();
-    if (!Object.keys(ch).length) { dlgSave.replaceChildren(el('div', { class: 'muted small' }, 'Nic nie zmieniono.')); return; }
-    if ('price' in ch && !(ch.price >= 0)) { dlgSave.replaceChildren(el('div', { class: 'notice error' }, 'Cena musi być liczbą nie mniejszą niż 0.')); return; }
-    if ('availability_id' in ch && !(ch.availability_id >= 0)) { dlgSave.replaceChildren(el('div', { class: 'notice error' }, 'Numer dostępności musi być liczbą nie mniejszą niż 0.')); return; }
-    if ('name' in ch && !String(ch.name).trim()) { dlgSave.replaceChildren(el('div', { class: 'notice error' }, 'Nazwa nie może być pusta.')); return; }
-    saveBtn.disabled = true;
-    try { const res = await api('products:update', { id, fields: ch }); flash('', 'Zapisano w Selly: ' + (res && res.saved ? res.saved.length : Object.keys(ch).length) + ' ' + 'zmian'); reload(); }
-    catch (e) { saveBtn.disabled = false; dlgSave.replaceChildren(el('div', { class: 'notice error' }, 'Nie udało się zapisać: ' + (e.message || 'błąd'))); }
-  } }, 'Zapisz zmiany');
-  const resetBtn = el('button', { type: 'button', class: 'secondary', id: 'prodReset', title: 'Przywraca wartości z ostatniego odczytu', onclick: () => renderDetail(id) }, 'Anuluj zmiany');
-
-  // Stany w magazynach (na żywo z Selly)
-  const stockHost = el('div', { id: 'prodStockDlg' });
-  const stock = Array.isArray(r.stock) ? r.stock : [];
-  const stockTip = 'Stan magazynowy zapisany w Selly dla tego produktu. Uwaga: stan fizyczny prowadzi moduł Magazyny (ruchy: przyjęcia, wydania, inwentaryzacja) — tutaj poprawiasz tylko liczbę widoczną w Selly, bez zapisu ruchu.';
-  const stockRows = stock.map(s => {
-    const wid = String(s.warehouse_id != null ? s.warehouse_id : s.id);
-    const name = s.name || whName(wid);
-    const inp = el('input', { type: 'number', min: '0', step: '1', value: String(s.quantity == null ? 0 : s.quantity), 'aria-label': 'Nowy stan w magazynie ' + name, 'data-wh': wid, class: 'qty-in' });
-    const btn = el('button', { type: 'button', class: 'secondary', 'data-wh': wid, title: 'Ustaw ' + name + ' na wpisaną liczbę (zapytamy o potwierdzenie). ' + stockTip, onclick: () => {
-      const q = Number(inp.value);
-      if (inp.value === '' || !isFinite(q) || q < 0) { flash('', 'Ilość musi być liczbą nie mniejszą niż 0'); return; }
-      confirmStock(wid, name, Number(s.quantity) || 0, q);
-    } }, 'Ustaw');
-    return el('tr', null, el('td', null, name), el('td', { class: 'n' }, num(s.quantity)), el('td', { class: 'n nw' }, s.purchase_price != null && s.purchase_price !== '' ? money(s.purchase_price) : ''), el('td', { class: 'nw' }, inp, ' ', btn));
-  });
-  function confirmStock(wid, name, from, to) {
-    const close = () => stockHost.replaceChildren();
-    stockHost.replaceChildren(el('div', { class: 'card ord-dialog', role: 'dialog', 'aria-label': 'Zmiana stanu w magazynie' },
-      el('h3', null, 'Zmienić stan w magazynie „' + name + '”?'),
-      el('p', null, 'Z ', el('strong', null, String(from)), ' na ', el('strong', null, String(to)), ' szt.'),
-      el('p', { class: 'muted small' }, 'Zmiana zostanie zapisana w Selly. Nie tworzy ruchu w module Magazyny.'),
-      el('div', { class: 'ord-actions' },
-        el('button', { type: 'button', class: 'primary', id: 'prodStockConfirm', onclick: async () => {
-          try { await api('products:setStock', { id, whId: wid, qty: to }); flash('', 'Stan zapisany w Selly'); reload(); }
-          catch (e) { close(); flash('', 'Nie udało się zapisać stanu: ' + (e.message || 'błąd')); }
-        } }, 'Zmień stan'),
-        el('button', { type: 'button', class: 'secondary', id: 'prodStockCancel', onclick: close }, 'Anuluj'))));
-  }
-  const stockCard = el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Stany w magazynach'), el('div', { class: 'sub tip', title: stockTip }, 'Dane na żywo z Selly — czym różni się od modułu Magazyny?')),
-    r.stockError || !Array.isArray(r.stock) ? el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać stanów z Selly' + (r.stockError ? ' (' + textVal(r.stockError) + ')' : '') + '. Reszta danych jest aktualna.')
-      : stockRows.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'prodStock' }, el('thead', null, el('tr', null, th('Magazyn', 'Magazyn w Selly'), th('Stan', 'Stan w Selly (szt.)', 'n'), th('Cena zakupu (zł)', 'Cena zakupu przypisana do tego magazynu w Selly', 'n'), th('Ustaw stan', stockTip))), el('tbody', null, stockRows)))
-        : el('div', { class: 'empty' }, 'Produkt nie ma przypisanych magazynów.'),
-    stockHost);
-
-  // Warianty
-  const vs = Array.isArray(r.variants) ? r.variants : [];
-  const variantCard = (vs.length || r.variantsError || p.has_variants) ? el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Warianty' + (vs.length ? ' (' + vs.length + ')' : ''))),
-    r.variantsError ? el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać wariantów z Selly (' + textVal(r.variantsError) + ').')
-      : vs.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'prodVariants' }, el('thead', null, el('tr', null, th('Wariant', 'Nazwa lub cechy wariantu'), th('Kod', 'Kod producenta wariantu'), th('EAN', 'Kod EAN wariantu'), th('Cena (zł)', 'Cena wariantu', 'n'), th('Stan', 'Stan wariantu w Selly (szt.)', 'n'))),
-        el('tbody', null, vs.map(v => el('tr', null, el('td', null, textVal(v.name || v.features || v.variant_features || v.variant_name) || ('Wariant ' + (v.variant_id || v.id || ''))), el('td', null, v.product_code || v.code || v.symbol || ''), el('td', null, v.ean || ''),
-          el('td', { class: 'n nw' }, v.price != null && v.price !== '' ? money(v.price) : ''), el('td', { class: 'n' }, v.quantity != null ? num(v.quantity) : '')))))) : el('div', { class: 'empty' }, 'Brak wariantów.')) : null;
-
-  // Sprzedaż i ruchy
-  const sales = r.sales || {};
-  const salesCard = el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Sprzedaż')),
-    dl([['Zamówień z tym produktem', String(sales.orders || 0), 'Liczba różnych zamówień w kopii zamówień panelu, w których jest ten produkt'], ['Sprzedanych sztuk', String(sales.qty || 0), 'Suma sztuk z tych zamówień (anulowane też wchodzą do sumy)']]));
-  const moves = r.moves || [];
-  const movesCard = el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Ostatnie ruchy magazynowe'), el('div', { class: 'sub' }, 'Ruchy zapisane w panelu OSA (moduł Magazyny) dla tego produktu.')),
-    moves.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'prodMoves' }, el('thead', null, el('tr', null, th('Czas', 'Kiedy zapisano ruch'), th('Rodzaj', 'Przyjęcie, przesunięcie, wydanie lub korekta'), th('Ilość', 'Liczba sztuk', 'n'), th('Z', 'Magazyn źródłowy'), th('Do', 'Magazyn docelowy'), th('Zamówienie', 'Numer zamówienia, którego dotyczył ruch'), th('Autor', 'Kto zapisał ruch'), th('Notatka', 'Notatka do ruchu'))),
-      el('tbody', null, moves.map(m => el('tr', null, el('td', { class: 'nw' }, m.ms ? dateStr(new Date(m.ms).toISOString()) : ''), el('td', null, MOVE[m.type] || m.type || ''), el('td', { class: 'n' }, num(m.qty)),
-        el('td', null, m.fromWh ? whName(m.fromWh) : ''), el('td', null, m.toWh ? whName(m.toWh) : ''), el('td', null, m.orderNumber || ''), el('td', null, m.author || ''), el('td', null, m.note || '')))))) : el('div', { class: 'empty' }, 'Brak ruchów magazynowych w panelu.'));
-
-  box.replaceChildren(
-    el('div', { class: 'card' },
-      el('div', { class: 'ord-detail-top' },
-        el('a', { href: S.listHash, class: 'btn-link', id: 'prodBack', title: 'Wróć do listy z zachowanymi filtrami, wyszukiwaniem i stroną' }, '← Wróć do listy'), el('span', { class: 'spacer' }),
-        el('span', { class: 'muted small tip', title: 'Dane z kopii produktów synchronizowanej z Selly w tle' }, 'dane z: ' + syncedLabel(r.syncedMs)),
-        sellyLink('Otwórz w panelu Selly ↗', sellyProductUrl(id), 'Otwiera ten produkt w panelu administracyjnym Selly (tam zmienisz pola niedostępne tutaj)')),
-      el('div', { class: 'card-head' }, el('h2', { id: 'prodTitle' }, p.name || ('Produkt ' + id)), el('div', { class: 'sub' }, 'ID ' + id)),
-      el('div', { class: 'prod-top' }, isUrl(p.main_photo) ? el('img', { class: 'photo', src: p.main_photo, alt: '' }) : null,
-        dl([['Kod producenta', p.product_code], ['Symbol', p.product_symbol], ['Stan łącznie (Selly)', p.quantity != null ? num(p.quantity) : '', 'Suma stanów ze wszystkich magazynów wg Selly'],
-          ['Cena poprzednia (zł)', Number(p.previous_price) ? money(p.previous_price) : '', 'Cena przed obniżką'], ['Cena zakupu (zł)', Number(p.price_purchase) ? money(p.price_purchase) : ''],
-          ['Waga', Number(p.weight) ? String(p.weight) : ''], ['Dostępność', p.availability], ['Wariantowy', isOn(p.has_variants) ? 'tak' : ''], ['Zestaw', isOn(p.kit) ? 'tak' : ''],
-          ['Strona w sklepie', isUrl(p.uri) ? el('a', { href: p.uri, target: '_blank', rel: 'noopener' }, 'Otwórz ↗') : '']]))),
-    el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Edycja'), el('div', { class: 'sub' }, 'Zapisujemy tylko pola, które zmienisz. Zmiany trafiają od razu do Selly.')),
-      form, dlgSave, el('div', { class: 'ord-actions' }, saveBtn, resetBtn)),
-    stockCard, variantCard, salesCard, movesCard);
+// Karta produktu i dodawanie (#/produkty/<id>, #/produkty/nowy): panel/app/js/modules/produktKarta.js
+function renderDetail(id) {
+  return renderProductCard(S.detailBox, id, { listHash: S.listHash, unavailable: unavailableBox });
 }
 
 // ─── Trasa ──────────────────────────────────────────────────────────────────
@@ -491,6 +354,7 @@ function mountRoute() {
   S.listBox.hidden = !!route.id; S.detailBox.hidden = !route.id;
   if (route.id) { renderDetail(route.id); return; }
   S.routeSeq++;
+  closeProductCard();
   S.Q = route.Q;
   S.listHash = location.hash || '#/produkty';
   loadList();
@@ -505,5 +369,5 @@ export default {
     S.route = { id: (params && params.parts && params.parts[0]) || '', Q: readQ(params && params.query) };
     mountRoute();
   },
-  unmount() { S.seq++; S.routeSeq++; },
+  unmount() { S.seq++; S.routeSeq++; closeProductCard(); },
 };

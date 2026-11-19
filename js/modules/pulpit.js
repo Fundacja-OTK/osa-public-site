@@ -1,7 +1,7 @@
 // Pulpit: sprzedaż z 30 dni (wykres wartość / ilość), liczniki z trendem, „Do zrobienia” (otwarte statusy),
 // najnowsze zamówienia, ostatnie zmiany i szybkie skróty. Dane: jedna akcja dashboard:get (tylko odczyt).
-import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=0ec2249';
-import { api } from '../core/client.js?v=0ec2249';
+import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=5ee428c';
+import { api } from '../core/client.js?v=5ee428c';
 
 const MODE_KEY = 'osa-pulpit-mode';
 const zl = v => money(v) + ' zł';
@@ -109,7 +109,7 @@ function chartCard(d) {
   draw();
   return el('section', { class: 'card pl-card pl-chart' },
     el('div', { class: 'pl-head' }, el('h2', null, 'Sprzedaż — ostatnie 30 dni'), segs,
-      el('a', { class: 'pl-more', href: '#/raporty', title: 'Raporty sprzedaży (na razie w panelu Selly)' }, 'Raporty sprzedaży ›')), body);
+      el('a', { class: 'pl-more', href: '#/raporty', title: 'Raporty sprzedaży: sprzedaż w czasie, produkty, klienci, regiony' }, 'Raporty sprzedaży ›')), body);
 }
 
 // ─── Listy ──────────────────────────────────────────────────────────────────

@@ -49,14 +49,21 @@ function containerFor(mod) {
 // Strażnik wyjścia (np. niezapisane zmiany w karcie): zwraca komunikat → potwierdzenie; „Anuluj” przywraca poprzedni adres
 let leaveGuard = null, lastHash = null;
 export function setLeaveGuard(fn) { leaveGuard = fn; }
+// Dodatkowe strażniki (kilka modułów naraz, np. karta produktu obok karty zamówienia): każdy zwraca komunikat albo null
+const extraGuards = [];
+export function addLeaveGuard(fn) { extraGuards.push(fn); }
+function guardMessage(hash) {
+  for (const g of [leaveGuard, ...extraGuards]) { const m = g && g(hash); if (m) return m; }
+  return null;
+}
 /** Komunikat strażnika dla bieżącego adresu (np. niezapisane zmiany) albo null — dla odświeżenia strony poza routerem. */
-export function leaveMessage() { return leaveGuard ? leaveGuard(location.hash) : null; }
+export function leaveMessage() { return guardMessage(location.hash); }
 
 let resolveSeq = 0;
 async function resolve() {
   const seq = ++resolveSeq;
-  if (leaveGuard && lastHash !== null && location.hash !== lastHash) {
-    const msg = leaveGuard(location.hash);
+  if (lastHash !== null && location.hash !== lastHash) {
+    const msg = guardMessage(location.hash);
     if (msg && !confirm(msg)) { history.replaceState(null, '', lastHash); return; }
   }
   lastHash = location.hash;

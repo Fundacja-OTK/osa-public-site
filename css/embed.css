@@ -7,3 +7,4 @@
 .embed-msg { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: var(--s2); text-align: center; padding: var(--s4); background: var(--surface); }
 .embed-msg[hidden] { display: none; }
 .embed-hint { font-size: var(--fs-xs); }
+.embed-actions { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: center; }
