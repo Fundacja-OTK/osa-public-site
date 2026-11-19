@@ -1,8 +1,10 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=26278f6';
-import { api, ctx } from '../core/client.js?v=26278f6';
-import { go } from '../core/router.js?v=26278f6';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=1a6db82';
+import { api, ctx } from '../core/client.js?v=1a6db82';
+import { go } from '../core/router.js?v=1a6db82';
+import { noteVisit } from '../core/recents.js?v=1a6db82';
+import { registerListKeys } from '../core/listKeys.js?v=1a6db82';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'code', 'price', 'qty', 'id', 'loc', 'ean', 'symbol'];
@@ -352,6 +354,7 @@ async function renderDetail(id) {
   }
   if (my !== S.routeSeq) return;
   const p = r.product || {};
+  noteVisit({ t: 'product', id, label: p.name || ('Produkt ' + id) });
   const whName = wid => { const w = (r.warehouses || []).find(x => String(x.id) === String(wid)); return w ? w.name : (wid ? 'Magazyn ' + wid : '—'); };
   const editable = new Set(r.editable || []);
   const reload = () => { S.data = null; if (my === S.routeSeq) renderDetail(id); };
@@ -484,6 +487,7 @@ async function renderDetail(id) {
 function mountRoute() {
   const route = S.route;
   if (!S.ui.search) buildList();
+  registerListKeys({ screen: 'produkty', table: 'prodTable', filters: 'prodFiltersBtn', export: 'prodExport', cols: 'prodColsBtn', search: 'prodSearch', back: 'prodBack' });
   S.listBox.hidden = !!route.id; S.detailBox.hidden = !route.id;
   if (route.id) { renderDetail(route.id); return; }
   S.routeSeq++;

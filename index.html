@@ -4,36 +4,30 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Panel OSA</title>
-  <link rel="stylesheet" href="css/base.css?v=26278f6">
-  <link rel="stylesheet" href="css/shell.css?v=26278f6">
-  <link rel="stylesheet" href="css/pulpit.css?v=26278f6">
-  <link rel="stylesheet" href="css/przesylki.css?v=26278f6">
-  <link rel="stylesheet" href="css/zasob.css?v=26278f6">
-  <link rel="stylesheet" href="css/feedback.css?v=26278f6">
-  <link rel="stylesheet" href="css/mobile.css?v=26278f6">
+  <link rel="stylesheet" href="css/base.css?v=1a6db82">
+  <link rel="stylesheet" href="css/shell.css?v=1a6db82">
+  <link rel="stylesheet" href="css/pulpit.css?v=1a6db82">
+  <link rel="stylesheet" href="css/przesylki.css?v=1a6db82">
+  <link rel="stylesheet" href="css/zasob.css?v=1a6db82">
+  <link rel="stylesheet" href="css/feedback.css?v=1a6db82">
+  <link rel="stylesheet" href="css/palette.css?v=1a6db82">
+  <link rel="stylesheet" href="css/mobile.css?v=1a6db82">
   <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, clientId, version, backends? } -->
-  <script src="config.js?v=26278f6"></script>
+  <script src="config.js?v=1a6db82"></script>
   <script src="https://accounts.google.com/gsi/client" async></script>
   <script>
     // Motyw i zwinięte menu ustawiane przed pierwszym malowaniem
     try { var t = JSON.parse(localStorage.getItem('otk-theme') || 'null'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
     try { if (JSON.parse(localStorage.getItem('osa-sb-collapsed') || 'false')) document.documentElement.classList.add('sb-collapsed'); } catch (e) {}
   </script>
-  <script type="module" src="js/main.js?v=26278f6"></script>
+  <script type="module" src="js/main.js?v=1a6db82"></script>
 </head>
 <body>
 <div class="app">
   <header class="topbar">
     <button type="button" class="tb-btn navtoggle" id="navToggle" aria-expanded="false" aria-controls="sidebar" title="Pokaż lub ukryj menu panelu"><span class="sr-only">Menu</span><span aria-hidden="true">☰</span></button>
     <a class="brand" href="#/pulpit" title="Panel OSA — strona startowa"><span class="brand-mark" aria-hidden="true">OSA</span><span class="brand-name">Panel</span></a>
-    <form class="tb-search" id="tbSearch" role="search" autocomplete="off" hidden>
-      <label class="tb-field" title="Szukaj zamówienia po numerze, kliencie, e-mailu lub telefonie — Enter otwiera listę zamówień z wynikami">
-        <span class="sr-only">Szukaj zamówienia</span><input type="search" id="tbOrders" placeholder="Szukaj zamówienia…" data-route="zamowienia"></label>
-      <label class="tb-field" title="Szukaj klienta po nazwisku, firmie, e-mailu lub telefonie — Enter otwiera listę klientów">
-        <span class="sr-only">Szukaj klienta</span><input type="search" id="tbClients" placeholder="Szukaj klienta…" data-route="klienci"></label>
-      <label class="tb-field" title="Szukaj produktu po nazwie, kodzie, symbolu lub EAN — Enter otwiera listę produktów">
-        <span class="sr-only">Szukaj produktu</span><input type="search" id="tbProducts" placeholder="Szukaj produktu…" data-route="produkty"></label>
-    </form>
+    <button type="button" class="tb-btn tb-searchbtn" id="tbSearch" hidden aria-haspopup="dialog" title="Szukaj ekranów, zamówień, klientów i produktów (Ctrl+K)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg><span class="sr-only">Szukaj</span></button>
     <div class="tb-right">
       <a class="tb-btn tb-selly" id="tbSelly" href="#" target="_blank" rel="noopener" title="Otwiera tę samą stronę w panelu Selly (nowa karta)" hidden>Selly ↗</a>
       <button type="button" class="tb-btn" id="tbFeedback" hidden title="Zgłoś błąd, pomysł albo pytanie do administratora panelu"><span aria-hidden="true">✉</span><span class="tb-fb-text">Zgłoś</span></button>

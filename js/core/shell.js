@@ -1,18 +1,22 @@
 // Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu sekcji z wysuwanymi listami
-// (pełne menu panelu Selly — core/nav.js), „Moje skróty”, okruszki i tytuł strony, logowanie/start, stopka.
-import { $, el, store, pageError } from './ui.js?v=26278f6';
-import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=26278f6';
-import { signOut, freshToken, hasToken } from './auth.js?v=26278f6';
-import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=26278f6';
-import { initErrorReporting } from './errors.js?v=26278f6';
-import { setReporter } from './errorHook.js?v=26278f6';
-import { initFeedback } from './feedback.js?v=26278f6';
-import { watchVersion, showNewVersion } from './update.js?v=26278f6';
-import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=26278f6';
-import { SECTIONS, ITEMS, itemById, DEFAULT_PINS, icon } from './nav.js?v=26278f6';
+// (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K), okruszki i tytuł strony, logowanie/start, stopka.
+import { $, el, store, pageError } from './ui.js?v=1a6db82';
+import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=1a6db82';
+import { signOut, freshToken, hasToken, tokenEmail } from './auth.js?v=1a6db82';
+import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=1a6db82';
+import { initErrorReporting } from './errors.js?v=1a6db82';
+import { setReporter } from './errorHook.js?v=1a6db82';
+import { initFeedback } from './feedback.js?v=1a6db82';
+import { watchVersion, showNewVersion } from './update.js?v=1a6db82';
+import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=1a6db82';
+import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=1a6db82';
+import { initPalette, openPalette } from './palette.js?v=1a6db82';
+import { installShortcuts, shortcuts } from './shortcuts.js?v=1a6db82';
+import { loadRecents, clearRecents, noteVisit, hashOf, TYPES } from './recents.js?v=1a6db82';
 
 const ROUTE_KEY = 'osa-route';
-const PIN_KEY = 'osa-pins';
+const RECORD_MODS = new Set(['zamowienia', 'klienci', 'produkty']);   // karta rekordu zapisuje się sama (z nazwą)
+const BOOT_KEY = 'osa-boot';   // ostatni start: tylko e-mail, rola, adres Selly i rok — do natychmiastowego otwarcia panelu
 const COLLAPSE_KEY = 'osa-sb-collapsed';
 
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_ADMIN;
@@ -20,10 +24,10 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
 
 /** Moduły ładowane przy pierwszym wejściu (nowe ekrany; brak pliku → strona „w planie”). */
 const LAZY = {
-  pulpit: () => import('../modules/pulpit.js?v=26278f6'),
-  przesylki: () => import('../modules/przesylki.js?v=26278f6'),
-  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=26278f6'),
-  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=26278f6'),
+  pulpit: () => import('../modules/pulpit.js?v=1a6db82'),
+  przesylki: () => import('../modules/przesylki.js?v=1a6db82'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=1a6db82'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=1a6db82'),
 };
 
 // ─── Błędy strony ───────────────────────────────────────────────────────────
@@ -65,23 +69,11 @@ function setupTopbar(data) {
   $('who').textContent = data.email ? 'Zalogowano: ' + data.email : '';
   $('avatar').textContent = (data.email || '?').slice(0, 1).toUpperCase();
   popup($('userBtn'), $('userMenu'));
-  const form = $('tbSearch');
-  form.hidden = false;
-  form.addEventListener('submit', e => e.preventDefault());
-  for (const inp of form.querySelectorAll('input[data-route]')) {
-    inp.addEventListener('keydown', e => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      const v = inp.value.trim();
-      go('/' + inp.dataset.route + (v ? '?q=' + encodeURIComponent(v) : ''));
-      inp.blur();
-    });
-  }
+  $('tbSearch').hidden = false;
 }
 
 // ─── Boczne menu: sekcje + wysuwane listy pozycji ───────────────────────────
 
-const pins = () => { const p = store(PIN_KEY); return Array.isArray(p) ? p.filter(id => itemById(id)) : DEFAULT_PINS.slice(); };
 const visible = (i, isAdmin) => i !== '-' && (!i.admin || isAdmin);
 
 const KIND_TIP = {
@@ -104,17 +96,14 @@ let isAdminNav = false;
 function renderNav(isAdmin) {
   isAdminNav = isAdmin;
   const nav = $('modNav');
-  const pinned = pins();
-  const pinBtn = i => el('button', { type: 'button', class: 'pin', 'aria-pressed': String(pinned.includes(i.id)),
-    title: pinned.includes(i.id) ? 'Usuń z „Moich skrótów”' : 'Dodaj do „Moich skrótów” (na górze menu)',
-    onclick: e => { e.preventDefault(); e.stopPropagation(); togglePin(i.id); } }, '★');
 
   const home = el('div', { class: 'sb-group sb-home' }, el('a', { href: '#/pulpit', class: 'sb-label sb-home-link', 'data-nav': 'pulpit', title: 'Pulpit — sprzedaż, zamówienia do zrobienia i najnowsze zmiany', 'aria-current': 'false' }, icon('home'), el('span', { class: 'sb-text' }, 'Pulpit')));
-  const shortcuts = el('div', { class: 'sb-group sb-pins' },
-    el('div', { class: 'sb-label', title: 'Przypnij dowolną pozycję gwiazdką ★ w menu sekcji' }, icon('star'), el('span', { class: 'sb-text' }, 'Moje skróty')),
-    el('div', { class: 'pin-list' }, ...pinned.map(id => itemById(id)).filter(i => visible(i, isAdmin)).map(i =>
-      el('a', { href: i.kind === 'selly' ? sellyHref(i.a) : '#/' + i.id, target: i.kind === 'selly' ? '_blank' : null, rel: i.kind === 'selly' ? 'noopener' : null,
-        class: 'pin-item', 'data-pin': i.id, title: i.title + (i.kind === 'selly' ? ' (panel Selly ↗)' : '') }, i.title))));
+  const search = el('button', { type: 'button', class: 'sb-search', id: 'sbSearch', 'aria-haspopup': 'dialog', title: 'Szukaj ekranów, zamówień, klientów i produktów (Ctrl+K)', onclick: () => openPalette() },
+    icon('search'), el('span', { class: 'sb-text sb-search-text' }, 'Szukaj…'), el('kbd', { class: 'sb-text sb-kbd' }, 'Ctrl K'));
+  const recent = el('div', { class: 'sb-group sb-recent', id: 'sbRecent' },
+    el('div', { class: 'sb-label', title: 'Ostatnio otwarte ekrany i rekordy (zamówienia, klienci, produkty) — lista tylko w tej przeglądarce' }, icon('clock'), el('span', { class: 'sb-text' }, 'Ostatnie'),
+      el('button', { type: 'button', class: 'rc-clear sb-text', id: 'rcClear', title: 'Usuń listę ostatnio otwartych miejsc (tylko w tej przeglądarce)', onclick: () => clearRecents() }, 'Wyczyść')),
+    el('div', { class: 'rc-list', id: 'rcList' }));
 
   const secs = SECTIONS.map(s => {
     const items = s.items.filter((i, k, arr) => i === '-' ? k > 0 && arr[k - 1] !== '-' : visible(i, isAdmin));
@@ -124,22 +113,24 @@ function renderNav(isAdmin) {
       icon(s.icon), el('span', { class: 'sb-text' }, s.title));
     const fly = el('div', { class: 'flyout', 'data-fly': s.id, hidden: true },
       el('div', { class: 'fly-head' }, s.title),
-      ...items.map(i => i === '-' ? el('hr', { class: 'fly-sep' }) : el('div', { class: 'fly-row' }, itemLink(i), pinBtn(i))));
+      ...items.map(i => i === '-' ? el('hr', { class: 'fly-sep' }) : el('div', { class: 'fly-row' }, itemLink(i))));
     btn.addEventListener('click', e => { e.stopPropagation(); openSection(fly.hidden ? s.id : null); });
     return el('div', { class: 'sb-group', 'data-group': s.id }, btn, fly);
   });
-  nav.replaceChildren(home, shortcuts, ...secs);
+  nav.replaceChildren(search, home, recent, ...secs);
+  renderRecents();
   if (navId) markNav(navId);
 }
 
-function togglePin(id) {
-  const p = pins();
-  const k = p.indexOf(id);
-  if (k < 0) p.push(id); else p.splice(k, 1);
-  store(PIN_KEY, p);
-  const open = openSec;
-  renderNav(isAdminNav);
-  openSection(open);
+/** „Ostatnie”: ostatnio otwarte miejsca (ekrany i rekordy), najnowsze pierwsze. */
+function renderRecents() {
+  const host = $('rcList');
+  if (!host) return;
+  const list = loadRecents().filter(e => e.t !== 'screen' || itemById(e.id));
+  $('rcClear').hidden = !list.length;
+  host.replaceChildren(...(list.length ? list.map(e => el('a', { href: hashOf(e), class: 'rc-item', 'data-rc': e.t + ':' + e.id, title: TYPES[e.t].name + ': ' + e.label },
+    icon(TYPES[e.t].icon, 'rc-ico'), el('span', { class: 'rc-text' }, e.label)))
+    : [el('div', { class: 'rc-empty muted small', title: 'Tu pojawią się ostatnio otwarte ekrany, zamówienia, klienci i produkty' }, 'Brak — otwórz coś, a pojawi się tutaj')]));
 }
 
 let openSec = null;
@@ -167,10 +158,7 @@ let navId = null;  // pozycja menu bieżącej trasy
 
 function markNav(modId) {
   const item = itemById(modId);
-  for (const a of $('modNav').querySelectorAll('a[data-nav], a[data-pin]')) {
-    const on = (a.dataset.nav || a.dataset.pin) === modId;
-    if (a.dataset.nav) a.setAttribute('aria-current', on ? 'page' : 'false'); else a.classList.toggle('on', on);
-  }
+  for (const a of $('modNav').querySelectorAll('a[data-nav]')) a.setAttribute('aria-current', a.dataset.nav === modId ? 'page' : 'false');
   for (const b of $('modNav').querySelectorAll('[data-sec]')) b.classList.toggle('on', !!item && b.dataset.sec === item.section);
   const sec = item && SECTIONS.find(s => s.id === item.section);
   const mod = getModule(modId);
@@ -239,44 +227,93 @@ function setupReporting() {
 
 export function startShell(modules) {
   setupErrors();
-  setupReporting();
   setupTheme();
   setupSidebar();
+  initPalette({ sellyHref, isAdmin: () => !!(ctx.boot && ctx.boot.isAdmin) });
+  installShortcuts();
+  window.addEventListener('osa-recents', renderRecents);
+  $('tbSearch').addEventListener('click', () => openPalette());
   renderFoot();
   onApiInfo(renderFoot);
   for (const m of modules) register(m);
   for (const [id, load] of Object.entries(LAZY)) if (!getModule(id)) register({ id, title: (itemById(id) || {}).title || '', load: () => load().then(m => m.default) });
   // Ekrany uniwersalne (lista → karta → formularz ze specyfikacji API): kind 'resource'
-  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=26278f6').then(m => m.createResource(i.id)) });
+  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=1a6db82').then(m => m.createResource(i.id)) });
   // Pozycje bez własnego ekranu: strona „w planie / tylko w Selly” z linkiem
   for (const i of ITEMS) if (!getModule(i.id)) register(createPlaceholder({ id: i.id, title: i.title, sellyQuery: i.a ? '?a=' + i.a : '', adminUrl, kind: i.kind, tip: i.tip }));
   $('signOut').addEventListener('click', signOut);
 
-  api('init')
-    .then(data => {
-      ctx.boot = data;
-      $('cardSignIn').hidden = true; $('cardStart').hidden = true; $('signOut').hidden = false;
-      setupTopbar(data);
-      renderNav(!!data.isAdmin);
-      // Rola z Cloudflare (Apps Script jej nie zna): „Dostęp do panelu OSA” dla administratora; brak Workera → bez zmian
-      if (!data.isAdmin) api('whoami').then(w => { if (w && w.isAdmin) { ctx.boot.isAdmin = true; renderNav(true); if (navId) markNav(navId); if (navId === 'uzytkownicy') window.dispatchEvent(new HashChangeEvent('hashchange')); } }).catch(() => {});
-      startRouter({
-        container: $('modules'),
-        fallback: defaultRoute,
-        onRoute: (mod, params) => {
-          navId = mod.id;
-          markNav(mod.id);
-          if (!mod.placeholder) store(ROUTE_KEY, [mod.id, ...params.parts].join('/'));
-        },
-      });
-    })
-    .catch(err => {
-      $('cardSignIn').hidden = true; $('cardStart').hidden = false;
-      $('tbFeedback').hidden = false;  // także przy błędzie startu — zgłoszenie albo „Kopiuj treść” zawsze dostępne
-      if (err.code === 403) { $('signOut').hidden = false; $('tbUser').hidden = false; popup($('userBtn'), $('userMenu')); }  // inne konto Google
-      $('cardStart').replaceChildren(el('div', { class: 'empty' + (err.code !== 403 ? ' error' : '') },
-        err.code === 403 ? err.message + ' Możesz wylogować się i wybrać inne konto.' : 'Nie udało się otworzyć panelu: ' + err.message));
-    });
+  startWithBoot();
+}
+
+// ─── Start: whoami (Worker) → natychmiast z zapamiętanego startu, sprawdzenie w tle ───────────────────────
+
+const slimBoot = d => ({ email: d.email || '', role: d.role || (d.isAdmin ? 'admin' : 'user'), isAdmin: !!d.isAdmin, adminUrl: d.adminUrl || '', year: d.year || null });
+const defer = fn => { if (window.requestIdleCallback) requestIdleCallback(fn, { timeout: 1500 }); else setTimeout(fn, 300); };
+let reportingOn = false;
+const ensureReporting = () => { if (!reportingOn) { reportingOn = true; setupReporting(); } };
+
+/** Dane startowe: „whoami” z Workera (szybkie); gdy go nie ma (501 / brak sieci) — „init” z Apps Script. 403 = brak dostępu. */
+const fetchBoot = () => api('whoami')
+  .then(w => { if (!w || !w.email) throw Object.assign(new Error('whoami bez e-maila'), { code: 501 }); return w; })
+  .catch(e => (e && e.code === 403 ? Promise.reject(e) : api('init')))
+  .then(slimBoot);
+
+function cachedBoot() {
+  if (!hasToken()) return null;
+  const c = store(BOOT_KEY);
+  return c && c.email && String(c.email).toLowerCase() === tokenEmail() ? c : null;
+}
+
+function showStartError(err) {
+  $('cardSignIn').hidden = true; $('cardStart').hidden = false;
+  $('modules').hidden = true; $('pageHead').hidden = true;
+  if (err.code === 403) store(BOOT_KEY, null);
+  ensureReporting();
+  $('tbFeedback').hidden = false;  // także przy błędzie startu — zgłoszenie albo „Kopiuj treść” zawsze dostępne
+  if (err.code === 403) { $('signOut').hidden = false; $('tbUser').hidden = false; popup($('userBtn'), $('userMenu')); }  // inne konto Google
+  $('cardStart').replaceChildren(el('div', { class: 'empty' + (err.code !== 403 ? ' error' : '') },
+    err.code === 403 ? err.message + ' Możesz wylogować się i wybrać inne konto.' : 'Nie udało się otworzyć panelu: ' + err.message));
+}
+
+function begin(data) {
+  ctx.boot = data;
+  $('cardSignIn').hidden = true; $('cardStart').hidden = true; $('signOut').hidden = false;
+  setupTopbar(data);
+  renderNav(!!data.isAdmin);
+  startRouter({
+    container: $('modules'),
+    fallback: defaultRoute,
+    onRoute: (mod, params) => {
+      navId = mod.id;
+      markNav(mod.id);
+      shortcuts.setScreen(mod.id);
+      if (!mod.placeholder && mod.id !== 'pulpit' && !(RECORD_MODS.has(mod.id) && params.parts.length)) noteVisit({ t: 'screen', id: mod.id, label: (itemById(mod.id) || mod).title || mod.id, path: [mod.id, ...params.parts].join('/') });
+      if (!mod.placeholder) store(ROUTE_KEY, [mod.id, ...params.parts].join('/'));
+    },
+  });
+  defer(ensureReporting);   // błędy, uwagi, kontrola wersji — po pierwszym malowaniu
+}
+
+/** Zmiana roli albo adresu Selly po sprawdzeniu w tle. */
+function applyFresh(f) {
+  store(BOOT_KEY, f);
+  const was = !!ctx.boot.isAdmin;
+  ctx.boot = { ...ctx.boot, ...f, adminUrl: f.adminUrl || ctx.boot.adminUrl };
+  if (was !== !!f.isAdmin) {
+    renderNav(!!f.isAdmin); if (navId) markNav(navId);
+    if (navId === 'uzytkownicy') window.dispatchEvent(new HashChangeEvent('hashchange'));
+  }
+}
+
+function startWithBoot() {
+  const cached = cachedBoot();
+  if (cached) {   // panel od razu z zapamiętanymi danymi, sprawdzenie dostępu w tle
+    begin(cached);
+    fetchBoot().then(applyFresh).catch(err => { if (err && err.code === 403) showStartError(err); });
+    return;
+  }
+  fetchBoot().then(f => { store(BOOT_KEY, f); begin(f); }).catch(showStartError);
 }
 
 export { go, parseHash };

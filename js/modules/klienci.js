@@ -1,9 +1,11 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
-import { el, tapOpen, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=26278f6';
-import { api, ctx } from '../core/client.js?v=26278f6';
-import { go } from '../core/router.js?v=26278f6';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=26278f6';
+import { el, tapOpen, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=1a6db82';
+import { api, ctx } from '../core/client.js?v=1a6db82';
+import { go } from '../core/router.js?v=1a6db82';
+import { noteVisit } from '../core/recents.js?v=1a6db82';
+import { registerListKeys } from '../core/listKeys.js?v=1a6db82';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=1a6db82';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'email', 'created', 'modified', 'orders'];
@@ -196,6 +198,7 @@ async function renderDetail(id) {
   if (my !== S.routeSeq) return;
   const c = r.client || {};
   const name = fullName(c.first_name, c.last_name) || c.invoice_company || c.email || ('Klient ' + id);
+  noteVisit({ t: 'client', id, label: fullName(c.first_name, c.last_name) || c.invoice_company || ('Klient ' + id) });   // bez e-maila w „Ostatnich”
   const stName = sid => { const s = (r.statuses || []).find(x => String(x.id) === String(sid)); return s ? s.name : (sid == null || sid === '' ? '—' : 'Status ' + sid); };
 
   // Notatka z edycją
@@ -262,6 +265,7 @@ async function fillOsa(host, id, my) {
 function mountRoute() {
   const route = S.route;
   if (!S.ui.search) buildList();
+  registerListKeys({ screen: 'klienci', table: 'cliTable', filters: 'cliFiltersBtn', export: 'cliExport', search: 'cliSearch', back: 'cliBack' });
   S.listBox.hidden = !!route.id; S.detailBox.hidden = !route.id;
   if (route.id) { renderDetail(route.id); return; }
   S.routeSeq++;

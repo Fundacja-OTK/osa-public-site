@@ -149,8 +149,6 @@ export const ITEMS = SECTIONS.flatMap(s => s.items.filter(i => i !== '-').map(i 
 export const itemById = id => ITEMS.find(i => i.id === id) || null;
 export const sectionOf = id => { const i = itemById(id); return i ? SECTIONS.find(s => s.id === i.section) : null; };
 
-/** Domyślne skróty („Moje skróty”), dopóki użytkownik nie przypnie własnych. */
-export const DEFAULT_PINS = ['zamowienia', 'produkty', 'klienci', 'magazyny', 'licencje'];
 
 /** Mapowanie trasy Selly (?a=...) na trasę panelu OSA — dla przekierowań z rozszerzenia. Tylko ekrany OSA. */
 export function routeForSelly(a) {
@@ -162,6 +160,7 @@ export function routeForSelly(a) {
 export const ICONS = {
   home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
   star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
   bag: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2',
   store: 'M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9h16M9 20v-6h6v6',
   box: 'M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9',

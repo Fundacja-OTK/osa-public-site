@@ -1,7 +1,7 @@
 // Logowanie Google Identity Services. Token tożsamości (ważny ~1 h) trzymany w localStorage — wspólny dla wszystkich kart
 // (nowa karta otwiera panel od razu, bez ponownego logowania; odświeżony token trafia do pozostałych kart przez zdarzenie „storage”);
 // po wygaśnięciu GIS wydaje nowy bez klikania (auto_select), a gdy nie może — pokazujemy przycisk „Zaloguj się”.
-import { $ } from './ui.js?v=26278f6';
+import { $ } from './ui.js?v=1a6db82';
 
 const ENV = () => window.OSA_CONFIG || {};
 export const TOKEN_KEY = 'osa-idt';
@@ -64,6 +64,11 @@ function showSignIn() {
   $('cardStart').hidden = true;
   $('cardSignIn').hidden = false;
   google.accounts.id.renderButton($('signInBtn'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pl' });
+}
+
+/** E-mail z bieżącego tokenu (małymi literami) albo '' — do sprawdzenia, czy zapamiętany start należy do tego konta. */
+export function tokenEmail() {
+  try { return token ? String(jwtPayload(token).email || '').toLowerCase() : ''; } catch (e) { return ''; }
 }
 
 /** Czy mamy ważny token (bez wywoływania logowania) — dla raportów w tle. */

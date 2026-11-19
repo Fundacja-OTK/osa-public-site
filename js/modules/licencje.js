@@ -1,8 +1,9 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=26278f6';
-import { api, ctx } from '../core/client.js?v=26278f6';
-import { go } from '../core/router.js?v=26278f6';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=1a6db82';
+import { api, ctx } from '../core/client.js?v=1a6db82';
+import { go } from '../core/router.js?v=1a6db82';
+import { loadingBox } from '../core/ui.js?v=1a6db82';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
@@ -1665,21 +1666,34 @@ async function refreshData() {
 }
 
 
-let root = null;
+let root = null, pendingView = 'list', bootP = null;
+/** „init” (statusy, produkty, pakiety, stan synchronizacji) pobiera tylko ten moduł — raz na sesję; powłoka startuje bez niego. */
+const loadBoot = () => bootP || (bootP = api('init').catch(e => { bootP = null; throw e; }));
+
+const el0card = err => (err
+  ? el('div', { class: 'card' }, el('div', { class: 'empty error' }, 'Nie udało się wczytać raportu licencji: ' + (err.message || 'błąd'), ' ', el('button', { type: 'button', class: 'secondary', onclick: () => location.reload() }, 'Spróbuj ponownie')))
+  : el('div', { class: 'card' }, loadingBox('Wczytuję raport licencji…')));
 
 export default {
   id: 'licencje',
   title: 'Licencje',
   routes: ['', 'orszaki'],
   mount(el, params) {
-    if (!root) {
-      BOOT = ctx.boot;
-      root = el;
+    pendingView = params && params.view === 'orszaki' ? 'orszaki' : 'list';
+    if (BOOT) { setView(pendingView); return; }
+    if (root) return;   // trwa wczytywanie — widok ustawi się po nim
+    root = el;
+    el.replaceChildren(el0card());
+    loadBoot().then(b => {
+      BOOT = b;
       el.innerHTML = TEMPLATE;
       $('settings').hidden = false; $('viewnav').hidden = false;
       init();
-    }
-    setView(params && params.view === 'orszaki' ? 'orszaki' : 'list');
+      setView(pendingView);
+    }).catch(err => {
+      root = null;
+      el.replaceChildren(el0card(err));
+    });
   },
   unmount() { /* stan i DOM zostają — kontener jest tylko ukrywany */ },
 };

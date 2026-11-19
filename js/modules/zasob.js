@@ -1,9 +1,9 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=26278f6';
-import { api, ctx } from '../core/client.js?v=26278f6';
-import { go, setLeaveGuard } from '../core/router.js?v=26278f6';
-import { RESOURCES } from '../core/resources.js?v=26278f6';
+import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=1a6db82';
+import { api, ctx } from '../core/client.js?v=1a6db82';
+import { go, setLeaveGuard } from '../core/router.js?v=1a6db82';
+import { RESOURCES } from '../core/resources.js?v=1a6db82';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
