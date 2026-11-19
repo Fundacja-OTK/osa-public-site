@@ -1,7 +1,7 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:get, products:list (wyszukiwarka produktów).
-import { el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce } from '../core/ui.js';
-import { api } from '../core/client.js';
+import { el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce } from '../core/ui.js?v=e0c65af';
+import { api } from '../core/client.js?v=e0c65af';
 
 const EDIT_KEY = 'osa-ord-edit';
 const r2 = n => Math.round(n * 100) / 100;
