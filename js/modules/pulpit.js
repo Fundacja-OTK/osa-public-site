@@ -1,7 +1,7 @@
 // Pulpit: sprzedaż z 30 dni (wykres wartość / ilość), liczniki z trendem, „Do zrobienia” (otwarte statusy),
 // najnowsze zamówienia, ostatnie zmiany i szybkie skróty. Dane: jedna akcja dashboard:get (tylko odczyt).
-import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=a359485';
-import { api } from '../core/client.js?v=a359485';
+import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=7182c5b';
+import { api } from '../core/client.js?v=7182c5b';
 
 const MODE_KEY = 'osa-pulpit-mode';
 const zl = v => money(v) + ' zł';
@@ -45,7 +45,7 @@ function tile(id, label, main, sub, tip, href) {
 function tiles(d) {
   const k = d.kpi;
   const pairs = n => [el('span', { class: 'pl-big' }, String(n)), el('span', { class: 'pl-unit' }, n === 1 ? 'zamówienie' : 'zamówień')];
-  const big = n => [el('span', { class: 'pl-big' }, n.toLocaleString('pl-PL'))];
+  const big = n => [el('span', { class: 'pl-big' }, n == null ? '—' : n.toLocaleString('pl-PL'))];
   return el('div', { class: 'pl-tiles' },
     tile('plToday', 'Dziś', pairs(k.ordersToday), 'wartość: ' + zl(k.valueToday), 'Zamówienia złożone dziś (czas sklepu), bez anulowanych. Wartość = pozycje + dostawa, brutto.'),
     tile('plWeek', 'Ostatnie 7 dni', pairs(k.orders7), 'wartość: ' + zl(k.value7), 'Zamówienia z ostatnich 7 dni łącznie z dzisiejszym, bez anulowanych. Wartość = pozycje + dostawa, brutto.'),

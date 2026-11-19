@@ -140,7 +140,7 @@ export function createApi(o) {
         if (body.code === 501) { unsupported.add(b.url + '|' + action); lastErr = Object.assign(new Error(body.error), { code: 501 }); continue; }
         // d1_unavailable = baza panelu chwilowo niedostępna (np. dzienny limit Cloudflare D1) — jak 501: próbujemy zapasowego backendu
         if (body.code === D1_UNAVAILABLE) { d1Down = true; info.degraded = true; listeners.forEach(f => { try { f(info); } catch (e) { /* ok */ } }); lastErr = Object.assign(new Error(body.error), { code: D1_UNAVAILABLE }); continue; }
-        if (body.code >= 500) failed(b, action, String(body.error || 'błąd serwera').slice(0, 150), body.code);
+        if (body.code >= 500 && body.code !== 503) failed(b, action, String(body.error || 'błąd serwera').slice(0, 150), body.code);
         const err = new Error(body.error);
         err.code = body.code;
         throw err;

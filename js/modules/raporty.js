@@ -1,9 +1,9 @@
 // Raporty sprzedaży (zastępują ekran Selly „Raporty sprzedaży”): sprzedaż w czasie, produkty, kategorie, producenci, statusy, płatności, dostawy,
 // województwa, klienci nowi i powracający — z porównaniem do poprzedniego okresu. Dane z D1 (akcja reports:sales, wynik w cache 5 min).
-import { el, store, money, cnt, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, dateRange, pageToolbar, isoDate, sellyLink } from '../core/ui.js?v=a359485';
-import { api, ctx } from '../core/client.js?v=a359485';
-import { wojLabel } from '../core/osa.js?v=a359485';
-import { shortcuts } from '../core/shortcuts.js?v=a359485';
+import { el, store, money, cnt, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, dateRange, pageToolbar, isoDate, sellyLink } from '../core/ui.js?v=7182c5b';
+import { api, ctx } from '../core/client.js?v=7182c5b';
+import { wojLabel } from '../core/osa.js?v=7182c5b';
+import { shortcuts } from '../core/shortcuts.js?v=7182c5b';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const svg = (tag, attrs, ...kids) => {
