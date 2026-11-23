@@ -1,0 +1,18 @@
+/* Zasoby Selly — dodatki: składniki zestawów, drzewo kategorii, logo, moderacja opinii */
+.zs-fold { border: 0; background: transparent; cursor: pointer; padding: 0 6px 0 0; font-size: var(--fs-sm); color: var(--muted); }
+.zs-fold:hover { color: var(--text); }
+.zs-fold-bar { display: flex; gap: var(--s2); margin: var(--s2) 0; }
+.zs-usage, .zs-links { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; margin-top: var(--s2); font-size: var(--fs-sm); }
+.zs-usage > span { padding: 2px 10px; border-radius: var(--r1); background: var(--surface-2); }
+.zs-img { display: flex; flex-direction: column; gap: 4px; }
+.zs-img img { max-width: 220px; max-height: 90px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--r1); padding: 4px; background: var(--surface); }
+.zs-img-url { font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.zs-comp-add { margin-top: var(--s3); }
+.zs-comp-add h3 { margin: 0 0 var(--s2); font-size: var(--fs-md); }
+.zs-comp-row { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: center; }
+.zs-comp-row input[type=search] { min-width: 220px; }
+.zs-comp-row select { min-width: 220px; max-width: 100%; }
+.zs-comp-more > summary { cursor: pointer; font-size: var(--fs-sm); }
+#zsItemsTable tr.zs-limit td { background: var(--surface-2); }
+.zs-rev-toggle { padding: 2px 10px; font-size: var(--fs-xs); }
+@media (max-width: 700px) { .zs-comp-row input[type=search], .zs-comp-row select { min-width: 0; width: 100%; } }

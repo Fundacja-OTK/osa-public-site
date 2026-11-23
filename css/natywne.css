@@ -1,0 +1,18 @@
+/* Natywne ekrany Selly przez rozszerzenie (js/modules/sellyNative.js): Reklamacje, Oferty */
+.nat-frow { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; }
+.nat-opts { margin-top: var(--s3); }
+.nat-opts summary { cursor: pointer; font-size: var(--fs-sm); color: var(--muted); }
+.nat-checks { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s2); }
+.nat-check { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-sm); }
+.nat-pager { display: flex; align-items: center; justify-content: center; gap: var(--s3); margin-top: var(--s3); }
+.nat-actions { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; margin-top: var(--s3); }
+.nat-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--s3) var(--s4); }
+.nat-field { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); color: var(--muted); }
+.nat-field input, .nat-field select, .nat-field textarea { color: var(--text); }
+.nat-err { border-color: var(--no); }
+.nat-ok { border-color: var(--yes, var(--accent)); }
+.nat-before { color: var(--muted); text-decoration: line-through; }
+.nat-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: var(--scrim); padding: var(--s4); }
+.nat-dialog { max-width: 560px; width: 100%; margin: 0; box-shadow: var(--shadow-pop); }
+.nat-dlg-actions { justify-content: flex-end; }
+.th-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; font-weight: inherit; }

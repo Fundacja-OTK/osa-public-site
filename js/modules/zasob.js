@@ -1,13 +1,14 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=7182c5b';
-import { api, ctx } from '../core/client.js?v=7182c5b';
-import { go, setLeaveGuard } from '../core/router.js?v=7182c5b';
-import { RESOURCES } from '../core/resources.js?v=7182c5b';
+import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=be6c33d';
+import { api, ctx } from '../core/client.js?v=be6c33d';
+import { go, setLeaveGuard } from '../core/router.js?v=be6c33d';
+import { RESOURCES } from '../core/resources.js?v=be6c33d';
+import { imageBox, setComponentsCard, reviewToggle } from './zasobExtra.js?v=be6c33d';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
-const PAGE = 50;
+const PAGE = 50, PAGE_TREE = 200;
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
 const isOn = v => v === true || v === 1 || v === '1' || v === 'true';
 const allFields = def => def.sections.flatMap(s => s.fields);
@@ -17,7 +18,15 @@ const labelOf = (opts, v) => { const o = (opts || []).find(x => String(x[0]) ===
 export function createResource(id) {
   const def = RESOURCES[id];
   if (!def) throw new Error('Nieznany zasób: ' + id);
-  const S = { root: null, seq: 0, rows: new Map(), opts: new Map(), dirty: false };
+  const S = { root: null, seq: 0, rows: new Map(), opts: new Map(), lists: {}, dirty: false, collapsed: new Set() };
+  const pageSize = () => (def.tree ? PAGE_TREE : PAGE);
+  // Opinie: produkt opinii z wiersza albo z filtra „Produkt (ID)” (gdy to jeden numer) — potrzebny do moderacji
+  const parentOf = row => {
+    if (!def.parent || !row) return null;
+    if (row.product_id != null && row.product_id !== '') return row.product_id;
+    const f = String((S.Q && S.Q.filters && S.Q.filters.product_ids) || '').trim();
+    return /^\d{1,12}$/.test(f) ? f : null;
+  };
 
   const listHref = () => '#/' + id + (S.listQs || '');
   const sellyUrl = () => adminUrl() + '?a=' + def.a;
@@ -33,7 +42,7 @@ export function createResource(id) {
 
   // ─── Słowniki (listy wyboru) ───────────────────────────────────────────────
   async function options(ref) {
-    if (!S.opts.has(ref)) S.opts.set(ref, api('res:options', { res: ref }).then(r => r.options || [], e => { S.opts.delete(ref); throw e; }));
+    if (!S.opts.has(ref)) S.opts.set(ref, api('res:options', { res: ref }).then(r => { S.lists[ref] = r.options || []; return S.lists[ref]; }, e => { S.opts.delete(ref); throw e; }));
     return S.opts.get(ref);
   }
 
@@ -41,6 +50,15 @@ export function createResource(id) {
   function cell(col, r, refOpts) {
     const v = r[col.key];
     const fieldOpts = () => { const f = allFields(def).find(x => x.key === col.key); return (col.options && col.options.length ? col.options : f && f.options) || []; };
+    if (col.type === 'order') {
+      const t = v == null ? '' : String(v);
+      return el('td', { class: 'nw' }, r.order_id ? el('a', { href: '#/zamowienia/' + encodeURIComponent(r.order_id), class: 'cell-name', title: 'Otwórz zamówienie ' + t + ' w panelu' }, t || String(r.order_id)) : t);
+    }
+    if (col.type === 'toggle') {
+      const td0 = el("td", { class: "nw" });
+      td0.append(reviewToggle(r, parentOf(r), () => loadList()));
+      return td0;
+    }
     if (col.type === 'bool') return el('td', { class: 'nw' }, isOn(v) ? el('span', { class: 'tag ok' }, 'tak') : el('span', { class: 'muted' }, 'nie'));
     if (col.type === 'enum') return el('td', null, labelOf(fieldOpts(), v));
     if (col.type === 'ref') { const o = (refOpts[col.ref] || []).find(x => String(x.value) === String(v)); return el('td', null, o ? o.label : (v == null || v === '' ? '' : String(v))); }
@@ -99,6 +117,12 @@ export function createResource(id) {
   function filterControl(f) {
     const sel = el('select', { id: 'zsF-' + f.key, 'aria-label': f.label, title: f.tip || f.label }, el('option', { value: '' }, 'wszystkie'));
     const fill = opts => { for (const [v, l] of opts) sel.append(el('option', { value: String(v) }, l)); sel.value = S.Q.filters[f.key] != null ? S.Q.filters[f.key] : ''; };
+    if (f.type === 'date' || f.type === 'text') {
+      const inp = el('input', { type: f.type === 'date' ? 'date' : 'text', id: 'zsF-' + f.key, 'aria-label': f.label, title: f.tip || f.label, value: S.Q.filters[f.key] || '' });
+      const apply = () => { const filters = Object.assign({}, S.Q.filters); if (inp.value.trim() === '') delete filters[f.key]; else filters[f.key] = inp.value.trim(); if (JSON.stringify(filters) !== JSON.stringify(S.Q.filters)) setQ({ filters }); };
+      inp.addEventListener(f.type === 'date' ? 'change' : 'input', f.type === 'date' ? apply : debounce(apply, 450));
+      return el('label', { class: 'field-inline', title: f.tip || null }, f.label, ' ', inp);
+    }
     if (f.type === 'ref') options(f.ref).then(o => fill(o.map(x => [x.value, x.label]))).catch(() => {}); else fill(f.options);
     sel.addEventListener('change', () => { const filters = Object.assign({}, S.Q.filters); if (sel.value === '') delete filters[f.key]; else filters[f.key] = sel.value; setQ({ filters }); });
     return el('label', { class: 'field-inline', title: f.tip || null }, f.label, ' ', sel);
@@ -109,7 +133,7 @@ export function createResource(id) {
     u.results.replaceChildren(loadingBox('Pobieram ' + def.many.toLowerCase() + ' z Selly…'));
     let d, refOpts = {};
     try {
-      d = await api('res:list', { res: id, page: Q.page, pageSize: PAGE, q: Q.q, sort: Q.sort, dir: Q.dir, filters: Q.filters });
+      d = await api('res:list', { res: id, page: Q.page, pageSize: pageSize(), q: Q.q, sort: Q.sort, dir: Q.dir, filters: Q.filters });
       for (const c of def.columns) if (c.type === 'ref') refOpts[c.ref] = await options(c.ref).catch(() => []);
     } catch (e) {
       if (my !== S.seq) return;
@@ -127,25 +151,43 @@ export function createResource(id) {
     const head = el('tr', null, def.columns.map(c => sortTh({ label: c.label, sort: c.key, num: c.num, tip: c.tip + (S.data && S.data.pageOnlySearch ? '' : ''), firstDir: c.firstDir, tipHeader: c.tip && c.tip !== c.label },
       Q, (sort, dir) => setQ({ sort, dir }))));
     const body = el('tbody');
-    for (const r of d.rows) {
+    const treeMode = !!def.tree && !Q.q && !Q.sort;
+    let skipBelow = null;
+    d.rows.forEach((r, i) => {
       const rid = String(r[def.idField]);
+      const depth = r._depth || 0, hasKids = treeMode && d.rows[i + 1] && (d.rows[i + 1]._depth || 0) > depth;
+      if (treeMode) {
+        if (skipBelow != null && depth > skipBelow) return;
+        skipBelow = S.collapsed.has(rid) && hasKids ? depth : null;
+      }
       body.append(el('tr', { class: 'pick', 'data-id': rid, onclick: tapOpen(() => go('/' + id + '/' + encodeURIComponent(rid))) },
         def.columns.map((c, i) => {
           const td = cell(c, r, refOpts);
           if (i === 0 && !c.tree) { const t = td.textContent; td.replaceChildren(el('a', { href: '#/' + id + '/' + encodeURIComponent(rid), class: 'cell-name' }, t || '(bez nazwy)')); }
+          if (i === 0 && hasKids) {
+            const open = !S.collapsed.has(rid);
+            const lead = td.querySelector('.zs-indent');
+            (lead || td).prepend(el('button', { type: 'button', class: 'zs-fold', 'aria-expanded': String(open), title: open ? 'Zwiń podkategorie' : 'Rozwiń podkategorie',
+              onclick: ev => { ev.stopPropagation(); if (open) S.collapsed.add(rid); else S.collapsed.delete(rid); renderRows(d, refOpts); } }, open ? '▾' : '▸'));
+          }
           return td;
         })));
-    }
+    });
     if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(def.columns.length), class: 'empty' },
       Q.q || Object.keys(Q.filters).length ? 'Brak wyników dla wyszukiwania i filtrów. ' : 'Brak pozycji. ',
       Q.q || Object.keys(Q.filters).length ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ q: '', filters: {} }) }, 'Wyczyść filtry')
         : (def.canCreate ? el('a', { href: '#/' + id + '/nowy' }, def.addLabel) : null))));
     const hasPrev = Q.page > 1;
     const hasNext = d.total != null ? Q.page * d.pageSize < d.total : !!d.hasNext;
+    const foldAll = treeMode && d.rows.some((r, i) => d.rows[i + 1] && (d.rows[i + 1]._depth || 0) > (r._depth || 0))
+      ? el('div', { class: 'toolbar zs-fold-bar' }, el('button', { type: 'button', class: 'secondary', id: 'zsFoldAll', title: 'Zwija wszystkie kategorie do najwyższego poziomu',
+        onclick: () => { for (const r of d.rows) S.collapsed.add(String(r[def.idField])); renderRows(d, refOpts); } }, 'Zwiń wszystko'),
+      el('button', { type: 'button', class: 'secondary', id: 'zsUnfoldAll', title: 'Rozwija całe drzewo kategorii', onclick: () => { S.collapsed.clear(); renderRows(d, refOpts); } }, 'Rozwiń wszystko')) : null;
     const pages = d.total != null ? Math.max(1, Math.ceil(d.total / d.pageSize)) : null;
     u.results.replaceChildren(
       d.truncated ? el('div', { class: 'notice warn' }, 'Lista jest bardzo długa — pokazuję pierwsze 1000 pozycji. Użyj wyszukiwania, aby znaleźć resztę.') : null,
       d.pageOnlySearch ? el('div', { class: 'notice warn', id: 'zsPageOnly', title: 'API Selly nie ma wyszukiwania w tej sekcji' }, 'Selly nie ma wyszukiwania w tej sekcji — przeszukana została tylko bieżąca strona listy.') : null,
+      foldAll,
       el('div', { class: 'table-wrap' }, el('table', { id: 'zsTable' }, el('thead', null, head), body)),
       el('div', { class: 'ord-pager' },
         el('button', { type: 'button', class: 'secondary', id: 'zsPrev', disabled: !hasPrev, title: hasPrev ? 'Poprzednia strona' : 'To pierwsza strona', onclick: () => setQ({ page: Q.page - 1 }) }, '← Poprzednia'),
@@ -186,6 +228,7 @@ export function createResource(id) {
       sel.addEventListener('change', ctl.changed);
       return { node: sel, get: () => sel.value, norm: v => (v == null || v === '' ? (f.rootLabel ? '0' : '') : String(v)), el: sel };
     }
+    if (f.type === 'image') return { node: imageBox(value), get: () => null, norm: () => null };
     if (f.type === 'rows') {
       const rows = Array.isArray(value) ? value : [];
       const t = el('table', { id: idAttr, class: 'zs-rows' }, el('thead', null, el('tr', null, f.columns.map(c => el('th', { class: c.num ? 'n' : null }, el('span', { title: c.tip || c.label }, c.label))))),
@@ -218,7 +261,7 @@ export function createResource(id) {
     const markDirty = () => {
       let any = false;
       for (const f of fields) {
-        const c = ctls.get(f.key); if (!c || f.readOnly || f.type === 'rows') continue;
+        const c = ctls.get(f.key); if (!c || f.readOnly || f.type === 'rows' || f.type === 'image') continue;
         if (String(c.get()) !== String(c.norm(orig.get(f.key)))) { any = true; break; }
       }
       setDirty(any);
@@ -226,16 +269,17 @@ export function createResource(id) {
       save.title = save.disabled && !create ? 'Brak zmian do zapisania' : (create ? 'Dodaje rekord w Selly' : 'Zapisuje zmiany w Selly');
     };
     const ctl = { changed: markDirty, refreshed: markDirty, itemId: create ? null : item[def.idField] };
-    const editable = create ? def.canCreate : def.canEdit;
+    const pid = def.parent && !create ? parentOf(item) : null;
+    const editable = create ? def.canCreate : (def.canEdit && (!def.parent || !!pid));
 
     const secs = def.sections.map(s => {
       const grid = el('div', { class: 'zs-grid' });
       for (const f0 of s.fields) {
         const f = editable ? f0 : { ...f0, readOnly: true };
-        const raw = create ? (f.type === 'bool' && f.key === 'display' ? 1 : null) : item[f.key];
+        const raw = create ? (f.type === 'bool' && (f.key === 'display' || f.key === 'visible') ? 1 : (f.key === 'parent_id' && S.newParent ? S.newParent : null)) : item[f.key];
         const c = fieldControl(f, raw, ctl);
         ctls.set(f.key, c); orig.set(f.key, raw);
-        if (f.readOnly && f.type !== 'rows' && f.type !== 'bool') {
+        if (f.readOnly && f.type !== 'rows' && f.type !== 'bool' && f.type !== 'image') {
           const ro = c.node.tagName === 'SELECT' ? c.node : c.node;
           if (ro.tagName === 'INPUT' || ro.tagName === 'TEXTAREA') ro.setAttribute('readonly', '');
         }
@@ -254,7 +298,7 @@ export function createResource(id) {
       const changed = {};
       const fail = t => { msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, t)); };
       for (const f of fields) {
-        const c = ctls.get(f.key); if (!c || f.readOnly || f.type === 'rows') continue;
+        const c = ctls.get(f.key); if (!c || f.readOnly || f.type === 'rows' || f.type === 'image') continue;
         const v = c.get();
         if (!create && String(v) === String(c.norm(orig.get(f.key)))) continue;
         if (v === '' && create) continue;
@@ -270,7 +314,7 @@ export function createResource(id) {
       if (!Object.keys(changed).length) { msg.replaceChildren(el('div', { class: 'notice warn' }, 'Brak zmian do zapisania.')); return; }
       save.disabled = true;
       try {
-        const r = await api('res:save', { res: id, id: create ? undefined : item[def.idField], fields: changed });
+        const r = await api('res:save', { res: id, id: create ? undefined : item[def.idField], fields: changed, productId: pid || undefined });
         setDirty(false);
         if (def.tree || id === 'kategorie') S.opts.delete('kategorie');
         flash('', create ? 'Dodano w Selly: ' + def.one : 'Zapisano w Selly');
@@ -284,13 +328,16 @@ export function createResource(id) {
 
     const cancel = el('a', { href: listHref(), id: 'zsCancel', class: 'btn-link zs-cancel', title: 'Wraca do listy bez zapisywania' }, 'Anuluj');
     let del = null;
-    if (!create && def.canDelete && meta && meta.canDelete) {
+    if (!create && def.canDelete && meta && meta.canDelete && (!def.parent || pid)) {
       del = el('button', { type: 'button', class: 'secondary danger', id: 'zsDelete', title: 'Usuwa rekord z Selly — tego nie da się cofnąć',
         onclick: async () => {
           const name = String(item[def.titleField] || item[def.idField]);
-          if (!confirm('Usunąć „' + name + '” z Selly?\n\n' + (def.deleteWarn ? def.deleteWarn + '\n\n' : '') + 'Tego nie można cofnąć.')) return;
+          const u = meta && meta.usage ? meta.usage : null;
+          const used = u && ((u.products || 0) > 0 || u.children);
+          const usedTxt = used ? 'UWAGA: ' + (u.products ? 'przypisanych produktów: ' + u.products + (u.productsExact ? '' : ' lub więcej') + '. ' : '') + (u.children ? 'Ma podkategorie. ' : '') + '\n\n' : '';
+          if (!confirm('Usunąć „' + name + '” z Selly?\n\n' + usedTxt + (def.deleteWarn ? def.deleteWarn + '\n\n' : '') + 'Tego nie można cofnąć.')) return;
           del.disabled = true;
-          try { await api('res:delete', { res: id, id: item[def.idField] }); setDirty(false); S.opts.delete(id); flash('', 'Usunięto z Selly'); go('/' + id); }
+          try { await api('res:delete', { res: id, id: item[def.idField], force: used ? true : undefined, productId: pid || undefined }); setDirty(false); S.opts.delete(id); flash('', 'Usunięto z Selly'); go('/' + id); }
           catch (e) { del.disabled = false; msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Nie udało się usunąć: ' + ((e && e.message) || 'błąd'))); }
         } }, 'Usuń');
     }
@@ -337,7 +384,41 @@ export function createResource(id) {
     return host;
   }
 
-  async function renderCard(itemId) {
+  // Ostrzeżenie o użyciu (kategorie, producenci) i skrót „dodaj podkategorię”
+  function usageBox(meta, item) {
+    const u = meta && meta.usage;
+    const kids = def.tree ? childCount(item[def.idField]) : null;
+    const parts = [];
+    if (u && u.products != null) parts.push(el('span', { id: 'zsUsageProducts', title: 'Tyle produktów jest przypisanych do tej pozycji w Selly' }, 'Produktów: ' + u.products + (u.productsExact ? '' : '+')));
+    if (kids != null) parts.push(el('span', { id: 'zsUsageKids', title: 'Liczba bezpośrednich podkategorii' }, 'Podkategorii: ' + kids));
+    const sub = def.addSub ? el('a', { href: '#/' + id + '/nowy?parent=' + encodeURIComponent(item[def.idField]), id: 'zsAddSub', class: 'btn-link', title: 'Otwiera pusty formularz z tą kategorią jako nadrzędną' }, '+ Dodaj podkategorię') : null;
+    if (!parts.length && !sub) return null;
+    return el('div', { class: 'zs-usage' }, ...parts, sub);
+  }
+  function childCount(pid) {
+    const o = S.lists[id];
+    return o ? o.filter(x => String(x.parent) === String(pid)).length : null;
+  }
+  function cardLinks(item) {
+    const links = (def.cardLinks || []).filter(l => item[l.key] && String(item[l.key]) !== '0');
+    if (!links.length) return null;
+    return el('div', { class: 'zs-links' }, links.map(l => el('a', { href: '#/zamowienia/' + encodeURIComponent(item[l.key]), class: 'btn-link', title: l.tip }, l.label)));
+  }
+  // Szybkie akcje karty (np. „Anuluj subskrypcję”): jedno kliknięcie = zapis wskazanych pól w Selly
+  function quickActions(item) {
+    const acts = (def.quickActions || []).filter(a => !a.when || a.when(item));
+    if (!acts.length) return null;
+    const msg = el('span', { class: 'zs-item-msg muted', role: 'status' });
+    return el('div', { class: 'zs-links' }, acts.map(a => el('button', { type: 'button', class: 'secondary' + (a.danger ? ' danger' : ''), id: 'zsQuick-' + a.id, title: a.tip, onclick: async ev => {
+      if (a.confirm && !confirm(a.confirm)) return;
+      const b = ev.currentTarget; b.disabled = true;
+      try { await api('res:save', { res: id, id: item[def.idField], fields: a.fields }); flash('', 'Zapisano w Selly'); renderCard(String(item[def.idField])); }
+      catch (e) { b.disabled = false; msg.textContent = 'Błąd: ' + ((e && e.message) || ''); }
+    } }, a.label)), msg);
+  }
+
+  async function renderCard(itemId, query) {
+    S.newParent = itemId === 'nowy' && query && /^\d{1,12}$/.test(query.get('parent') || '') ? query.get('parent') : null;
     const my = ++S.seq, box = S.cardBox;
     setLeaveGuard(null); setDirty(false);
     const create = itemId === 'nowy';
@@ -348,7 +429,7 @@ export function createResource(id) {
         item = S.rows.get(String(itemId)) || null;
         if (!item) { box.replaceChildren(el('div', { class: 'card' }, el('div', { class: 'empty' }, 'Tej pozycji nie ma w ostatnio wczytanej liście. ', el('a', { href: listHref() }, '← Wróć do listy'), ' i wybierz ją ponownie.'))); return; }
       } else {
-        try { const r = await api('res:get', { res: id, id: itemId }); item = r.item; meta = r; items = r.items; }
+        try { const r = await api('res:get', { res: id, id: itemId }); item = r.item; meta = r; items = r.items; S.cardData = r; }
         catch (e) {
           if (my !== S.seq) return;
           box.replaceChildren(failBox(e, () => renderCard(itemId), 'rekordu'), el('p', null, el('a', { href: listHref(), class: 'btn-link' }, '← Wróć do listy')));
@@ -356,17 +437,20 @@ export function createResource(id) {
         }
       }
     } else if (!def.canCreate) { go('/' + id, { replace: true }); return; }
+    if (def.tree) await options(id).catch(() => []);
     if (my !== S.seq) return;
     const title = create ? def.newTitle : String(item[def.titleField] == null || item[def.titleField] === '' ? def.one + ' ' + itemId : item[def.titleField]);
     box.replaceChildren(
       el('div', { class: 'card' },
         el('div', { class: 'ord-detail-top' }, el('a', { href: listHref(), class: 'btn-link', id: 'zsBack', title: 'Wraca do listy z zachowanym wyszukiwaniem' }, '← Wróć do listy'), el('span', { class: 'spacer' }),
-          sellyLink('Otwórz w Selly ↗', sellyUrl(), 'Otwiera odpowiednią sekcję panelu administracyjnego Selly w nowej karcie')),
+          sellyLink('Edytuj w Selly ↗', sellyUrl(), 'Otwiera odpowiednią sekcję panelu administracyjnego Selly w nowej karcie — tam zmienisz to, czego nie da się tu (np. ' + (def.parent ? 'edycja opinii bez numeru produktu' : def.readOnlyNote ? 'pozycje, statusy, usuwanie' : 'pliki i obrazki') + ')')),
         el('div', { class: 'card-head' }, el('h2', { id: 'zsCardTitle' }, title), create ? null : el('div', { class: 'sub' }, 'ID ' + itemId)),
         !create && def.editNote ? el('div', { class: 'sub muted zs-note' }, def.editNote) : null,
-        def.readOnlyNote && !def.canEdit ? el('div', { class: 'sub muted zs-note' }, def.readOnlyNote) : null),
+        create && def.createNote ? el('div', { class: 'sub muted zs-note', id: 'zsCreateNote' }, def.createNote) : null,
+        def.readOnlyNote && (!def.canEdit || def.parent) ? el('div', { class: 'sub muted zs-note' }, def.readOnlyNote) : null,
+        !create ? usageBox(meta, item) : null, !create ? cardLinks(item) : null, !create ? quickActions(item) : null),
       buildForm(box, create ? null : item, meta));
-    if (def.items && !create) box.append(itemsCard(itemId, items || [], meta));
+    if (def.items && !create) box.append(def.setCard ? setComponentsCard(itemId, S.cardData || { items: items || [], item }, () => renderCard(itemId)) : itemsCard(itemId, items || [], meta));
     setLeaveGuard(() => (S.dirty ? 'Masz niezapisane zmiany. Wyjść bez zapisywania?' : null));
   }
 
@@ -381,7 +465,7 @@ export function createResource(id) {
       }
       const part = (params && params.parts && params.parts[0]) || '';
       S.listBox.hidden = !!part; S.cardBox.hidden = !part;
-      if (part) { renderCard(part); return; }
+      if (part) { renderCard(part, params && params.query); return; }
       setLeaveGuard(null); setDirty(false);
       S.Q = readQ(params && params.query);
       S.listQs = qsOf(S.Q);

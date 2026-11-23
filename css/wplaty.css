@@ -1,0 +1,13 @@
+/* Import wpłat bankowych (js/modules/wplaty.js) — karty/okna wspólne z masowe.css */
+.wp-drop { border: 2px dashed var(--border-strong); border-radius: var(--r2); padding: var(--s4); text-align: center; display: grid; gap: var(--s2); justify-items: center; background: var(--surface); }
+.wp-drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.wp-privacy { background: var(--info-soft); color: var(--text); border-radius: var(--r2); padding: var(--s2) var(--s3); margin: 0 0 var(--s3); }
+.wp-hint { font-size: var(--fs-sm); margin: var(--s2) 0 0; }
+.wp-f { flex-direction: column; align-items: stretch; gap: 4px; font-size: var(--fs-sm); color: var(--muted); }
+.wp-num { width: 110px; min-width: 0; }
+.wp-sel { max-width: 340px; width: 100%; }
+.wp-manual { width: 100%; max-width: 200px; margin-top: 4px; }
+.wp-note { font-size: var(--fs-xs); color: var(--muted); margin-top: 4px; max-width: 340px; }
+.wp-title { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#wpTable tr.wp-done td { color: var(--muted); }
+#wpTable td.n, #wpTable th.n { text-align: right; font-variant-numeric: tabular-nums; }
