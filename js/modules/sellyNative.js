@@ -1,10 +1,10 @@
 // Wspólny ekran „natywny” dla sekcji Selly bez API (etap 2, docs/selly-embed.md): lista z filtrami → karta rekordu → bezpieczny zapis.
 // Dane: rozszerzenie OSA pobiera strony Selly z sesją użytkownika i zwraca strukturę (core/sellyBridge.js); nic nie idzie do backendu OSA.
 // Bez rozszerzenia (albo ze starą wersją) — ramka z etapu 1 / link do Selly (_placeholder.js).
-import { el, loadingBox, tapOpen } from '../core/ui.js?v=9fd5e04';
-import { hasExtension } from '../core/extBridge.js?v=9fd5e04';
-import { hasNative, sellyCall } from '../core/sellyBridge.js?v=9fd5e04';
-import { createPlaceholder, sellyUrl } from './_placeholder.js?v=9fd5e04';
+import { el, loadingBox, tapOpen } from '../core/ui.js?v=8725b34';
+import { hasExtension } from '../core/extBridge.js?v=8725b34';
+import { hasNative, sellyCall } from '../core/sellyBridge.js?v=8725b34';
+import { createPlaceholder, sellyUrl } from './_placeholder.js?v=8725b34';
 
 const numeric = vals => vals.length > 0 && vals.every(v => v === '' || /^-?[\d\s.,]+(\s?(zł|PLN|szt\.?))?$/.test(v));
 const num = s => parseFloat(String(s).replace(/\s/g, '').replace(',', '.')) || 0;

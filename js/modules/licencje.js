@@ -1,9 +1,9 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=9fd5e04';
-import { api, ctx } from '../core/client.js?v=9fd5e04';
-import { go } from '../core/router.js?v=9fd5e04';
-import { loadingBox } from '../core/ui.js?v=9fd5e04';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=8725b34';
+import { api, ctx } from '../core/client.js?v=8725b34';
+import { go } from '../core/router.js?v=8725b34';
+import { loadingBox } from '../core/ui.js?v=8725b34';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
@@ -74,7 +74,6 @@ const TEMPLATE = `
         <div class="field" id="packsField" hidden>
           <span class="label">Pakiety startowe</span>
           <label title="Przed licencjami organizatorzy kupowali pakiet startowy (zestaw: śpiewniki + korony). Po włączeniu pakiet z roku R liczy się tak samo jak licencja na rok R — w tabelach ma znacznik „pakiet”. Dotyczy tylko lat do 2024: od 2025 jako licencja liczy się wyłącznie licencja."><input type="checkbox" id="packsOn" checked> Licz pakiet startowy jak licencję z tego roku (dawna forma, lata do 2024)</label>
-          <label title="Dotyczy kafelka „nowych … — pierwsza licencja”. Domyślnie wcześniejszy pakiet startowy (dawna forma licencji, lata do 2024) oznacza, że osoba już miała licencję, więc nie jest „nowa”. Po zaznaczeniu pakiety nie liczą się jako licencja: ani wcześniej, ani w roku raportu."><input type="checkbox" id="firstNoPacks"> Nie licz pakietów startowych jako licencji w kafelku „pierwsza licencja”</label>
           <p class="muted small" id="packsHint"></p>
         </div>
         <div class="field">
@@ -229,7 +228,6 @@ function renderPacksField() {
   if (!BOOT.packs || !BOOT.packs.length) return;
   $('packsField').hidden = false;
   $('packsOn').addEventListener('change', settingsChanged);
-    $('firstNoPacks').addEventListener('change', settingsChanged);
   $('packsHint').replaceChildren(
     'Orszak ma pakiet na rok R, gdy w sezonie R (1 lipca R−1 – 30 czerwca R) suma sztuk każdego składnika ze wszystkich jego zamówień ' +
     'jest co najmniej taka jak w zestawie — także gdy składniki kupił osobno. Pakiety: ' +
@@ -388,7 +386,6 @@ function commonParams() {
   if (BOOT.statuses.length && !statusIds.length) return { error: 'Zaznacz co najmniej jeden status zamówienia w ustawieniach zaawansowanych.' };
   const out = { statusIds, products: selectedProducts() };
   if (BOOT.packs && BOOT.packs.length && !$('packsOn').checked) out.packs = false; // domyślnie pakiety się liczą
-    if (BOOT.packs && BOOT.packs.length && $('firstNoPacks') && $('firstNoPacks').checked) out.firstNoPacks = true;
   return out;
 }
 
@@ -450,8 +447,6 @@ function visibleRows() {
 
 /** Zakres lat „wcześniejszych” dla kafelka pierwszej licencji, np. „2022–2025” (wg najwcześniejszego roku w danych). */
 const listSource = r => state.list === 'first' ? (r.firstRows || []) : state.list === 'all' ? r.rows.concat(r.extraRows || []) : r.rows;
-const firstScope = r => { const a = r.firstFrom || r.year, b = r.year - 1; return a >= b ? String(b) : a + '–' + b; };
-const firstWhat = r => (packsActive() && !r.firstNoPacks ? 'licencji ani pakietu startowego' : 'licencji');
 
 function render() {
   const r = state.report;
@@ -466,9 +461,9 @@ function render() {
   }, el('b', null, String(n)), el('span', null, label));
 
   const tabs = el('div', { class: 'tabs' },
-    tab('notBought', c.notBought, 'nie kupiło jeszcze licencji ' + y, 'Mieli licencję' + (packsActive([y2, y1, y]) ? ' lub pakiet startowy ' : ' ') + y2 + ' lub ' + y1 + ', a licencji ' + y + ' jeszcze nie kupili — do przypomnienia'),
-    tab('bought', c.bought, 'kupiło już licencję ' + y, 'Mieli licencję' + (packsActive([y2, y1, y]) ? ' lub pakiet startowy ' : ' ') + y2 + ' lub ' + y1 + ' i kupili już licencję ' + y),
-    tab('first', c.newcomers, 'nowych w ' + y + ' — pierwsza licencja (bez licencji ' + firstScope(r) + ')', 'Kupili licencję ' + y + ' i nie mają ' + firstWhat(r) + ' w żadnym wcześniejszym roku (' + firstScope(r) + ', wg danych w raporcie) — wcześniej liczono tylko ' + y2 + ' i ' + y1 + '. Osoby po e-mailu; nie ma ich na liście przedłużeń.'),
+    tab('notBought', c.notBought, 'nie przedłużyło jeszcze na ' + y + ' (mieli ' + (packsActive([y2, y1, y]) ? 'licencję lub pakiet ' : 'licencję ') + y2 + ' lub ' + y1 + ')', 'Mieli licencję' + (packsActive([y2, y1, y]) ? ' lub pakiet startowy ' : ' ') + y2 + ' lub ' + y1 + ', a licencji ' + y + ' jeszcze nie kupili — do przypomnienia'),
+    tab('bought', c.bought, 'przedłużyło na ' + y + ' (mieli ' + (packsActive([y2, y1, y]) ? 'licencję lub pakiet ' : 'licencję ') + y2 + ' lub ' + y1 + ')', 'Mieli licencję' + (packsActive([y2, y1, y]) ? ' lub pakiet startowy ' : ' ') + y2 + ' lub ' + y1 + ' i kupili już licencję ' + y + ' — bez nowych (ci są w kafelku „nowych w ' + y + '”)'),
+    tab('first', c.newcomers, 'nowych w ' + y + ' (bez licencji ' + y2 + ' i ' + y1 + ')', 'Kupili licencję ' + y + ', a nie mieli licencji' + (packsActive([y2, y1, y]) ? ' ani pakietu startowego ' : ' ') + y2 + ' ani ' + y1 + ' — nowi względem listy przedłużeń (wcześniejsze lata nie są sprawdzane). Osoby po e-mailu; wliczeni też w „wszyscy”.'),
     tab('all', c.everyone, 'wszyscy z licencją ' + (packsActive([y2, y1, y]) ? 'lub pakietem ' : '') + y2 + ', ' + y1 + ' lub ' + y, 'Wszyscy: osoby (po e-mailu) z licencją' + (packsActive([y2, y1, y]) ? ' lub pakietem startowym ' : ' ') + y2 + ', ' + y1 + ' lub ' + y + ' — czyli lista przedłużeń (' + y2 + ' lub ' + y1 + ') oraz osoby z licencją tylko w ' + y + '. Liczby „nie kupiło” i „kupiło już” dotyczą tylko osób z ' + y2 + ' lub ' + y1 + '.'));
 
   if (c.base === 0 && state.list !== 'first' && state.list !== 'all') {
