@@ -1,7 +1,7 @@
 // Dodatki ekranu zasobu (zasob.js): składniki zestawu, podgląd logo, moderacja opinii (przyciski w wierszu).
 // Osobny plik, żeby zasob.js został czytelny; każdy element dostaje dane i wywołania z zasob.js.
-import { el, debounce, flash, money } from '../core/ui.js?v=8725b34';
-import { api } from '../core/client.js?v=8725b34';
+import { el, debounce, flash, money } from '../core/ui.js?v=91371e0';
+import { api } from '../core/client.js?v=91371e0';
 
 const num = v => (v === '' || v == null || !isFinite(Number(v)) ? 0 : Number(v));
 const fmtQty = v => (v == null ? '—' : String(Math.round(Number(v) * 1000) / 1000));
@@ -118,4 +118,25 @@ export function reviewToggle(row, productId, onDone) {
     catch (e) { b.disabled = false; flash('', 'Nie udało się: ' + ((e && e.message) || 'błąd')); }
   });
   return el('span', { class: 'nw' }, el('span', { class: on ? 'tag ok' : 'muted' }, on ? 'tak' : 'nie'), ' ', b);
+}
+
+/**
+ * Karta „Marża minimalna producenta” — zapis przez PUT /producers/{id}/margins (NIEZWERYFIKOWANE; Selly nie pozwala tej wartości odczytać,
+ * więc pole startuje puste i zapisuje się tylko po wpisaniu). Rabaty wg poziomów cen są w sekcji „Marże wg poziomów cen” formularza.
+ */
+export function marginsCard(id, producerId, canEdit) {
+  const inp = el('input', { type: 'text', inputmode: 'decimal', id: 'zsMarginMin', 'aria-label': 'Marża minimalna (%)', disabled: !canEdit, class: 'zs-pos', placeholder: 'np. 15',
+    title: 'Najniższa dozwolona marża produktów tego producenta (%). Selly nie pozwala odczytać aktualnej wartości — wpisz nową, aby ją ustawić.' });
+  const msg = el('div', { role: 'status' });
+  const save = el('button', { type: 'button', id: 'zsMarginsSave', disabled: !canEdit, title: canEdit ? 'Ustawia marżę minimalną producenta w Selly' : 'Brak uprawnień do edycji' }, 'Ustaw marżę minimalną');
+  save.addEventListener('click', async () => {
+    if (!inp.value.trim()) { msg.replaceChildren(el('div', { class: 'notice warn' }, 'Wpisz wartość marży minimalnej.')); return; }
+    save.disabled = true;
+    try { await api('res:marginsSave', { res: id, id: producerId, fields: { margin_minimal: inp.value.trim() } }); flash('', 'Zapisano marżę minimalną w Selly'); msg.replaceChildren(); save.disabled = false; }
+    catch (e) { save.disabled = false; msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Nie udało się zapisać: ' + ((e && e.message) || 'błąd'))); }
+  });
+  return el('div', { class: 'card zs-sec', id: 'zsMargins' },
+    el('div', { class: 'card-head' }, el('h2', null, 'Marża minimalna producenta'),
+      el('div', { class: 'sub' }, 'Jak „Marża minimalna” w panelu Selly („Producenci — rabaty”). Funkcja niezweryfikowana na prawdziwym Selly: jeśli zapis zwróci błąd, ustaw ją w panelu Selly.')),
+    el('label', { class: 'field-inline' }, 'Marża minimalna (%)', inp), el('div', { class: 'zs-actions' }, save), msg);
 }

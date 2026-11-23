@@ -1,7 +1,7 @@
 // Zbieranie błędów przeglądarki (window error / unhandledrejection / nieudane wywołania API) i wysyłka do backendu:
 // deduplikacja po sygnaturze (komunikat + szczyt stosu), limit zdarzeń na minutę, paczki co najmniej minutę od siebie.
 // Rdzeń bez zależności od przeglądarki (zegar, timery i wysyłka wstrzykiwane — testy w node); okablowanie: initErrorReporting.
-import { deliver } from './delivery.js?v=8725b34';
+import { deliver } from './delivery.js?v=91371e0';
 
 export const MAX_EVENTS_PER_MIN = 30;     // więcej zdarzeń w minucie jest tylko liczone (dropped)
 export const FLUSH_DELAY_MS = 15000;      // zbieranie zdarzeń przed wysyłką

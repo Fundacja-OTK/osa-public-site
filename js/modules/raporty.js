@@ -2,17 +2,18 @@
 // Dwa widoki: „Okres” (okres kontra poprzedni okres albo ten sam okres rok temu) i „Lata” (kilka lat obok siebie: wykres rok do roku, mapa miesięcy, produkty).
 // Cały stan raportu siedzi w adresie (#/raporty?od=…&do=…&cmp=…): link można wysłać dalej, a „wstecz / dalej” w przeglądarce działa.
 // Na górze zawsze pasek „co oglądasz”: zakres, porównanie, statusy, grupowanie — każdy element to przycisk otwierający odpowiednie ustawienie.
-import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu } from '../core/ui.js?v=8725b34';
-import { api, ctx } from '../core/client.js?v=8725b34';
-import { go } from '../core/router.js?v=8725b34';
-import { wojLabel } from '../core/osa.js?v=8725b34';
-import { shortcuts } from '../core/shortcuts.js?v=8725b34';
-import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=8725b34';
-import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=8725b34';
+import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu } from '../core/ui.js?v=91371e0';
+import { api, ctx } from '../core/client.js?v=91371e0';
+import { go } from '../core/router.js?v=91371e0';
+import { wojLabel } from '../core/osa.js?v=91371e0';
+import { shortcuts } from '../core/shortcuts.js?v=91371e0';
+import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=91371e0';
+import { zyskRender } from './raportyZysk.js?v=91371e0';
+import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=91371e0';
 
 /** Domyślne wartości ustawień — w adresie zapisujemy tylko to, co się od nich różni. */
 const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '10', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '' };
-const OK = { v: ['okres', 'lata'], cmp: ['prev', 'year', 'off'], gr: ['auto', 'day', 'week', 'month'], met: ['value', 'orders', 'avg'], per: ['year', 'season', 'window'], ytd: ['1', '0'], lm: ['value', 'orders', 'avg', 'units', 'ship'], cm: ['monthly', 'cumulative'], dim: ['payments', 'deliveries', 'statuses', 'categories', 'producers'], dm: ['qty', 'value', 'orders'] };
+const OK = { v: ['okres', 'lata', 'zysk'], cmp: ['prev', 'year', 'off'], gr: ['auto', 'day', 'week', 'month'], met: ['value', 'orders', 'avg'], per: ['year', 'season', 'window'], ytd: ['1', '0'], lm: ['value', 'orders', 'avg', 'units', 'ship'], cm: ['monthly', 'cumulative'], dim: ['payments', 'deliveries', 'statuses', 'categories', 'producers'], dm: ['qty', 'value', 'orders'] };
 /** Ustawienia, których zmiana wymaga ponownego policzenia raportu (reszta to tylko widok: zakładka, sortowanie, szukanie). */
 const dataKeys = Q => (Q.v === 'lata' ? ['v', 'yf', 'yt', 'per', 'ss', 'ytd', 'gr', 'st'].concat(Q.per === 'window' ? ['od', 'do'] : []) : ['v', 'od', 'do', 'cmp', 'gr', 'st']);
 /** Grupy ustawień pokazywane w pasku i w podświetleniu „co się zmieniło”. */
@@ -54,7 +55,7 @@ function effective(Q) {
   if (from > to) [from, to] = [to, from];
   const days = daysBetween(from, to), ids = Q.st ? Q.st.split(',').filter(Boolean) : [];
   const E = { v: Q.v, from, to, days, today, ids, defaultRange: !Q.od && !Q.do, cmp: Q.cmp, group: Q.gr };
-  if (Q.v === 'okres') {
+  if (Q.v !== 'lata') {
     const [pf, pt] = Q.cmp === 'year' ? [addYears(from, -1), addYears(to, -1)] : [addDays(from, -days), addDays(from, -1)];
     Object.assign(E, { prevFrom: pf, prevTo: pt });
   } else {
@@ -88,7 +89,7 @@ function summaryParts() {
   const g = d ? d.range.group : E.group === 'auto' ? autoGroup(E.days) : E.group;
   const cmpTip = E.cmp === 'off' ? 'Porównanie jest wyłączone — pokazujemy tylko wybrany okres. Włączysz je w ustawieniach.' : 'Okres porównawczy — z nim zestawiane są wszystkie liczby i wykres (' + (E.cmp === 'year' ? 'te same dni rok wcześniej' : 'tyle samo dni bezpośrednio przed wybranym okresem') + '). Na wykresie to linia przerywana.';
   return [
-    { k: 'range', sw: 'cur', text: 'Sprzedaż ' + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', tip: 'Okres bieżący — to, co pokazuje raport (słupki w kolorze brązowym). Kliknij, aby zmienić daty.' },
+    { k: 'range', sw: 'cur', text: (E.v === 'zysk' ? 'Zysk i marża ' : 'Sprzedaż ') + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', tip: 'Okres bieżący — to, co pokazuje raport (słupki w kolorze brązowym). Kliknij, aby zmienić daty.' },
     { k: 'cmp', sw: E.cmp === 'off' ? null : 'cmp', text: E.cmp === 'off' ? 'bez porównania' : 'porównanie z ' + rangeText(E.prevFrom, E.prevTo) + (E.cmp === 'year' ? ' (rok temu)' : ' (poprzedni okres)'), tip: cmpTip },
     { k: 'status', text: 'statusy: ' + sp.text, tip: sp.tip + ' Kliknij, aby zmienić.' },
     { k: 'group', text: 'grupowanie: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), tip: 'Na jakie przedziały dzielimy czas na wykresie i w tabeli „Sprzedaż w czasie”' + (E.group === 'auto' ? ' — wybrane automatycznie na podstawie długości zakresu.' : '.') },
@@ -310,7 +311,7 @@ function buildSettings() {
   u.presets = menuButton({ id: 'rpFromPresets', label: 'Gotowe zakresy', cls: 'secondary small', title: 'Gotowe zakresy dat — przy każdym widać dokładne daty', items: () => presets().map(([label, a, b]) => ({ label: label + ' · ' + rangeText(a, b), title: 'Ustaw zakres ' + rangeText(a, b), run: () => setQ({ od: a, do: b }) })) });
   const cy = Number(isoDate(new Date()).slice(0, 4)), years = Array.from({ length: 11 }, (_, i) => cy - i);
   const sel = (id, opts, onch, title) => el('select', { id, 'aria-label': title, onchange: ev => onch(ev.target.value) }, opts.map(([v, l, t]) => el('option', { value: v, title: t || null }, l)));
-  u.viewSeg = el('div', { class: 'rp-viewsw', role: 'group', 'aria-label': 'Widok raportu' }, [['okres', 'Okres', 'Jeden okres zestawiony z poprzednim okresem albo z rokiem wcześniej: kafelki, wykres, tabele, klienci'], ['lata', 'Lata (rok do roku)', 'Kilka lat obok siebie: wykres miesięczny rok do roku, mapa miesięcy, kategorie, produkty z kartą szczegółów']]
+  u.viewSeg = el('div', { class: 'rp-viewsw', role: 'group', 'aria-label': 'Widok raportu' }, [['okres', 'Okres', 'Jeden okres zestawiony z poprzednim okresem albo z rokiem wcześniej: kafelki, wykres, tabele, klienci'], ['lata', 'Lata (rok do roku)', 'Kilka lat obok siebie: wykres miesięczny rok do roku, mapa miesięcy, kategorie, produkty z kartą szczegółów'], ['zysk', 'Zysk i marża', 'Wartość netto, koszty zakupu, zysk i marża okresu (z bieżących cen zakupu produktów), z porównaniem w punktach procentowych']]
     .map(([k, l, t]) => el('button', { type: 'button', class: 'chip', id: 'rpView-' + k, 'data-v': k, title: t, 'aria-pressed': 'false', onclick: () => setQ({ v: k, tab: 'series', so: '', item: '' }) }, l)));
   u.cmp = sel('rpCmp', CMP_OPTS, v => setQ({ cmp: v }), 'Porównanie');
   u.group = sel('rpGroup', GROUPS, v => setQ({ gr: v }), 'Grupowanie');
@@ -389,7 +390,7 @@ function load() {
   S.data = null;
   renderSummary();
   S.ui.body.replaceChildren(loadingBox('Liczenie raportu: ' + sentence() + '…'));
-  const req = E.v === 'lata' ? api('reports:years', lataRequest(E)) : api('reports:sales', { from: E.from, to: E.to, group: E.group, compare: E.cmp !== 'off', compareTo: E.cmp === 'year' ? 'year' : 'prev', statusIds: E.ids });
+  const req = E.v === 'lata' ? api('reports:years', lataRequest(E)) : api(E.v === 'zysk' ? 'reports:profit' : 'reports:sales', { from: E.from, to: E.to, group: E.group, compare: E.cmp !== 'off', compareTo: E.cmp === 'year' ? 'year' : 'prev', statusIds: E.ids });
   req.then(d => {
     if (my !== S.seq || !S.alive) return;
     d.kind = E.v; S.data = d;
@@ -409,7 +410,7 @@ function load() {
 function renderBody() {
   const d = S.data;
   if (!d) return;
-  S.ui.body.replaceChildren(...(d.kind === 'lata' ? lataRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence }) : renderOkres(d)));
+  S.ui.body.replaceChildren(...(d.kind === 'lata' ? lataRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence }) : d.kind === 'zysk' ? zyskRender({ Q: S.Q, d, setQ, statusPhrase, legend: legendNode(d, 'rpLegend') }) : renderOkres(d)));
 }
 
 function build(el0) {

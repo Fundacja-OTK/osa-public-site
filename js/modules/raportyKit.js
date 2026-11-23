@@ -1,6 +1,6 @@
 // Wspólne drobiazgi ekranu „Raporty sprzedaży” (raporty.js = powłoka i widok „Okres”, raportyLata.js = widok „Lata”): formaty liczb i dat,
 // różnica między okresem bieżącym a porównawczym, wykresy SVG w kolorach motywu.
-import { el, money } from '../core/ui.js?v=8725b34';
+import { el, money } from '../core/ui.js?v=91371e0';
 
 const SVG = 'http://www.w3.org/2000/svg';
 export const svg = (tag, attrs, ...kids) => {

@@ -1,6 +1,6 @@
 // Formularz klienta (dodawanie i edycja) — walidacja po stronie przeglądarki lustrzana do Workera (clients.js), który i tak sprawdza wszystko.
 // Podstawy na wierzchu, reszta w zwijanych sekcjach (faktura, ceny i grupa, zaawansowane). Zapis wysyła tylko zmienione pola.
-import { el, dateInput } from '../core/ui.js?v=8725b34';
+import { el, dateInput } from '../core/ui.js?v=91371e0';
 
 const isOn = v => v === true || v === 1 || v === '1' || v === 'true';
 const isPl = c => !c || /^(polska|poland|pl)$/i.test(String(c).trim());
@@ -37,7 +37,6 @@ const SPEC = [
   { key: 'vat_ue', label: 'Klient VAT UE (kupuje wg stawki 0% WDT)', kind: 'flag', sec: 'inv', tip: 'Zaznacz tylko dla firm z innego kraju UE z ważnym numerem VAT UE.' },
 
   { key: 'activate_account', label: 'Konto aktywne', kind: 'flag', sec: 'acc', def: 1, tip: 'Odznaczone: konto jest nieaktywne (klient nie zaloguje się).' },
-  { key: 'block', label: 'Zablokowane składanie zamówień', kind: 'flag', sec: 'acc', tip: 'Zaznaczone: klient nie może składać zamówień w sklepie.' },
   { key: 'newsletter', label: 'Zgoda na newsletter', kind: 'flag', sec: 'acc' }, { key: 'marketing_agree', label: 'Zgoda marketingowa', kind: 'flag', sec: 'acc' },
 
   { key: 'notes', label: 'Notatka', kind: 'area', sec: 'note', tip: 'W sklepie notatka klienta to zwykle opis orszaku: województwo, miejscowość, rodzaj podmiotu.' },

@@ -7,6 +7,7 @@
 // Kolumna: { key, label, tip, num?, type?: 'bool'|'date'|'enum'|'ref', sort? (domyślnie true), options?, ref? }
 // Pole formularza: { key, label, type: text|textarea|html|number|money|bool|select|date|ref|rows, options?, ref?, required?, help?, readOnly?, wide? }
 
+const LEVELS = ['cena detal', 'cena hurtowa 1', 'cena hurtowa 2', 'cena hurtowa 3', 'cena ewidencyjna'];
 const YESNO = [[1, 'tak'], [0, 'nie']];
 const flag = (key, label, help, extra) => ({ key, label, type: 'bool', help, ...extra });
 const VISIBLE = [['sklep', 'sklep'], ['partner', 'partner'], ['18lat', '18 lat'], ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ['s' + n, 'sklep dodatkowy ' + n])];
@@ -47,7 +48,7 @@ export const RESOURCES = {
 
   producenci: {
     id: 'producenci', a: 'producenci', idField: 'producer_id', one: 'producent', many: 'Producenci', addLabel: 'Dodaj producenta', newTitle: 'Nowy producent',
-    canCreate: true, canEdit: true, canDelete: true, usage: true, titleField: 'name', defaultSort: { key: 'name', dir: 'asc' },
+    canCreate: true, canEdit: true, canDelete: true, usage: true, margins: true, titleField: 'name', defaultSort: { key: 'name', dir: 'asc' },
     searchHint: 'Szukaj producenta po nazwie',
     editNote: 'Logo producenta (wgranie pliku) zmienisz w panelu Selly — API przyjmuje tylko przesłany plik, nie adres obrazka.',
     deleteWarn: 'Produkty tego producenta stracą przypisanie do producenta.',
@@ -76,8 +77,8 @@ export const RESOURCES = {
         { key: 'description_below_products', label: 'Opis pod produktami', type: 'html', wide: true, help: 'Opis (HTML) na stronie producenta, pod listą produktów' },
         { key: 'show_description_type', label: 'Sposób pokazywania opisu', type: 'select', options: [[0, '0'], [1, '1']], help: 'Wartość „show_description_type” z Selly (0 albo 1); znaczenie zależy od szablonu sklepu' },
       ] },
-      { title: 'Marże wg poziomów cen', advanced: true, fields: [1, 2, 3, 4, 5].map(n => ({ key: 'commission_' + n, label: 'Marża — poziom cen ' + n, type: 'number',
-        help: 'Pole „commission_' + n + '” z Selly. Wpisz −1, aby wyłączyć.' })) },
+      { title: 'Marże wg poziomów cen', advanced: true, fields: [1, 2, 3, 4, 5].map(n => ({ key: 'commission_' + n, label: 'Rabat — poziom cen ' + n + ' (' + LEVELS[n - 1] + ')', type: 'number',
+        help: 'Pole „commission_' + n + '” z Selly; w panelu Selly „Producenci — rabaty” odpowiada mu: ' + LEVELS[n - 1] + ' (przypisanie poziomów do numerów 1–5 niezweryfikowane). Wpisz −1, aby wyłączyć.' })) },
       { title: 'SEO', advanced: true, fields: [
         { key: 'html_title', label: 'Tytuł strony', type: 'text', help: 'Tytuł strony producenta w wyszukiwarkach' },
         { key: 'html_title_add_shop_name', label: 'Dodaj nazwę sklepu do tytułu', type: 'text', help: 'Pole „html_title_add_shop_name” z Selly (wartość tekstowa)' },

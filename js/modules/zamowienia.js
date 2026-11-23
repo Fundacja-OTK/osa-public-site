@@ -1,12 +1,12 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=8725b34';
-import { api, ctx } from '../core/client.js?v=8725b34';
-import { go, setLeaveGuard } from '../core/router.js?v=8725b34';
-import { noteVisit } from '../core/recents.js?v=8725b34';
-import { registerListKeys } from '../core/listKeys.js?v=8725b34';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=8725b34';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=8725b34';
+import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=91371e0';
+import { api, ctx } from '../core/client.js?v=91371e0';
+import { go, setLeaveGuard } from '../core/router.js?v=91371e0';
+import { noteVisit } from '../core/recents.js?v=91371e0';
+import { registerListKeys } from '../core/listKeys.js?v=91371e0';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=91371e0';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=91371e0';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];

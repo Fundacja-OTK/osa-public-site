@@ -1,18 +1,18 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
-import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=8725b34';
-import { api, ctx } from '../core/client.js?v=8725b34';
-import { go, setLeaveGuard } from '../core/router.js?v=8725b34';
-import { noteVisit } from '../core/recents.js?v=8725b34';
-import { registerListKeys } from '../core/listKeys.js?v=8725b34';
-import { clientForm } from './klienciForm.js?v=8725b34';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=8725b34';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=8725b34';
+import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=91371e0';
+import { api, ctx } from '../core/client.js?v=91371e0';
+import { go, setLeaveGuard } from '../core/router.js?v=91371e0';
+import { noteVisit } from '../core/recents.js?v=91371e0';
+import { registerListKeys } from '../core/listKeys.js?v=91371e0';
+import { clientForm } from './klienciForm.js?v=91371e0';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=91371e0';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=91371e0';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'email', 'created', 'modified', 'orders', 'id', 'login', 'city'];
 // Filtry z Selly (lista klientów): nazwy jak w parametrach akcji clients:list
-const FILTERS = ['status', 'registered', 'nip', 'level', 'group', 'country', 'type', 'newsletter'];
+const FILTERS = ['registered', 'nip', 'level', 'group', 'country', 'type', 'newsletter'];
 const FILTER_CLEAR = Object.fromEntries(FILTERS.map(k => [k, '']));
 const SIZES = [25, 50, 100, 200];
 // Eksport czyta z bazy panelu (nie z Selly — nie zużywa limitu API); górna granica tylko jako bezpiecznik
@@ -50,7 +50,7 @@ function qsOf(Q) {
   const s = p.toString();
   return s ? '?' + s : '';
 }
-const advActive = Q => FILTERS.filter(k => k !== 'status' && Q[k]).length;
+const advActive = Q => FILTERS.filter(k => Q[k]).length;
 const pageSize = () => { const v = store('osa-cli-size'); return SIZES.includes(v) ? v : 50; };
 const listParams = (Q, extra) => Object.assign({ sort: Q.sort, dir: Q.dir, pageSize: pageSize(), page: Q.page }, Q.q ? { q: Q.q } : {}, osaParams(Q), Object.fromEntries(FILTERS.filter(k => Q[k]).map(k => [k, Q[k]])), extra);
 function setQ(patch, replace) {
@@ -78,8 +78,6 @@ function buildList() {
     SIZES.map(n => el('option', { value: String(n) }, String(n))));
   u.filtersBtn = el('button', { type: 'button', class: 'secondary', id: 'cliFiltersBtn', 'aria-expanded': 'false', 'aria-controls': 'cliFilters',
     title: 'Dodatkowe filtry (NIP, poziom cen, grupa, kraj, typ konta, newsletter) i liczba wierszy na stronie', onclick: () => toggleFilters() }, 'Filtry ▾');
-  // Status konta — jedyny filtr „na wierzchu” (najczęstszy: kto jest zablokowany)
-  u.fStatus = fSelect('status', 'Konto', 'Pokaż tylko aktywnych albo tylko zablokowanych klientów (blokada składania zamówień)', [['', 'wszyscy'], ['active', 'aktywni'], ['blocked', 'zablokowani']]);
   u.adv = {
     registered: fSelect('registered', 'Rejestracja', 'Klient zarejestrowany ma konto z loginem w sklepie; niezarejestrowany to dane z zamówienia gościa', [['', 'wszyscy'], ['yes', 'zarejestrowani'], ['no', 'niezarejestrowani']]),
     nip: fSelect('nip', 'NIP', 'Czy klient ma wpisany NIP w danych do faktury', [['', 'bez ograniczeń'], ['yes', 'z NIP'], ['no', 'bez NIP']]),
@@ -110,7 +108,7 @@ function buildList() {
   u.results = el('div', { id: 'cliResults' });
   S.listBox = el('div', { class: 'ord-list' }, el('div', { class: 'card' },
     el('div', { class: 'card-head' }, el('h2', null, 'Klienci'), el('div', { class: 'sub' }, 'Klienci sklepu (kopia odświeżana w tle). Kliknij klienta, aby zobaczyć dane, zamówienia i notatkę.')),
-    el('div', { class: 'toolbar' }, u.search, u.fStatus.node, u.filtersBtn, u.cols.node, u.exportBtn, u.moreBtn, u.addBtn, el('span', { class: 'spacer' }), u.info), u.osa.node, u.filters, u.notice, u.results));
+    el('div', { class: 'toolbar' }, u.search, u.filtersBtn, u.cols.node, u.exportBtn, u.moreBtn, u.addBtn, el('span', { class: 'spacer' }), u.info), u.osa.node, u.filters, u.notice, u.results));
   S.root.append(S.listBox);
 }
 function toggleFilters(force) {
@@ -131,7 +129,6 @@ function syncList() {
   u.size.value = String(pageSize());
   u.osa.sync();
   syncFacets();
-  u.fStatus.sel.value = S.Q.status || '';
   for (const k of Object.keys(u.adv)) u.adv[k].sel.value = S.Q[k] || '';
   const extra = pageSize() !== 50 || advActive(S.Q) > 0;
   u.filtersBtn.classList.toggle('on', extra);
@@ -188,12 +185,11 @@ function renderList() {
   const cols = COLS.filter(c => u.cols.isOn(c.key));
   const head = el('tr', null, cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
   const body = el('tbody');
-  const cell = (c, r, blocked) => {
+  const cell = (c, r) => {
     switch (c.key) {
       case 'name': return el('td', { title: r.notes ? 'Notatka: ' + r.notes : null },
         el('a', { href: '#/klienci/' + encodeURIComponent(r.id), class: 'cell-name', onclick: () => { S.listHash = location.hash; } }, r.name || r.email || ('Klient ' + r.id)),
         r.company ? el('div', { class: 'cell-sub' }, r.company) : null,
-        blocked ? el('span', { class: 'tag bad', title: 'Konto klienta jest zablokowane w sklepie' }, 'zablokowany') : null,
         r.clientType === 'SUBACCOUNT_CLIENT' ? el('span', { class: 'tag', title: 'Subkonto — konto podrzędne innego klienta' }, 'subkonto') : null,
         osaBadges(r, patch => setQ(patch), false, S.facets),
         r.notes ? el('div', { class: 'cell-sub cli-note' }, String(r.notes).length > 60 ? String(r.notes).slice(0, 60) + '…' : String(r.notes)) : null);
@@ -210,8 +206,7 @@ function renderList() {
     }
   };
   for (const r of d.rows) {
-    const blocked = isOn(r.blocked);
-    body.append(el('tr', { class: 'pick' + (blocked ? ' blocked' : ''), 'data-id': r.id, onclick: tapOpen(() => openClient(r.id)) }, cols.map(c => cell(c, r, blocked))));
+    body.append(el('tr', { class: 'pick', 'data-id': r.id, onclick: tapOpen(() => openClient(r.id)) }, cols.map(c => cell(c, r))));
   }
   const filtered = Q.q || osaActive(Q) || FILTERS.some(k => Q[k]);
   if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length), class: 'empty' },
@@ -230,10 +225,10 @@ async function exportAll(kind) {
       file: 'klienci', sheet: 'Klienci',
       columns: [{ header: 'ID', type: 'text' }, { header: 'Nazwa', type: 'text' }, { header: 'Firma', type: 'text' }, { header: 'NIP', type: 'text' }, { header: 'E-mail', type: 'text' }, { header: 'Telefon', type: 'text' },
         { header: 'Miasto', type: 'text' }, { header: 'Państwo', type: 'text' }, { header: 'Grupa', type: 'text' }, { header: 'Zamówień', type: 'number' }, { header: 'Utworzony', type: 'text' }, { header: 'Ostatnie logowanie', type: 'text' },
-        { header: 'Zablokowany', type: 'center' }, { header: 'Notatka', type: 'text' },
+        { header: 'Notatka', type: 'text' },
         { header: 'Województwo', type: 'text' }, { header: 'Rodzaj podmiotu', type: 'text' }, { header: 'Tytuł orszaku', type: 'text' }, { header: 'Tagi', type: 'text' }],
       rows: rows.map(r => [r.id, r.name || '', r.company || '', r.nip || '', r.email || '', r.phone || '', r.city || '', r.country || '', groupLabel(r), Number(r.orders) || 0, dayStr(r.created), dayStr(r.lastLogin),
-        isOn(r.blocked) ? 'tak' : 'nie', r.notes || '', osaExport(r).woj, osaExport(r).kind, osaExport(r).title, osaExport(r).tags]),
+        r.notes || '', osaExport(r).woj, osaExport(r).kind, osaExport(r).title, osaExport(r).tags]),
     };
     if (kind === 'xlsx') downloadXlsx(t, ''); else downloadCsv(tableMatrix(t), t.file, '');
     if (total > EXPORT_MAX) flash('', 'Plik zawiera pierwsze ' + EXPORT_MAX + ' z ' + total + ' klientów — zawęź wyszukiwanie, aby dostać resztę');
@@ -300,11 +295,9 @@ async function renderDetail(id) {
         el('a', { href: S.listHash, class: 'btn-link', id: 'cliBack', title: 'Wróć do listy z zachowanym wyszukiwaniem i stroną' }, '← Wróć do listy'), el('span', { class: 'spacer' }),
         el('span', { class: 'muted small tip', title: 'Dane z kopii klientów synchronizowanej z Selly w tle' }, 'dane z: ' + syncedLabel(r.syncedMs)),
         el('a', { href: '#/klienci/' + encodeURIComponent(id) + '/edytuj', class: 'btn primary', id: 'cliEdit', title: 'Edytuj dane klienta (zapis do Selly)' }, 'Edytuj dane'),
-        el('button', { type: 'button', class: isOn(c.block) ? 'secondary' : 'ghost', id: 'cliBlockBtn', title: isOn(c.block) ? 'Zdejmuje blokadę — klient znowu może składać zamówienia' : 'Blokuje składanie zamówień przez klienta (konto zostaje)',
-          onclick: () => toggleBlock(id, !isOn(c.block), name) }, isOn(c.block) ? 'Odblokuj konto' : 'Zablokuj konto'),
-        sellyLink('Otwórz w panelu Selly ↗', sellyClientUrl(id), 'Otwiera kartę klienta w panelu administracyjnym Selly')),
-      el('div', { class: 'card-head' }, el('h2', { id: 'cliTitle' }, name), el('div', { class: 'sub' }, 'ID ' + id)),
-      isOn(c.block) ? el('div', { class: 'notice error', id: 'cliBlocked' }, 'Konto klienta jest zablokowane w sklepie.') : null),
+        sellyLink('Otwórz w panelu Selly ↗', sellyClientUrl(id), 'Otwiera kartę klienta w panelu administracyjnym Selly'),
+        sellyLink('Blokada zamówień w Selly ↗', sellyClientUrl(id), 'Blokadę składania zamówień ustawia się w karcie klienta w Selly (pole niedostępne w API)')),
+      el('div', { class: 'card-head' }, el('h2', { id: 'cliTitle' }, name), el('div', { class: 'sub' }, 'ID ' + id)),),
     el('div', { class: 'ord-grid' },
       el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Dane kontaktowe')),
         dl([['E-mail', c.email ? el('a', { href: 'mailto:' + c.email }, c.email) : ''], ['Telefon', c.phone ? el('a', { href: 'tel:' + String(c.phone).replace(/[^\d+]/g, '') }, c.phone) : ''],
@@ -320,12 +313,6 @@ async function renderDetail(id) {
     el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Notatka'), el('div', { class: 'sub tip', title: 'W sklepie notatka klienta to zwykle opis orszaku: województwo, miejscowość itp. Zapis trafia do Selly.' }, 'Opis orszaku i uwagi — widoczne w panelu')), noteHost),
     osaCard, relHost, addressesFold(id, adminUrl()), pricesFold(id, adminUrl()), affiliateFold(id), sellyOnlyBlock(id, adminUrl()), ordersCard);
   fillExtra(id, my, relHost);
-}
-
-async function toggleBlock(id, block, name) {
-  if (!confirm((block ? 'Zablokować konto klienta „' : 'Odblokować konto klienta „') + name + '”?' + (block ? ' Klient nie będzie mógł składać zamówień.' : ''))) return;
-  try { await api('clients:setBlock', { id, block }); flash('', block ? 'Konto zablokowane' : 'Konto odblokowane'); S.data = null; renderDetail(id); }
-  catch (e) { flash('', 'Nie udało się zmienić blokady: ' + (e.message || 'błąd')); }
 }
 
 /** Subkonta / konto główne i nazwa grupy z kopii (jedno lekkie zapytanie, bez Selly). */
