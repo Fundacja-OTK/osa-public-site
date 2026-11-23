@@ -1,8 +1,8 @@
 // Widok „Lata” raportów sprzedaży — odpowiednik „Analizy OSA” z rozszerzenia (extension/content/reportsAnalysis.js), ale z danych D1:
 // kilka okresów (lat, sezonów albo tych samych dni w każdym roku) obok siebie. Ostatni okres = „bieżący”, przedostatni = „porównanie”.
 // Kolory jak w widoku „Okres”: bieżący = pełna brązowa linia, porównanie = przerywana niebieska, wcześniejsze = cienkie.
-import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=be6c33d';
-import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=be6c33d';
+import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=5aa9759';
+import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=5aa9759';
 
 const pad = n => String(n).padStart(2, '0');
 const nfCompact = new Intl.NumberFormat('pl-PL', { notation: 'compact', maximumFractionDigits: 1 });

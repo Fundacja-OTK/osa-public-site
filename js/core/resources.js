@@ -221,6 +221,53 @@ export const RESOURCES = {
     ],
   },
 
+  statusy: {
+    id: 'statusy', a: 'configuration.ordersStatuses', idField: 'status_id', one: 'status zamówienia', many: 'Statusy zamówień', addLabel: null, canCreate: false, canEdit: false, canDelete: false, noGet: true, titleField: 'name',
+    defaultSort: { key: 'position', dir: 'asc' }, searchHint: 'Szukaj po nazwie',
+    readOnlyNote: 'API Selly udostępnia statusy zamówień tylko do odczytu (nazwy i numery). Ustawienia — szablony e-mail, kolory, koszty, parametry — zmienisz w panelu Selly („Edytuj w Selly ↗”). Te same nazwy są używane w filtrach i listach wyboru w całym panelu.',
+    columns: [
+      { key: 'name', label: 'Nazwa', tip: 'Nazwa w Selly (słownik z API)' },
+      { key: 'position', label: 'Pozycja', tip: 'Kolejność statusu na liście w Selly (mniejsza = wyżej)', num: true },
+      { key: 'status_id', label: 'ID', tip: 'Numer w Selly — używany przez API, filtry i integracje', num: true },
+    ],
+    sections: [
+      { title: 'Status zamówienia', fields: [
+        { key: 'name', label: 'Nazwa', type: 'text', readOnly: true }, { key: 'status_id', label: 'ID', type: 'text', readOnly: true },
+        { key: 'position', label: 'Pozycja', type: 'text', readOnly: true, help: 'Kolejność statusu w Selly' },
+      ] },
+    ],
+  },
+
+  dostawy: {
+    id: 'dostawy', a: 'configuration.deliveries', idField: 'delivery_id', one: 'forma dostawy', many: 'Formy dostawy', addLabel: null, canCreate: false, canEdit: false, canDelete: false, noGet: true, titleField: 'name',
+    defaultSort: { key: 'name', dir: 'asc' }, searchHint: 'Szukaj po nazwie',
+    readOnlyNote: 'API Selly udostępnia formy dostawy tylko do odczytu (nazwy i numery). Ustawienia — szablony e-mail, kolory, koszty, parametry — zmienisz w panelu Selly („Edytuj w Selly ↗”). Te same nazwy są używane w filtrach i listach wyboru w całym panelu.',
+    columns: [
+      { key: 'name', label: 'Nazwa', tip: 'Nazwa w Selly (słownik z API)' },
+      { key: 'delivery_id', label: 'ID', tip: 'Numer w Selly — używany przez API, filtry i integracje', num: true },
+    ],
+    sections: [
+      { title: 'Forma dostawy', fields: [
+        { key: 'name', label: 'Nazwa', type: 'text', readOnly: true }, { key: 'delivery_id', label: 'ID', type: 'text', readOnly: true },
+      ] },
+    ],
+  },
+
+  'platnosci-formy': {
+    id: 'platnosci-formy', a: 'configuration.payments', idField: 'payment_id', one: 'forma płatności', many: 'Formy płatności', addLabel: null, canCreate: false, canEdit: false, canDelete: false, noGet: true, titleField: 'name',
+    defaultSort: { key: 'name', dir: 'asc' }, searchHint: 'Szukaj po nazwie',
+    readOnlyNote: 'API Selly udostępnia formy płatności tylko do odczytu (nazwy i numery). Ustawienia — szablony e-mail, kolory, koszty, parametry — zmienisz w panelu Selly („Edytuj w Selly ↗”). Te same nazwy są używane w filtrach i listach wyboru w całym panelu.',
+    columns: [
+      { key: 'name', label: 'Nazwa', tip: 'Nazwa w Selly (słownik z API)' },
+      { key: 'payment_id', label: 'ID', tip: 'Numer w Selly — używany przez API, filtry i integracje', num: true },
+    ],
+    sections: [
+      { title: 'Forma płatności', fields: [
+        { key: 'name', label: 'Nazwa', type: 'text', readOnly: true }, { key: 'payment_id', label: 'ID', type: 'text', readOnly: true },
+      ] },
+    ],
+  },
+
   subskrypcje: {
     id: 'subskrypcje', a: 'subskrypcje', idField: 'subscription_id', one: 'subskrypcja', many: 'Subskrypcje', addLabel: null, canCreate: false, canEdit: true, canDelete: false, titleField: 'number',
     defaultSort: null, searchHint: 'Szukaj na bieżącej stronie (numer, e-mail, nazwisko)',
