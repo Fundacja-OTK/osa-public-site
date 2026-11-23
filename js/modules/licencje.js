@@ -1,9 +1,9 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=5aa9759';
-import { api, ctx } from '../core/client.js?v=5aa9759';
-import { go } from '../core/router.js?v=5aa9759';
-import { loadingBox } from '../core/ui.js?v=5aa9759';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=9fd5e04';
+import { api, ctx } from '../core/client.js?v=9fd5e04';
+import { go } from '../core/router.js?v=9fd5e04';
+import { loadingBox } from '../core/ui.js?v=9fd5e04';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
@@ -74,6 +74,7 @@ const TEMPLATE = `
         <div class="field" id="packsField" hidden>
           <span class="label">Pakiety startowe</span>
           <label title="Przed licencjami organizatorzy kupowali pakiet startowy (zestaw: śpiewniki + korony). Po włączeniu pakiet z roku R liczy się tak samo jak licencja na rok R — w tabelach ma znacznik „pakiet”. Dotyczy tylko lat do 2024: od 2025 jako licencja liczy się wyłącznie licencja."><input type="checkbox" id="packsOn" checked> Licz pakiet startowy jak licencję z tego roku (dawna forma, lata do 2024)</label>
+          <label title="Dotyczy kafelka „nowych … — pierwsza licencja”. Domyślnie wcześniejszy pakiet startowy (dawna forma licencji, lata do 2024) oznacza, że osoba już miała licencję, więc nie jest „nowa”. Po zaznaczeniu pakiety nie liczą się jako licencja: ani wcześniej, ani w roku raportu."><input type="checkbox" id="firstNoPacks"> Nie licz pakietów startowych jako licencji w kafelku „pierwsza licencja”</label>
           <p class="muted small" id="packsHint"></p>
         </div>
         <div class="field">
@@ -228,6 +229,7 @@ function renderPacksField() {
   if (!BOOT.packs || !BOOT.packs.length) return;
   $('packsField').hidden = false;
   $('packsOn').addEventListener('change', settingsChanged);
+    $('firstNoPacks').addEventListener('change', settingsChanged);
   $('packsHint').replaceChildren(
     'Orszak ma pakiet na rok R, gdy w sezonie R (1 lipca R−1 – 30 czerwca R) suma sztuk każdego składnika ze wszystkich jego zamówień ' +
     'jest co najmniej taka jak w zestawie — także gdy składniki kupił osobno. Pakiety: ' +
@@ -386,6 +388,7 @@ function commonParams() {
   if (BOOT.statuses.length && !statusIds.length) return { error: 'Zaznacz co najmniej jeden status zamówienia w ustawieniach zaawansowanych.' };
   const out = { statusIds, products: selectedProducts() };
   if (BOOT.packs && BOOT.packs.length && !$('packsOn').checked) out.packs = false; // domyślnie pakiety się liczą
+    if (BOOT.packs && BOOT.packs.length && $('firstNoPacks') && $('firstNoPacks').checked) out.firstNoPacks = true;
   return out;
 }
 
@@ -432,8 +435,8 @@ function showMessage(view, text, isError) {
 function visibleRows() {
   const r = state.report;
   const q = norm(state.query).trim();
-  let rows = r.rows.filter(row =>
-    state.list === 'all' || (state.list === 'bought') === row.licenses[2]);
+  let rows = listSource(r).filter(row =>
+    state.list === 'all' || state.list === 'first' || (state.list === 'bought') === row.licenses[2]);
   if (state.woj) rows = rows.filter(row => (row.woj || '') === state.woj);
   if (q) rows = rows.filter(row => norm([row.email, row.firstName, row.lastName, row.phone, wojText(row), row.town].join(' ')).includes(q));
   const { key, dir } = state.sort;
@@ -444,6 +447,11 @@ function visibleRows() {
     : norm(row[key]);
   return rows.slice().sort((a, b) => (val(a) < val(b) ? -dir : val(a) > val(b) ? dir : 0));
 }
+
+/** Zakres lat „wcześniejszych” dla kafelka pierwszej licencji, np. „2022–2025” (wg najwcześniejszego roku w danych). */
+const listSource = r => state.list === 'first' ? (r.firstRows || []) : state.list === 'all' ? r.rows.concat(r.extraRows || []) : r.rows;
+const firstScope = r => { const a = r.firstFrom || r.year, b = r.year - 1; return a >= b ? String(b) : a + '–' + b; };
+const firstWhat = r => (packsActive() && !r.firstNoPacks ? 'licencji ani pakietu startowego' : 'licencji');
 
 function render() {
   const r = state.report;
@@ -460,11 +468,10 @@ function render() {
   const tabs = el('div', { class: 'tabs' },
     tab('notBought', c.notBought, 'nie kupiło jeszcze licencji ' + y, 'Mieli licencję' + (packsActive([y2, y1, y]) ? ' lub pakiet startowy ' : ' ') + y2 + ' lub ' + y1 + ', a licencji ' + y + ' jeszcze nie kupili — do przypomnienia'),
     tab('bought', c.bought, 'kupiło już licencję ' + y, 'Mieli licencję' + (packsActive([y2, y1, y]) ? ' lub pakiet startowy ' : ' ') + y2 + ' lub ' + y1 + ' i kupili już licencję ' + y),
-    tab('all', c.base, 'wszyscy z licencją ' + (packsActive([y2, y1, y]) ? 'lub pakietem ' : '') + y2 + ' lub ' + y1, 'Cała baza przedłużeń: osoby (po e-mailu) z licencją' + (packsActive([y2, y1, y]) ? ' lub pakietem startowym ' : ' ') + y2 + ' lub ' + y1),
-    el('div', { class: 'tab static', title: 'Kupili licencję ' + y + ', ale nie mieli licencji w ' + y2 + ' ani ' + y1 + ' — nie ma ich na liście.' },
-      el('b', null, String(c.newcomers)), el('span', null, 'nowych w ' + y + ' (spoza listy)')));
+    tab('first', c.newcomers, 'nowych w ' + y + ' — pierwsza licencja (bez licencji ' + firstScope(r) + ')', 'Kupili licencję ' + y + ' i nie mają ' + firstWhat(r) + ' w żadnym wcześniejszym roku (' + firstScope(r) + ', wg danych w raporcie) — wcześniej liczono tylko ' + y2 + ' i ' + y1 + '. Osoby po e-mailu; nie ma ich na liście przedłużeń.'),
+    tab('all', c.everyone, 'wszyscy z licencją ' + (packsActive([y2, y1, y]) ? 'lub pakietem ' : '') + y2 + ', ' + y1 + ' lub ' + y, 'Wszyscy: osoby (po e-mailu) z licencją' + (packsActive([y2, y1, y]) ? ' lub pakietem startowym ' : ' ') + y2 + ', ' + y1 + ' lub ' + y + ' — czyli lista przedłużeń (' + y2 + ' lub ' + y1 + ') oraz osoby z licencją tylko w ' + y + '. Liczby „nie kupiło” i „kupiło już” dotyczą tylko osób z ' + y2 + ' lub ' + y1 + '.'));
 
-  if (c.base === 0) {
+  if (c.base === 0 && state.list !== 'first' && state.list !== 'all') {
     const missing = r.years.slice(0, 2).filter((_, i) => !r.names[i].length);
     wrap.replaceChildren(tabs, el('div', { class: 'empty' },
       r.sync.lines === 0
@@ -480,7 +487,7 @@ function render() {
   search.value = state.query;
   search.addEventListener('input', debounce(() => { state.query = search.value; renderTable(); }, 150));
   const wojSel = el('select', { 'aria-label': 'Województwo' });
-  const present = new Set(r.rows.map(row => row.woj || ''));
+  const present = new Set(listSource(r).map(row => row.woj || ''));
   wojSel.append(new Option('Wszystkie województwa', ''));
   for (const [k, label] of WOJ) if (present.has(k)) wojSel.append(new Option(label, k));
   if (state.woj && !present.has(state.woj)) state.woj = '';
@@ -579,7 +586,7 @@ function renderTable(rows) {
   const table = $('table');
   if (!table) return;
   const r = state.report;
-  const total = state.list === 'all' ? r.counts.base : state.list === 'bought' ? r.counts.bought : r.counts.notBought;
+  const total = state.list === 'first' ? r.counts.newcomers : state.list === 'all' ? (r.counts.everyone != null ? r.counts.everyone : r.counts.base) : state.list === 'bought' ? r.counts.bought : r.counts.notBought;
   $('count').textContent = state.query ? 'Znaleziono: ' + rows.length + ' z ' + total : people(rows.length);
   for (const m of state.menus || []) m.setDisabled(rows.length === 0);
   if ($('sortSel')) $('sortSel').value = state.sort.key;
@@ -601,6 +608,7 @@ function renderTable(rows) {
   const body = el('tbody');
   if (!rows.length) {
     const msg = state.query ? 'Nikt nie pasuje do wyszukiwania „' + state.query + '”.'
+        : state.list === 'first' ? 'Nikt nie kupił licencji ' + r.year + ' po raz pierwszy.'
       : state.list === 'notBought' ? 'Wszyscy z listy kupili już licencję ' + r.year + '. 🎉'
       : 'Nikt z listy nie kupił jeszcze licencji ' + r.year + '.';
     body.append(el('tr', null, el('td', { colspan: cols.length, class: 'empty' }, msg)));
@@ -634,7 +642,7 @@ function listTable(rowsIn) {
       yn(row.licenses[0]), yn(row.licenses[1]), yn(row.licenses[2]),
       row.purchaseDate, order, links.slice(1).map(o => o.number || o.id).join(', '), row.status, row.quantity || ''];
   });
-  const name = { notBought: 'nie-kupili', bought: 'kupili', all: 'wszyscy' }[state.list];
+  const name = { notBought: 'nie-kupili', bought: 'kupili', all: 'wszyscy', first: 'pierwsza-licencja' }[state.list];
   return { file: 'licencje-otk-' + r.year + '-' + name, sheet: 'Przedłużenia ' + r.year, columns, rows };
 }
 

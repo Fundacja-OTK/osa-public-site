@@ -1,7 +1,7 @@
 // Wspólny klient API panelu (konfiguracja z config.js + logowanie GIS) i kontekst sesji.
-import { createApi } from './api.js?v=5aa9759';
-import { freshToken } from './auth.js?v=5aa9759';
-import { reportApiFailure } from './errorHook.js?v=5aa9759';
+import { createApi } from './api.js?v=9fd5e04';
+import { freshToken } from './auth.js?v=9fd5e04';
+import { reportApiFailure } from './errorHook.js?v=9fd5e04';
 
 export const ENV = window.OSA_CONFIG || {}; // { backendUrl, clientId, version, backends? } — config.js
 const client = createApi({ config: ENV, getToken: freshToken, onFailure: reportApiFailure });
