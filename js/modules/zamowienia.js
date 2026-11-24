@@ -1,15 +1,15 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=6e1bea7';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=6e1bea7';
-import { api, ctx } from '../core/client.js?v=6e1bea7';
-import { go, setLeaveGuard } from '../core/router.js?v=6e1bea7';
-import { noteVisit } from '../core/recents.js?v=6e1bea7';
-import { registerListKeys } from '../core/listKeys.js?v=6e1bea7';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=6e1bea7';
-import { createFilterUi } from './zamowieniaFiltry.js?v=6e1bea7';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=6e1bea7';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=6e1bea7';
+import { photoSrc } from '../core/photo.js?v=dc14c8f';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=dc14c8f';
+import { api, ctx } from '../core/client.js?v=dc14c8f';
+import { go, setLeaveGuard } from '../core/router.js?v=dc14c8f';
+import { noteVisit } from '../core/recents.js?v=dc14c8f';
+import { registerListKeys } from '../core/listKeys.js?v=dc14c8f';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=dc14c8f';
+import { createFilterUi } from './zamowieniaFiltry.js?v=dc14c8f';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=dc14c8f';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=dc14c8f';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];

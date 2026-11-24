@@ -1,9 +1,11 @@
 // Pulpit: sprzedaż z 30 dni (wykres wartość / ilość), liczniki z trendem, „Do zrobienia” (otwarte statusy),
 // najnowsze zamówienia, ostatnie zmiany i szybkie skróty. Dane: jedna akcja dashboard:get (tylko odczyt).
-import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=6e1bea7';
-import { api } from '../core/client.js?v=6e1bea7';
+import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=dc14c8f';
+import { api } from '../core/client.js?v=dc14c8f';
 
 const MODE_KEY = 'osa-pulpit-mode';
+const TODO_KEY = 'osa-pulpit-todo';
+const TODO_DEF = { unpaidDays: 3, lowStock: 5 };
 const zl = v => money(v) + ' zł';
 const zl0 = v => Math.round(Number(v) || 0).toLocaleString('pl-PL') + ' zł';
 const SVG = 'http://www.w3.org/2000/svg';
@@ -28,6 +30,14 @@ const QUICK = [
 ];
 
 let root = null, seq = 0, mode = 'value';
+
+/** Progi „Dziś do zrobienia” zapamiętane w przeglądarce (z domyślnymi i w dozwolonych granicach). */
+export function todoSettings() {
+  const v = store(TODO_KEY) || {};
+  const n = (x, lo, hi, d) => { const k = Math.floor(Number(x)); return Number.isFinite(k) ? Math.min(hi, Math.max(lo, k)) : d; };
+  return { unpaidDays: n(v.unpaidDays, 1, 30, TODO_DEF.unpaidDays), lowStock: n(v.lowStock, 1, 1000, TODO_DEF.lowStock) };
+}
+const shiftDay = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400e3).toISOString().slice(0, 10);
 
 function trend(cur, prev, what) {
   if (!prev) return el('span', { class: 'pl-trend flat tip', title: 'Brak zamówień w poprzednich 30 dniach — nie ma z czym porównać.' }, 'brak porównania');
@@ -118,7 +128,49 @@ function todoCard(d) {
   const rows = d.byStatus.length ? d.byStatus.map(s => el('a', { class: 'pl-row pl-todo', href: '#/zamowienia?status=' + encodeURIComponent(s.statusId), 'data-status': s.statusId,
     title: 'Pokaż zamówienia w statusie „' + s.name + '” (' + s.count + ' z ostatnich 60 dni)' }, el('span', null, s.name), el('span', { class: 'pl-count' }, String(s.count))))
     : [el('div', { class: 'muted pl-none' }, 'Brak otwartych zamówień z ostatnich 60 dni.')];
-  return el('section', { class: 'card pl-card', id: 'plTodo' }, el('div', { class: 'pl-head' }, el('h2', { class: 'tip', title: 'Zamówienia z ostatnich 60 dni w statusach, które jeszcze nie są zamknięte (poza wysłanymi, zrealizowanymi, anulowanymi i zwrotami).' }, 'Do zrobienia')), ...rows);
+  return el('section', { class: 'card pl-card', id: 'plTodo' }, el('div', { class: 'pl-head' }, el('h2', { class: 'tip', title: 'Zamówienia z ostatnich 60 dni w statusach, które jeszcze nie są zamknięte (poza wysłanymi, zrealizowanymi, anulowanymi i zwrotami).' }, 'Otwarte zamówienia wg statusu')), ...rows);
+}
+
+// ─── Dziś do zrobienia ─────────────────────────────────────────────────────
+
+/** Opis pozycji: tekst, podpowiedź (co dokładnie liczy liczba) i adres listy z zastosowanym filtrem. */
+export function todoItem(it, d) {
+  const st = encodeURIComponent(it.statusId || '');
+  const t = d.todo || {};
+  switch (it.key) {
+    case 'new': return { text: 'Nowe zamówienia do obsługi (' + it.name + ')', href: '#/zamowienia?status=' + st,
+      tip: 'Zamówienia w statusie „' + it.name + '” z ostatnich 60 dni. Kliknij, by zobaczyć listę przefiltrowaną do tego statusu.' };
+    case 'paid': return { text: 'Opłacone, jeszcze nieprzetworzone (' + it.name + ')', href: '#/zamowienia?status=' + st,
+      tip: 'Zamówienia w statusie „' + it.name + '” z ostatnich 60 dni — klient zapłacił, a zamówienie nie poszło dalej (np. do wysyłki).' };
+    case 'unpaid': return { text: 'Nieopłacone od ponad ' + t.unpaidDays + ' ' + (t.unpaidDays === 1 ? 'dnia' : 'dni') + ' (' + it.name + ')',
+      href: '#/zamowienia?status=' + st + '&from=' + shiftDay(d.today, -59) + '&to=' + shiftDay(it.olderThan, -1),
+      tip: 'Zamówienia w statusie „' + it.name + '” złożone przed ' + it.olderThan + ' (starsze niż ' + t.unpaidDays + ' dni), ale nie wcześniej niż 60 dni temu. Próg zmienisz w „Ustawieniach” poniżej.' };
+    case 'speedmail': return { text: 'Czekają na wysyłkę SpeedMail (' + it.name + ')', href: '#/magazyny/speedmail',
+      tip: 'Zamówienia w statusie „' + it.name + '” z ostatnich 60 dni. Kliknij, by przejść do wysyłki SpeedMail.' };
+    case 'zero': return { text: 'Produkty bez stanu', href: '#/produkty?seg=zero&vis=on',
+      tip: 'Produkty widoczne w sklepie, których stan w Selly (łącznie) wynosi 0 lub mniej.' };
+    case 'low': return { text: 'Produkty z niskim stanem (1–' + it.level + ' szt.)', href: '#/produkty?seg=low&low=' + it.level + '&vis=on',
+      tip: 'Produkty widoczne w sklepie, których stan w Selly (łącznie) jest większy od 0 i nie większy niż ' + it.level + ' szt. Próg zmienisz w „Ustawieniach” poniżej.' };
+    default: return null;
+  }
+}
+
+function todayCard(d) {
+  const items = ((d.todo && d.todo.items) || []).map(it => ({ it, v: todoItem(it, d) })).filter(x => x.v);
+  const cfg = todoSettings();
+  const num = (id, label, tip, key, lo, hi) => el('label', { class: 'pl-set tip', title: tip }, label,
+    el('input', { type: 'number', id, min: String(lo), max: String(hi), value: String(cfg[key]), inputmode: 'numeric',
+      onchange: ev => { store(TODO_KEY, { ...todoSettings(), [key]: ev.target.value }); load(); } }));
+  const opts = el('details', { class: 'fold pl-opts', id: 'plTodoOpts' }, el('summary', { title: 'Progi, od których pozycje pojawiają się na liście (zapamiętane w tej przeglądarce)' }, 'Ustawienia'),
+    el('div', { class: 'pl-sets' },
+      num('plSetUnpaid', 'Nieopłacone od ponad (dni)', 'Zamówienia nieopłacone dłużej niż tyle dni trafiają na listę. Domyślnie ' + TODO_DEF.unpaidDays + '.', 'unpaidDays', 1, 30),
+      num('plSetLow', 'Niski stan do (szt.)', 'Produkty ze stanem od 1 do tylu sztuk trafiają na listę niskich stanów. Domyślnie ' + TODO_DEF.lowStock + '.', 'lowStock', 1, 1000)));
+  const rows = items.length ? items.map(({ it, v }) => el('a', { class: 'pl-row pl-act', href: v.href, 'data-key': it.key, title: v.tip },
+    el('span', null, v.text), el('span', { class: 'pl-count' }, it.count.toLocaleString('pl-PL')), el('span', { class: 'pl-chev', 'aria-hidden': 'true' }, '›')))
+    : [el('div', { class: 'muted pl-none', id: 'plTodayNone' }, 'Nic pilnego — nic nie czeka na Twoją reakcję. ✓')];
+  return el('section', { class: 'card pl-card', id: 'plToday2' },
+    el('div', { class: 'pl-head' }, el('h2', { class: 'tip', title: 'Rzeczy, które warto zrobić dziś. Liczby pochodzą z ostatniej synchronizacji z Selly; pozycje z zerem są ukryte. Kliknij pozycję, by otworzyć listę z już ustawionym filtrem.' }, 'Dziś do zrobienia')),
+    ...rows, opts);
 }
 
 function latestCard(d) {
@@ -145,7 +197,7 @@ function quick() {
 function render(d) {
   root.replaceChildren(
     el('div', { class: 'pl-top' }, el('span', { class: 'muted tip', title: 'Dane z ostatniej synchronizacji z Selly (co kilka minut)' }, 'Dane z synchronizacji: ' + syncedLabel(d.syncedMs))),
-    tiles(d), chartCard(d),
+    todayCard(d), tiles(d), chartCard(d),
     el('div', { class: 'pl-cols' }, el('div', null, todoCard(d), eventsCard(d)), latestCard(d)),
     quick());
 }
@@ -153,7 +205,7 @@ function render(d) {
 function load() {
   const my = ++seq;
   root.replaceChildren(loadingBox('Wczytywanie pulpitu…'));
-  api('dashboard:get').then(d => { if (my === seq && root) render(d); }).catch(err => {
+  api('dashboard:get', todoSettings()).then(d => { if (my === seq && root) render(d); }).catch(err => {
     if (my !== seq || !root) return;
     root.replaceChildren(el('div', { class: 'card' }, el('div', { class: 'empty error', id: 'plError' },
       isUnavailable(err) ? 'Pulpit potrzebuje backendu Cloudflare — ten serwer go nie obsługuje.' : 'Nie udało się wczytać pulpitu: ' + err.message,

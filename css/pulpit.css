@@ -44,7 +44,7 @@ a.pl-tile:hover::before { background: var(--accent); }
 .pl-row { display: flex; align-items: center; gap: var(--s3); min-height: 44px; padding: 8px 4px; border-top: 1px solid var(--border); color: var(--text); text-decoration: none; }
 .pl-card h2 + .pl-row, .pl-head + .pl-row { margin-top: var(--s2); }
 .pl-row:hover, .pl-ev:hover { background: var(--hover); border-radius: var(--r1); }
-.pl-todo span:first-child { flex: 1; }
+.pl-todo span:first-child, .pl-act span:first-child { flex: 1; }
 .pl-count { min-width: 2.4em; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; background: var(--accent-soft); color: var(--accent-strong); border-radius: 999px; padding: 1px 10px; }
 .pl-onum { font-weight: 600; flex: 0 0 auto; min-width: 90px; }
 .pl-oval { flex: 1; text-align: right; font-variant-numeric: tabular-nums; }
@@ -64,3 +64,9 @@ a.pl-tile:hover::before { background: var(--accent); }
 .sb-home-link:hover { background: var(--nav-bg-2); color: #fff; }
 .sb-home-link[aria-current="page"] { background: var(--nav-active); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
 .sb-home-link[aria-current="page"] .ico { color: var(--accent); }
+/* Dziś do zrobienia */
+#plToday2 { margin-top: var(--s3); }
+.pl-opts { margin-top: var(--s2); }
+.pl-sets { display: flex; flex-wrap: wrap; gap: var(--s3); padding: var(--s2) 0; }
+.pl-set { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-sm); }
+.pl-set input { width: 5em; }
