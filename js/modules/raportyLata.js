@@ -1,14 +1,26 @@
 // Widok „Lata” raportów sprzedaży — odpowiednik „Analizy OSA” z rozszerzenia (extension/content/reportsAnalysis.js), ale z danych D1:
 // kilka okresów (lat, sezonów albo tych samych dni w każdym roku) obok siebie. Ostatni okres = „bieżący”, przedostatni = „porównanie”.
 // Kolory jak w widoku „Okres”: bieżący = pełna brązowa linia, porównanie = przerywana niebieska, wcześniejsze = cienkie.
-import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=58f006c';
-import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=58f006c';
+import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=b6155cb';
+import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=b6155cb';
 
-import { lataPeriods, partialMonth } from './raportyDaty.js?v=58f006c';
+import { lataPeriods, partialMonth, weekLabel, isoWeekStart, weekRangeText } from './raportyDaty.js?v=b6155cb';
 export { lataPeriods, partialMonth };
 const nfCompact = new Intl.NumberFormat('pl-PL', { notation: 'compact', maximumFractionDigits: 1 });
 const pad = n => String(n).padStart(2, '0');
-export const lataRequest = E => ({ periods: E.periods.map(p => ({ from: p.from, to: p.to, axisTo: p.fullTo, label: p.label, ...(p.cutFrom ? { cutFrom: p.cutFrom, cutTo: p.cutTo } : {}) })), statusIds: E.ids, group: E.group === 'day' || E.group === 'month' ? E.group : 'auto' });
+/** Okres w formie wysyłanej do Workera (z polami tygodniowymi: isoY, toAt, cutAt, gdy są). */
+export const periodReq = p => ({ from: p.from, to: p.to, axisTo: p.fullTo, label: p.label, ...(p.cutFrom ? { cutFrom: p.cutFrom, cutTo: p.cutTo } : {}), ...(p.cutAt ? { cutAt: p.cutAt } : {}), ...(p.toAt ? { toAt: p.toAt } : {}), ...(p.isoY ? { isoY: p.isoY } : {}) });
+export const lataRequest = E => ({ periods: E.periods.map(periodReq), statusIds: E.ids, group: ['day', 'week', 'month'].includes(E.group) ? E.group : 'auto' });
+const GROUP_UNIT = { day: 'dzień', week: 'tydzień', month: 'miesiąc' };
+/** Etykiety osi: krótka („t47”, „lis”, „17.11”) i pełna do podpowiedzi („tydz. 47 (17–23.11)”) dla przedziału k okresu ref. */
+export function slotLabels(group, ref) {
+  if (group === 'week') {
+    const start = k => (ref.isoY ? isoWeekStart(ref.isoY, k + 1) : addDays(ref.from, 7 * k));
+    return { short: k => (ref.isoY ? 't' + (k + 1) : addDays(ref.from, 7 * k).slice(8, 10) + '.' + addDays(ref.from, 7 * k).slice(5, 7)), full: k => (ref.isoY ? weekLabel(ref.isoY, k + 1) : 'tydzień ' + weekRangeText(start(k), addDays(start(k), 6))) };
+  }
+  if (group === 'month') { const m0 = Number(ref.from.slice(5, 7)) - 1, y0 = Number(ref.from.slice(0, 4)); return { short: k => MONTHS[(m0 + k) % 12], full: k => MONTHS[(m0 + k) % 12] + ' ' + (y0 + Math.floor((m0 + k) / 12)) }; }
+  return { short: k => addDays(ref.from, k).slice(8, 10) + '.' + addDays(ref.from, k).slice(5, 7), full: k => rangeText(addDays(ref.from, k), addDays(ref.from, k)) };
+}
 
 const cutNote = p => (p.cutFrom ? ' (bez ' + rangeText(p.cutFrom, p.cutTo).replace(/\.\d{4}/g, '') + ')' : p.to < p.fullTo ? ' (do ' + rangeText(p.to, p.to).replace(/\.\d{4}$/, '') + ')' : '');
 const roleOf = (i, n) => (i === n - 1 ? 'bieżący' : i === n - 2 ? 'porównanie' : 'wcześniejszy');
@@ -18,14 +30,14 @@ export function lataSummary(E, d, sp, GW) {
   const P = E.periods, n = P.length, last = P[n - 1], prev = P[n - 2];
   if (!n) return [{ k: 'range', text: 'Brak okresów do pokazania (rok jest w przyszłości)', tip: 'Zmień zakres lat.' }];
   const mode = E.per === 'year' ? 'pełne lata kalendarzowe' : E.per === 'season' ? 'sezony od: ' + MONTHS_LONG[E.ss - 1] : 'te same dni (' + rangeText(E.from, E.to).replace(/\.\d{4}$/, '') + ') w każdym roku';
-  const g = d ? d.group : E.group === 'day' ? 'day' : E.group === 'month' ? 'month' : Math.max(...P.map(p => daysBetween(p.from, p.fullTo))) > 62 ? 'month' : 'day';
+  const g = d ? d.group : E.group === 'day' || E.group === 'week' ? E.group : E.group === 'month' ? 'month' : Math.max(...P.map(p => daysBetween(p.from, p.fullTo))) > 62 ? 'month' : 'day';
   return [
     { k: 'range', text: 'Sprzedaż w latach ' + P[0].label + (n > 1 ? '–' + last.label : '') + ' (' + mode + ')', tip: 'Okresy obok siebie: ' + P.map(p => p.label + ' ' + rangeText(p.from, p.to)).join('; ') + '. Kliknij, aby zmienić lata lub rodzaj okresów.' },
     { k: 'range', sw: 'cur', text: 'bieżący ' + last.label + ': ' + rangeText(last.from, last.to), tip: 'Okres bieżący — ostatni z wybranych. Na wykresie: gruba brązowa linia.' },
     { k: 'cmp', sw: n > 1 ? 'cmp' : null, text: n > 1 ? 'porównanie z ' + prev.label + ': ' + rangeText(prev.from, prev.to) : 'bez porównania (jeden okres)', tip: n > 1 ? 'Okres porównawczy — przedostatni z wybranych; wszystkie zmiany („vs porównanie”) liczone są względem niego. Na wykresie: przerywana niebieska linia. ' + (E.ytd ? 'Bieżący okres jest liczony do dziś, więc wcześniejsze lata też kończą się tego samego dnia kalendarzowego.' : 'Okresy są pełne (bez przycinania do dzisiejszego dnia).') : 'Wybrano tylko jeden okres — zwiększ zakres lat, aby coś porównać.' },
-    ...(last.partial ? [{ k: 'range', text: MONTHS_LONG[Number(E.today.slice(5, 7)) - 1] + ': do ' + last.partial.short + ' w każdym roku', tip: last.partial.note + '. Bieżący miesiąc jest jeszcze niepełny, więc wcześniejsze lata liczymy do tego samego dnia — pozostałe miesiące są pełne.' }] : []),
+    ...(last.partial ? [{ k: 'range', text: last.partial.w ? last.partial.range + ' w każdym roku' : MONTHS_LONG[Number(E.today.slice(5, 7)) - 1] + ': do ' + last.partial.short + ' w każdym roku', tip: last.partial.note + (last.partial.w ? '. Bieżący tydzień jest jeszcze niepełny, więc wcześniejsze lata liczymy do tego samego dnia tygodnia i godziny — pozostałe tygodnie są pełne. Tygodnie liczone wg ISO 8601 (poniedziałek = początek).' : '. Bieżący miesiąc jest jeszcze niepełny, więc wcześniejsze lata liczymy do tego samego dnia — pozostałe miesiące są pełne.') }] : []),
     { k: 'status', text: 'statusy: ' + sp.text, tip: sp.tip + ' Kliknij, aby zmienić.' },
-    { k: 'group', text: 'oś: ' + GW[g === 'month' ? 'month' : 'day'], tip: 'Na jakie przedziały dzielimy czas na wykresie i w mapie' + (E.group === 'auto' ? ' — wybrane automatycznie (miesiące dla okresów dłuższych niż 62 dni).' : '.') },
+    { k: 'group', text: 'oś: ' + GW[g], tip: 'Na jakie przedziały dzielimy czas na wykresie i w mapie' + (E.group === 'auto' ? ' — wybrane automatycznie (miesiące dla okresów dłuższych niż 62 dni).' : '.') },
   ];
 }
 
@@ -57,7 +69,7 @@ const swatch = (i, n) => { const s = style(i, n); return el('i', { class: 'rp-sw
 
 // ─── Wykres liniowy (rok do roku) ───────────────────────────────────────────
 
-function lineChart({ labels, series, fmt, id, aria, titleOf, partial }) {
+export function lineChart({ labels, series, fmt, id, aria, titleOf, partial }) {
   const W = 760, H = 280, L = 64, R = 14, T = 12, B = 30, iw = W - L - R, ih = H - T - B, N = labels.length;
   const max = niceMax(Math.max(0, ...series.flatMap(s => s.values.filter(v => v != null))));
   const x = k => L + (N > 1 ? iw * k / (N - 1) : iw / 2), y = v => T + ih - (max ? ih * v / max : 0);
@@ -97,11 +109,11 @@ function lineChart({ labels, series, fmt, id, aria, titleOf, partial }) {
 
 // ─── Sortowanie tabel w adresie (so=<tabela>_<kolumna>:<kierunek>) ──────────
 
-function sortState(Q, tbl, def) {
+export function sortState(Q, tbl, def) {
   const [id, dir] = (Q.so || '').split(':'), i = id ? id.indexOf('_') : -1;
   return i > 0 && id.slice(0, i) === tbl ? { sort: id.slice(i + 1), dir } : def;
 }
-function sortRows(rows, st, get) {
+export function sortRows(rows, st, get) {
   return rows.slice().sort((a, b) => {
     const x = get(a, st.sort), y = get(b, st.sort), ex = x == null || x === '', ey = y == null || y === '';
     if (ex || ey) return ex === ey ? 0 : ex ? 1 : -1;
@@ -130,12 +142,12 @@ export function lataRender(c) {
 
   // ── wspólna oś
   const longest = P.reduce((a, p) => (p.buckets.length > a.buckets.length ? p : a), P[0]), N = longest.buckets.length, ref = E.periods[P.indexOf(longest)];
+  const SL = slotLabels(d.group, ref), SLlast = slotLabels(d.group, E.periods[last]);
   const axis = Array.from({ length: N }, (_, k) => {
-    if (d.group === 'month') { const mo = (Number(ref.from.slice(5, 7)) - 1 + k) % 12; return MONTHS[mo]; }
-    return addDays(ref.from, k).slice(8, 10) + '.' + addDays(ref.from, k).slice(5, 7);
+    return SL.short(k);
   });
-  const axisFull = k => (d.group === 'month' ? MONTHS[(Number(E.periods[last].from.slice(5, 7)) - 1 + k) % 12] + ' ' + (Number(E.periods[last].from.slice(0, 4)) + Math.floor((Number(E.periods[last].from.slice(5, 7)) - 1 + k) / 12)) : rangeText(addDays(E.periods[last].from, k), addDays(E.periods[last].from, k)));
-  const unit = d.group === 'month' ? 'miesiąc' : 'dzień';
+  const axisFull = k => (d.group === 'week' && E.periods[last].isoY ? SL.full(k) : SLlast.full(k));
+  const unit = GROUP_UNIT[d.group];
 
   // ── kafelki
   const dl = (cur, pv, f, neutral) => deltaEl(cur, pv, { fmt: f, cmp, neutral, curLabel: pLabel(last) + ' ' + rangeOf(last), prevLabel: cmp ? pLabel(prev) + ' ' + rangeOf(prev) : '' });
@@ -146,7 +158,7 @@ export function lataRender(c) {
   if (m !== 'units') tiles.push(kt('units', 'Sprzedane sztuki · ' + P[last].label, 'Suma ilości produktów w liczonych zamówieniach okresu ' + P[last].label, P[last].units, cmp ? P[prev].units : null, qty));
   tiles.push(kt('products', 'Produkty ze sprzedażą · ' + P[last].label, 'Ile różnych produktów sprzedano w okresie ' + P[last].label + ' (z listy do 500 najlepszych na okres)', P[last].productsTotal, cmp ? P[prev].productsTotal : null, int));
   const filledAvg = i => { const k = P[i].last + 1; return k ? (m === 'avg' ? totalOf(m, P[i]) : totalOf(m, P[i]) / k) : 0; };
-  tiles.push(kt('avgper', 'Średnio na ' + unit, 'Wartość miary „' + M.short + '” podzielona przez liczbę ' + (d.group === 'month' ? 'miesięcy' : 'dni') + ' okresu (do dziś w okresie bieżącym)', filledAvg(last), cmp ? filledAvg(prev) : null, fmt, M.neutral));
+  tiles.push(kt('avgper', 'Średnio na ' + unit, 'Wartość miary „' + M.short + '” podzielona przez liczbę ' + (d.group === 'month' ? 'miesięcy' : d.group === 'week' ? 'tygodni' : 'dni') + ' okresu (do dziś w okresie bieżącym)', filledAvg(last), cmp ? filledAvg(prev) : null, fmt, M.neutral));
   const vals = P[last].buckets.map((_, k) => bucketVal(m, P[last], k)), best = vals.reduce((a, v, k) => (v != null && (a < 0 || v > vals[a]) ? k : a), -1);
   if (best >= 0 && m !== 'avg') tiles.push(tile('best', 'Najlepszy ' + unit + ' · ' + P[last].label, 'Przedział z największą wartością miary „' + M.short + '” w okresie ' + P[last].label, fmt(vals[best]), [el('div', { class: 'muted small' }, axisFull(best))]));
   if (n >= 3 && m !== 'avg') tiles.push(kt('growth', 'Zmiana ' + P[0].label + ' → ' + P[last].label, 'Suma miary w pierwszym i w ostatnim okresie — jak bardzo zmieniła się przez cały zakres lat', totalOf(m, P[last]), totalOf(m, P[0]), fmt, M.neutral));
@@ -160,7 +172,7 @@ export function lataRender(c) {
     return { name: p.label + ' (' + roleOf(i, n) + ')', values, ...style(i, n) };
   });
   const metricSel = el('select', { id: 'lataMetric', 'aria-label': 'Miara', title: 'Co pokazać na wykresie i w mapie miesięcy', onchange: ev => setQ({ lm: ev.target.value }, true) }, Object.entries(MEAS).map(([k, v]) => el('option', { value: k, selected: k === m, title: v.tip }, v.label)));
-  const modeSeg = el('div', { class: 'rp-segs', role: 'group', 'aria-label': 'Sposób liczenia' }, [['monthly', d.group === 'month' ? 'Miesięcznie' : 'Dziennie', 'Wartość w każdym przedziale osobno'], ['cumulative', 'Narastająco', m === 'avg' ? 'Niedostępne dla średniego koszyka' : 'Suma od początku okresu — widać, kto „wyprzedza” ten sam dzień rok wcześniej']]
+  const modeSeg = el('div', { class: 'rp-segs', role: 'group', 'aria-label': 'Sposób liczenia' }, [['monthly', d.group === 'month' ? 'Miesięcznie' : d.group === 'week' ? 'Tygodniowo' : 'Dziennie', 'Wartość w każdym przedziale osobno'], ['cumulative', 'Narastająco', m === 'avg' ? 'Niedostępne dla średniego koszyka' : 'Suma od początku okresu — widać, kto „wyprzedza” ten sam dzień rok wcześniej']]
     .map(([k, l, t]) => el('button', { type: 'button', class: 'rp-seg', id: 'lataMode-' + k, 'data-mode': k, 'aria-pressed': String((Q.cm === 'cumulative' && m !== 'avg' ? 'cumulative' : 'monthly') === k), title: t, disabled: k === 'cumulative' && m === 'avg', onclick: () => setQ({ cm: k }, true) }, l)));
   const chart = lineChart({ labels: axis, series, fmt, titleOf: axisFull, partial, id: 'lataChart', aria: 'Wykres liniowy: ' + M.label + ' w okresach ' + P.map(p => p.label).join(', ') + ' (' + (cumulative ? 'narastająco' : unit + ' po ' + unit + 'u') + '). Te same dane są w tabeli „Dane wykresu” poniżej.' });
   const chartCard = el('section', { class: 'card rp-card' }, el('div', { class: 'rp-head' }, el('h2', null, M.label + ' — rok do roku'), el('span', { class: 'rp-grow' }), el('label', { class: 'field-inline' }, 'Miara', metricSel), modeSeg),
@@ -281,7 +293,7 @@ function showItem(c, box, it, x) {
   const avgP = i => (v(i, 'qty') ? v(i, 'value') / v(i, 'qty') : null), per = i => (v(i, 'orders') ? v(i, 'qty') / v(i, 'orders') : null);
   const maxBar = Math.max(1, ...P.map((_, i) => v(i, dm)));
   const lastP = E.periods[last];
-  const sub = el('p', { class: 'muted small', id: 'lataItemSub' }, 'Wczytywanie przebiegu ' + (d.group === 'month' ? 'miesięcznego' : 'dziennego') + '…');
+  const sub = el('p', { class: 'muted small', id: 'lataItemSub' }, 'Wczytywanie przebiegu ' + (d.group === 'month' ? 'miesięcznego' : d.group === 'week' ? 'tygodniowego' : 'dziennego') + '…');
   const chartHost = el('div', { id: 'lataItemChart' }, loadingBox('Liczenie przebiegu produktu…'));
   box.replaceChildren(el('section', { class: 'card rp-card rp-item', id: 'lataItem' },
     el('div', { class: 'rp-head' }, el('div', null, el('span', { class: 'rp-eyebrow' }, 'Produkt' + (it.key ? ' · ID ' + it.key : '') + (it.code ? ' · kod ' + it.code : '')), el('h2', { id: 'lataItemTitle' }, it.name)), el('span', { class: 'rp-grow' }),
@@ -292,13 +304,13 @@ function showItem(c, box, it, x) {
       kp('Zamówienia', 'W ilu zamówieniach wystąpił produkt', v(last, 'orders'), cmp ? v(prev, 'orders') : null, int), kp('Średnia cena', 'Wartość podzielona przez liczbę sztuk', avgP(last), cmp ? avgP(prev) : null, zl),
       kp('Sztuk na zamówienie', 'Średnia liczba sztuk produktu w jednym zamówieniu', per(last), cmp ? per(prev) : null, qty)),
     el('div', { class: 'rp-grid2' }, el('div', null, el('h3', null, dmLabel + ' w okresach'), el('div', { class: 'rp-bars' }, P.map((p, i) => el('div', { class: 'rp-barrow' }, el('span', null, swatch(i, n), p.label), el('div', { class: 'rp-bartrack' }, el('div', { style: 'width:' + (v(i, dm) / maxBar * 100) + '%;background:' + style(i, n).color })), el('b', null, dmFmt(v(i, dm))))))),
-      el('div', null, el('h3', null, dmLabel + (d.group === 'month' ? ' miesiącami' : ' dniami')), sub, chartHost))));
+      el('div', null, el('h3', null, dmLabel + (d.group === 'month' ? ' miesiącami' : d.group === 'week' ? ' tygodniami' : ' dniami')), sub, chartHost))));
   if (!it.key) { chartHost.replaceChildren(el('p', { class: 'muted' }, 'Produkt bez ID — przebieg miesięczny niedostępny.')); sub.textContent = ''; return; }
   const my = box.dataset.seq = String((Number(box.dataset.seq) || 0) + 1);
-  c.api('reports:product', { pid: it.key, periods: E.periods.map(p => ({ from: p.from, to: p.to, axisTo: p.fullTo, label: p.label, ...(p.cutFrom ? { cutFrom: p.cutFrom, cutTo: p.cutTo } : {}) })), statusIds: E.ids, group: d.group }).then(r => {
+  c.api('reports:product', { pid: it.key, periods: E.periods.map(periodReq), statusIds: E.ids, group: d.group }).then(r => {
     if (!box.isConnected || box.dataset.seq !== my) return;
     const idx = { qty: 0, value: 1, orders: 2 }[dm], N = Math.max(...r.periods.map(p => p.buckets.length)), ref = E.periods[0];
-    const labels = Array.from({ length: N }, (_, k) => (d.group === 'month' ? MONTHS[(Number(ref.from.slice(5, 7)) - 1 + k) % 12] : addDays(ref.from, k).slice(8, 10) + '.' + addDays(ref.from, k).slice(5, 7)));
+    const labels = Array.from({ length: N }, (_, k) => slotLabels(d.group, ref).short(k));
     const series = r.periods.map((p, i) => ({ name: P[i].label + ' (' + roleOf(i, n) + ')', values: p.buckets.map((b, k) => (k > P[i].last ? null : b[idx])), ...style(i, n) }));
     chartHost.replaceChildren(lineChart({ labels, series, fmt: dmFmt, id: 'lataItemLine', aria: 'Wykres liniowy: ' + dmLabel + ' produktu ' + it.name + ' w okresach' }));
     const off = r.periods.map((p, i) => ({ name: P[i].label, sum: p[['qty', 'value', 'orders'][idx]], want: v(i, dm) })).filter(o => Math.abs(o.sum - o.want) > Math.max(0.5, o.want * 0.001));

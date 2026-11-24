@@ -1,8 +1,8 @@
 // Klienci — sekcje karty ładowane na żądanie (adresy dodatkowe, ceny indywidualne, program partnerski, subkonta, rozwiązania „tylko w Selly”)
 // oraz ekran „Grupy klientów”. Sekcje pobierają dane dopiero po rozwinięciu (oszczędność limitu Selly).
-import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=58f006c';
-import { api } from '../core/client.js?v=58f006c';
-import { nipError, postcodeError } from './klienciForm.js?v=58f006c';
+import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=b6155cb';
+import { api } from '../core/client.js?v=b6155cb';
+import { nipError, postcodeError } from './klienciForm.js?v=b6155cb';
 
 const errBox = (host, e) => host.replaceChildren(el('div', { class: 'notice error' }, (e && e.message) || 'Nie udało się pobrać danych.'));
 

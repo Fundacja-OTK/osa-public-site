@@ -2,27 +2,30 @@
 // Dwa widoki: „Okres” (okres kontra poprzedni okres albo ten sam okres rok temu) i „Lata” (kilka lat obok siebie: wykres rok do roku, mapa miesięcy, produkty).
 // Cały stan raportu siedzi w adresie (#/raporty?od=…&do=…&cmp=…): link można wysłać dalej, a „wstecz / dalej” w przeglądarce działa.
 // Na górze zawsze pasek „co oglądasz”: zakres, porównanie, statusy, grupowanie — każdy element to przycisk otwierający odpowiednie ustawienie.
-import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu } from '../core/ui.js?v=58f006c';
-import { api, ctx } from '../core/client.js?v=58f006c';
-import { go } from '../core/router.js?v=58f006c';
-import { wojLabel } from '../core/osa.js?v=58f006c';
-import { shortcuts } from '../core/shortcuts.js?v=58f006c';
-import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=58f006c';
-import { zyskRender } from './raportyZysk.js?v=58f006c';
-import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=58f006c';
+import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu } from '../core/ui.js?v=b6155cb';
+import { api, ctx } from '../core/client.js?v=b6155cb';
+import { go } from '../core/router.js?v=b6155cb';
+import { wojLabel } from '../core/osa.js?v=b6155cb';
+import { shortcuts } from '../core/shortcuts.js?v=b6155cb';
+import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=b6155cb';
+import { zyskRender } from './raportyZysk.js?v=b6155cb';
+import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=b6155cb';
+import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=b6155cb';
+import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=b6155cb';
 
 /** Domyślne wartości ustawień — w adresie zapisujemy tylko to, co się od nich różni. */
-const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '10', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '' };
-const OK = { v: ['okres', 'lata', 'zysk'], cmp: ['prev', 'year', 'off'], gr: ['auto', 'day', 'week', 'month'], met: ['value', 'orders', 'avg'], per: ['year', 'season', 'window'], ytd: ['1', '0'], lm: ['value', 'orders', 'avg', 'units', 'ship'], cm: ['monthly', 'cumulative'], dim: ['payments', 'deliveries', 'statuses', 'categories', 'producers'], dm: ['qty', 'value', 'orders'] };
+const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '10', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '', fam: '', set: '', fm: '', sum: '' };
+const OK = { v: ['okres', 'lata', 'zysk', 'rodziny', 'zestaw'], fm: ['qty', 'value', 'orders', 'avg'], sum: ['0', '1'], cmp: ['prev', 'year', 'off'], gr: ['auto', 'day', 'week', 'month'], met: ['value', 'orders', 'avg'], per: ['year', 'season', 'window'], ytd: ['1', '0'], lm: ['value', 'orders', 'avg', 'units', 'ship'], cm: ['monthly', 'cumulative'], dim: ['payments', 'deliveries', 'statuses', 'categories', 'producers'], dm: ['qty', 'value', 'orders'] };
 /** Ustawienia, których zmiana wymaga ponownego policzenia raportu (reszta to tylko widok: zakładka, sortowanie, szukanie). */
-const dataKeys = Q => (Q.v === 'lata' ? ['v', 'yf', 'yt', 'per', 'ss', 'ytd', 'gr', 'st'].concat(Q.per === 'window' ? ['od', 'do'] : []) : ['v', 'od', 'do', 'cmp', 'gr', 'st']);
+const isYears = v => v === 'lata' || v === 'rodziny';
+const dataKeys = Q => { const y = ['v', 'yf', 'yt', 'per', 'ss', 'ytd', 'gr', 'st'].concat(Q.per === 'window' ? ['od', 'do'] : []); return Q.v === 'lata' ? y : Q.v === 'rodziny' ? y.concat('fam') : Q.v === 'zestaw' ? ['v', 'od', 'do', 'gr', 'st', 'set'] : ['v', 'od', 'do', 'cmp', 'gr', 'st']; };
 /** Grupy ustawień pokazywane w pasku i w podświetleniu „co się zmieniło”. */
-const GROUP_OF = { v: 'view', od: 'range', do: 'range', yf: 'range', yt: 'range', per: 'range', ss: 'range', ytd: 'range', cmp: 'cmp', st: 'status', gr: 'group' };
+const GROUP_OF = { v: 'view', od: 'range', do: 'range', yf: 'range', yt: 'range', per: 'range', ss: 'range', ytd: 'range', fam: 'view', set: 'view', cmp: 'cmp', st: 'status', gr: 'group' };
 const GROUP_NAME = { view: 'widok', range: 'zakres', cmp: 'porównanie', status: 'statusy', group: 'grupowanie' };
 
 const S = { root: null, built: false, alive: false, Q: { ...DEF }, E: null, dataKey: '', data: null, seq: 0, timer: 0, shown: null, changed: new Set(), statuses: null, ui: {} };
 
-const GROUPS = [['auto', 'Automatycznie', 'Dni dla krótkich zakresów, tygodnie dla średnich, miesiące dla długich'], ['day', 'Dni', 'Jedna pozycja na dzień'], ['week', 'Tygodnie', 'Tygodnie od poniedziałku (tylko w widoku „Okres”)'], ['month', 'Miesiące', 'Miesiące kalendarzowe']];
+const GROUPS = [['auto', 'Automatycznie', 'Dni dla krótkich zakresów, tygodnie dla średnich, miesiące dla długich'], ['day', 'Dni', 'Jedna pozycja na dzień'], ['week', 'Tygodnie', 'Tygodnie ISO od poniedziałku (z numerami tygodni w widoku „Lata” i porównaniach)'], ['month', 'Miesiące', 'Miesiące kalendarzowe']];
 const GROUP_WORD = { day: 'dni', week: 'tygodnie', month: 'miesiące' };
 const METRICS = [['value', 'Wartość', 'Suma wartości zamówień (pozycje + dostawa, brutto)'], ['orders', 'Zamówienia', 'Liczba zamówień'], ['avg', 'Średni koszyk', 'Wartość zamówień podzielona przez ich liczbę']];
 const CMP_OPTS = [['prev', 'Poprzedni okres (tyle samo dni)', 'Okres o tej samej długości, bezpośrednio przed wybranym'], ['year', 'Ten sam okres rok temu', 'Te same dni kalendarzowe rok wcześniej'], ['off', 'Bez porównania', 'Tylko wybrany okres']];
@@ -51,11 +54,11 @@ const isDefault = Q => Object.keys(DEF).every(k => Q[k] === DEF[k]);
 /** Ustawienia po uwzględnieniu domyślnych (zakres = ostatnie 30 dni, lata = 3 ostatnie). */
 function effective(Q) {
   const today = isoDate(new Date());
-  let to = validIso(Q.do) ? Q.do : today, from = validIso(Q.od) ? Q.od : addDays(to, -29);
+  let to = validIso(Q.do) ? Q.do : today, from = validIso(Q.od) ? Q.od : addDays(to, Q.v === 'zestaw' ? -89 : -29);
   if (from > to) [from, to] = [to, from];
   const days = daysBetween(from, to), ids = Q.st ? Q.st.split(',').filter(Boolean) : [];
-  const E = { v: Q.v, from, to, days, today, ids, defaultRange: !Q.od && !Q.do, cmp: Q.cmp, group: Q.gr };
-  if (Q.v !== 'lata') {
+  const now = new Date(), E = { v: Q.v, from, to, days, today, ids, defaultRange: !Q.od && !Q.do, cmp: Q.cmp, group: Q.gr, nowTime: [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':') };
+  if (!isYears(Q.v)) {
     const [pf, pt] = Q.cmp === 'year' ? [addYears(from, -1), addYears(to, -1)] : [addDays(from, -days), addDays(from, -1)];
     Object.assign(E, { prevFrom: pf, prevTo: pt });
   } else {
@@ -85,7 +88,13 @@ function statusPhrase() {
 /** Elementy paska: [{ k (grupa ustawień), text, tip, sw (znacznik koloru: cur | cmp) }]. */
 function summaryParts() {
   const E = S.E, d = S.data && S.data.kind === E.v ? S.data : null, sp = statusPhrase();
-  if (E.v === 'lata') return lataSummary(E, d, sp, GROUP_WORD);
+  if (isYears(E.v) && (E.v === 'lata' || (d && d.mode === 'years'))) { const parts = lataSummary(E, d && d.group ? d : null, sp, GROUP_WORD); return E.v === 'rodziny' ? [{ k: 'view', text: 'Rodzina: ' + d.family.name, tip: 'Rodzina produktów oglądana rok do roku. Kliknij, aby zmienić widok.' }, ...parts] : parts; }
+  if (E.v === 'rodziny') return [{ k: 'view', text: 'Rodziny produktów', tip: 'Wybierz rodzinę, aby zobaczyć ją rok do roku.' }, { k: 'status', text: 'statusy: ' + sp.text, tip: sp.tip }];
+  if (E.v === 'zestaw') { const g = d && d.group ? d.group : E.group === 'auto' ? autoGroup(E.days) : E.group, n = parseSet(S.Q.set).length; return [
+    { k: 'view', text: 'Zestaw: ' + n + ' elem.', tip: 'Liczba produktów / rodzin / kategorii w porównaniu. Zestaw jest zapisany w adresie.' },
+    { k: 'range', sw: 'cur', text: 'Sprzedaż ' + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', tip: 'Zakres dat porównania. Kliknij, aby zmienić daty.' },
+    { k: 'status', text: 'statusy: ' + sp.text, tip: sp.tip + ' Kliknij, aby zmienić.' },
+    { k: 'group', text: 'grupowanie: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), tip: 'Na jakie przedziały dzielimy czas na wykresie' }]; }
   const g = d ? d.range.group : E.group === 'auto' ? autoGroup(E.days) : E.group;
   const cmpTip = E.cmp === 'off' ? 'Porównanie jest wyłączone — pokazujemy tylko wybrany okres. Włączysz je w ustawieniach.' : 'Okres porównawczy — z nim zestawiane są wszystkie liczby i wykres (' + (E.cmp === 'year' ? 'te same dni rok wcześniej' : 'tyle samo dni bezpośrednio przed wybranym okresem') + '). Na wykresie to linia przerywana.';
   return [
@@ -100,12 +109,21 @@ const sentence = () => summaryParts().map(p => p.text).join(' · ');
 function renderSummary() {
   const box = S.ui.summary;
   if (!box) return;
-  box.replaceChildren(el('div', { class: 'rp-sum-title muted' }, 'Co oglądasz'),
+  box.replaceChildren(el('div', { class: 'rp-sum-title muted' }, 'Co oglądasz'), granSwitch(),
     ...summaryParts().map((p, i) => [i ? el('span', { class: 'rp-dot', 'aria-hidden': 'true' }, '·') : null,
       el('button', { type: 'button', class: 'rp-chip tip' + (S.changed.has(p.k) ? ' chg' : ''), 'data-k': p.k, title: p.tip + (S.changed.has(p.k) ? ' (zmienione przed chwilą)' : ''), onclick: () => focusSetting(p.k) },
         p.sw ? el('i', { class: 'rp-sw ' + p.sw, 'aria-hidden': 'true' }) : null, p.text)]).flat(),
     S.changed.size ? el('span', { class: 'rp-changed', role: 'status' }, 'Zmieniono: ' + [...S.changed].map(k => GROUP_NAME[k]).join(', ')) : null);
   document.querySelectorAll('#rpSettings [data-sec]').forEach(f => f.classList.toggle('chg', S.changed.has(f.dataset.sec)));
+}
+
+/** Przełącznik ziarnistości osi czasu (dzień / tydzień / miesiąc) w pasku „co oglądasz”; stan w adresie (gr=). */
+function granSwitch() {
+  const E = S.E, d = S.data && S.data.kind === E.v ? S.data : null;
+  if (E.v === 'zysk' && false) return null;
+  const eff = E.group !== 'auto' ? E.group : d && (d.group || (d.range && d.range.group)) ? (d.group || d.range.group) : E.v === 'lata' || E.v === 'rodziny' ? 'month' : autoGroup(E.days);
+  return el('span', { class: 'rp-segs rp-gran', id: 'rpGran', role: 'group', 'aria-label': 'Ziarnistość osi czasu' }, [['day', 'Dzień', 'Jedna pozycja na dzień'], ['week', 'Tydzień', 'Tygodnie ISO (poniedziałek = początek), z numerami tygodni; bieżący niepełny tydzień porównywany do tego samego dnia tygodnia i godziny'], ['month', 'Miesiąc', 'Miesiące kalendarzowe']]
+    .map(([k, l, t]) => el('button', { type: 'button', class: 'rp-seg', 'data-gr': k, 'aria-pressed': String(eff === k), title: t, onclick: () => setQ({ gr: k }) }, l)));
 }
 
 function focusSetting(k) {
@@ -311,7 +329,8 @@ function buildSettings() {
   u.presets = menuButton({ id: 'rpFromPresets', label: 'Gotowe zakresy', cls: 'secondary small', title: 'Gotowe zakresy dat — przy każdym widać dokładne daty', items: () => presets().map(([label, a, b]) => ({ label: label + ' · ' + rangeText(a, b), title: 'Ustaw zakres ' + rangeText(a, b), run: () => setQ({ od: a, do: b }) })) });
   const cy = Number(isoDate(new Date()).slice(0, 4)), years = Array.from({ length: 11 }, (_, i) => cy - i);
   const sel = (id, opts, onch, title) => el('select', { id, 'aria-label': title, onchange: ev => onch(ev.target.value) }, opts.map(([v, l, t]) => el('option', { value: v, title: t || null }, l)));
-  u.viewSeg = el('div', { class: 'rp-viewsw', role: 'group', 'aria-label': 'Widok raportu' }, [['okres', 'Okres', 'Jeden okres zestawiony z poprzednim okresem albo z rokiem wcześniej: kafelki, wykres, tabele, klienci'], ['lata', 'Lata (rok do roku)', 'Kilka lat obok siebie: wykres miesięczny rok do roku, mapa miesięcy, kategorie, produkty z kartą szczegółów'], ['zysk', 'Zysk i marża', 'Wartość netto, koszty zakupu, zysk i marża okresu (z bieżących cen zakupu produktów), z porównaniem w punktach procentowych']]
+  u.viewSeg = el('div', { class: 'rp-viewsw', role: 'group', 'aria-label': 'Widok raportu' }, [['okres', 'Okres', 'Jeden okres zestawiony z poprzednim okresem albo z rokiem wcześniej: kafelki, wykres, tabele, klienci'], ['lata', 'Lata (rok do roku)', 'Kilka lat obok siebie: wykres miesięczny rok do roku, mapa miesięcy, kategorie, produkty z kartą szczegółów'], ['zysk', 'Zysk i marża', 'Wartość netto, koszty zakupu, zysk i marża okresu (z bieżących cen zakupu produktów), z porównaniem w punktach procentowych'],
+    ['rodziny', 'Rodziny produktów', 'Ten sam produkt w kolejnych latach (np. „Śpiewnik OTK 2021 … 2026” — osobne produkty w Selly): sprzedaż rodziny rok do roku'], ['zestaw', 'Zestaw produktów', 'Dowolne produkty, rodziny, kategorie lub producenci obok siebie w wybranym zakresie dat']]
     .map(([k, l, t]) => el('button', { type: 'button', class: 'chip', id: 'rpView-' + k, 'data-v': k, title: t, 'aria-pressed': 'false', onclick: () => setQ({ v: k, tab: 'series', so: '', item: '' }) }, l)));
   u.cmp = sel('rpCmp', CMP_OPTS, v => setQ({ cmp: v }), 'Porównanie');
   u.group = sel('rpGroup', GROUPS, v => setQ({ gr: v }), 'Grupowanie');
@@ -347,17 +366,16 @@ function statusPanel(statuses) {
 
 /** Ustawia kontrolki panelu według adresu (bez wywoływania zdarzeń). */
 function syncControls() {
-  const u = S.ui, Q = S.Q, E = S.E, lata = Q.v === 'lata';
+  const u = S.ui, Q = S.Q, E = S.E, lata = isYears(Q.v), zest = Q.v === 'zestaw';
   u.range.from.value = E.from; u.range.to.value = E.to;
   u.cmp.value = Q.cmp; u.group.value = Q.gr; u.yf.value = String(E.yf || Number(E.today.slice(0, 4)) - 2); u.yt.value = String(E.yt || E.today.slice(0, 4)); u.per.value = Q.per; u.ss.value = Q.ss; u.ytd.checked = Q.ytd === '1';
   for (const b of u.viewSeg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.v === Q.v));
-  u.lataBlock.hidden = !lata; u.okresBlock.hidden = lata;
+  u.lataBlock.hidden = !lata; u.okresBlock.hidden = lata || zest;
   u.rangeBlock.hidden = lata && Q.per !== 'window';
   u.ssField.hidden = Q.per !== 'season';
   const lbl = (ctl, t) => { const l = ctl.closest('label'); if (l && l.firstChild) l.firstChild.textContent = t; };
   lbl(u.range.from, lata ? 'Pierwszy dzień (w każdym roku)' : 'Od dnia'); lbl(u.range.to, lata ? 'Ostatni dzień (w każdym roku)' : 'Do dnia');
-  for (const o of u.group.options) o.disabled = lata && o.value === 'week';
-  u.reset.disabled = isDefault(Q);
+    u.reset.disabled = isDefault(Q);
   if (S.statuses) statusPanel(S.statuses);
 }
 
@@ -390,7 +408,7 @@ function load() {
   S.data = null;
   renderSummary();
   S.ui.body.replaceChildren(loadingBox('Liczenie raportu: ' + sentence() + '…'));
-  const req = E.v === 'lata' ? api('reports:years', lataRequest(E)) : api(E.v === 'zysk' ? 'reports:profit' : 'reports:sales', { from: E.from, to: E.to, group: E.group, compare: E.cmp !== 'off', compareTo: E.cmp === 'year' ? 'year' : 'prev', statusIds: E.ids });
+  const req = E.v === 'rodziny' ? rodzinyFetch(api, E, S.Q, lataRequest) : E.v === 'zestaw' ? zestawFetch(api, E, S.Q) : E.v === 'lata' ? api('reports:years', lataRequest(E)) : api(E.v === 'zysk' ? 'reports:profit' : 'reports:sales', { from: E.from, to: E.to, group: E.group, compare: E.cmp !== 'off', compareTo: E.cmp === 'year' ? 'year' : 'prev', statusIds: E.ids });
   req.then(d => {
     if (my !== S.seq || !S.alive) return;
     d.kind = E.v; S.data = d;
@@ -410,7 +428,7 @@ function load() {
 function renderBody() {
   const d = S.data;
   if (!d) return;
-  S.ui.body.replaceChildren(...(d.kind === 'lata' ? lataRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence }) : d.kind === 'zysk' ? zyskRender({ Q: S.Q, d, setQ, statusPhrase, legend: legendNode(d, 'rpLegend') }) : renderOkres(d)));
+  S.ui.body.replaceChildren(...(d.kind === 'rodziny' ? rodzinyRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence, reload: load }) : d.kind === 'zestaw' ? zestawRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence }) : d.kind === 'lata' ? lataRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence }) : d.kind === 'zysk' ? zyskRender({ Q: S.Q, d, setQ, statusPhrase, legend: legendNode(d, 'rpLegend') }) : renderOkres(d)));
 }
 
 function build(el0) {

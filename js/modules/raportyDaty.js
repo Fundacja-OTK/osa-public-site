@@ -45,5 +45,57 @@ export function lataPeriods(E) {
     }
   }
   if (cur) for (const p of out) if (cur.partial && p !== cur) p.partial = cur.partial;
+  return E.group === 'week' ? applyWeekly(out, E) : out;
+}
+
+// ─── Tygodnie ISO (kopia panel/worker/src/lib/weeks.js — testy pilnują zgodności) ──────────────────────────────
+export const weekday = iso => ((parse(iso).getUTCDay() + 6) % 7) + 1;
+export function isoWeekOf(iso) {
+  const thu = addDays(iso, 4 - weekday(iso)), y = Number(thu.slice(0, 4));
+  return { y, w: Math.floor((daysBetween(y + '-01-01', thu) - 1) / 7) + 1 };
+}
+export const isoWeeksInYear = y => isoWeekOf(y + '-12-28').w;
+export const isoWeekStart = (y, w) => addDays(addDays(y + '-01-04', 1 - weekday(y + '-01-04')), (w - 1) * 7);
+export const isoWeekDate = (y, w, wd) => addDays(isoWeekStart(y, w), wd - 1);
+export function weekSlot(iso, per) {
+  if (per.isoY) { const { y, w } = isoWeekOf(iso); return y < per.isoY ? 0 : y > per.isoY ? isoWeeksInYear(per.isoY) - 1 : w - 1; }
+  return Math.floor((daysBetween(per.from, iso) - 1) / 7);
+}
+export const weekSlotCount = (per, axisTo) => (per.isoY ? isoWeeksInYear(per.isoY) : Math.floor((daysBetween(per.from, axisTo) - 1) / 7) + 1);
+const WD = ['pon.', 'wt.', 'śr.', 'czw.', 'pt.', 'sob.', 'niedz.'];
+export const weekdayName = wd => WD[wd - 1];
+/** „17–23.11” albo „27.10–2.11”. */
+export function weekRangeText(a, b) {
+  const d = s => Number(s.slice(8, 10)), m = s => Number(s.slice(5, 7));
+  return m(a) === m(b) ? d(a) + '–' + d(b) + '.' + m(b) : d(a) + '.' + m(a) + '–' + d(b) + '.' + m(b);
+}
+/** Etykieta tygodnia ISO: „tydz. 47 (17–23.11)”. */
+export const weekLabel = (y, w) => 'tydz. ' + w + ' (' + weekRangeText(isoWeekStart(y, w), isoWeekDate(y, w, 7)) + ')';
+
+/** Niepełny (bieżący) tydzień: do którego dnia tygodnia i godziny liczymy go we wszystkich latach. */
+export function partialWeek(today, nowTime) {
+  const { y, w } = isoWeekOf(today), wd = weekday(today), hm = String(nowTime || '23:59:59').slice(0, 5);
+  const short = weekdayName(wd) + ' ' + hm;
+  return { y, w, wd, nowTime: nowTime || '23:59:59', short, range: 'tydz. ' + w + ' do ' + short, note: 'Porównanie do tego samego dnia tygodnia i godziny: tydzień ' + w + ' do ' + short + ' w każdym roku' };
+}
+
+/** Okresy „Lata” z tygodniami: okres roku kalendarzowego dostaje isoY (oś = numery tygodni ISO), a bieżący tydzień jest ucinany do tego samego dnia i godziny. */
+export function applyWeekly(out, E) {
+  const cur = out.find(p => p.from <= E.today && E.today <= p.fullTo);
+  const pw = partialWeek(E.today, E.nowTime);
+  for (const p of out) { if (E.per === 'year') p.isoY = p.Y; delete p.cutFrom; delete p.cutTo; delete p.cutAt; delete p.toAt; delete p.partial; }
+  if (!cur) return out;
+  cur.to = E.today; cur.partial = pw;
+  for (const p of out) {
+    if (p === cur) continue;
+    p.partial = pw;
+    if (E.per === 'year') {
+      const iy = p.isoY + (pw.y - cur.Y);
+      if (pw.w > isoWeeksInYear(iy)) { p.weekNA = true; continue; }   // tygodnia 53 nie ma w tym roku
+      const d = isoWeekDate(iy, pw.w, pw.wd);
+      if (E.ytd) { p.to = d > p.fullTo ? p.fullTo : d < p.from ? p.from : d; if (d >= p.from && d <= p.fullTo) p.toAt = pw.nowTime; }
+      else if (d >= p.from && d <= p.fullTo) { p.cutFrom = d; p.cutAt = pw.nowTime; const sun = isoWeekDate(iy, pw.w, 7); p.cutTo = sun < p.to ? sun : p.to; }
+    } else if (E.ytd) { const t = addYears(E.today, p.Y - cur.Y); p.to = t > p.fullTo ? p.fullTo : t < p.from ? p.from : t; }
+  }
   return out;
 }

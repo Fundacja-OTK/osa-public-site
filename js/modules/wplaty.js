@@ -3,11 +3,11 @@
 // 2) panel dopasowuje wpłaty do nieopłaconych zamówień (numer w tytule, kwota, nazwisko/e-mail; punktacja i powody),
 // 3) przeglądasz tabelę (pewne / prawdopodobne / brak) i zaznaczasz, co oznaczyć jako opłacone,
 // 4) zapis przez Worker (payments:apply — do serwera idą wyłącznie numery zamówień i kwoty „zapłacono”), podsumowanie i „Cofnij”.
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=58f006c';
-import { api } from '../core/client.js?v=58f006c';
-import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=58f006c';
-import { loadMapping, saveMapping } from './wplatyCsv.js?v=58f006c';
-import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=58f006c';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=b6155cb';
+import { api } from '../core/client.js?v=b6155cb';
+import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=b6155cb';
+import { loadMapping, saveMapping } from './wplatyCsv.js?v=b6155cb';
+import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=b6155cb';
 
 const zl = v => money(v) + ' zł';
 const SKEY = 'osa-wplaty-rules', DKEY = 'osa-wplaty-days';
