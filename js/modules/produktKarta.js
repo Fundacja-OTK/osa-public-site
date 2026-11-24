@@ -1,14 +1,15 @@
 // Karta produktu (#/produkty/<id>) i dodawanie produktu (#/produkty/nowy): zakładki, pasek zapisu ze strażnikiem wyjścia, walidacja pól.
 // Zapis: products:update (pola) + products:setMeta / setFeatures / setCategories; zdjęcia, warianty i stany magazynowe zapisują się od razu (osobne przyciski).
-import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=64a1b3e';
-import { api, ctx } from '../core/client.js?v=64a1b3e';
-import { go, addLeaveGuard } from '../core/router.js?v=64a1b3e';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=64a1b3e';
-import { noteVisit } from '../core/recents.js?v=64a1b3e';
-import { isTyping, addKeyTip } from '../core/shortcuts.js?v=64a1b3e';
-import { previewModal, shownValue } from './produktPodglad.js?v=64a1b3e';
-import { variantsPanel } from './produktWarianty.js?v=64a1b3e';
-import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=64a1b3e';
+import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=06f22ba';
+import { api, ctx } from '../core/client.js?v=06f22ba';
+import { cachedRead } from '../core/cache.js?v=06f22ba';
+import { go, addLeaveGuard } from '../core/router.js?v=06f22ba';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=06f22ba';
+import { noteVisit } from '../core/recents.js?v=06f22ba';
+import { isTyping, addKeyTip } from '../core/shortcuts.js?v=06f22ba';
+import { previewModal, shownValue } from './produktPodglad.js?v=06f22ba';
+import { variantsPanel } from './produktWarianty.js?v=06f22ba';
+import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=06f22ba';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
@@ -45,7 +46,8 @@ if (typeof document !== 'undefined') document.addEventListener('keydown', ev => 
 export function closeProductCard() { cur = null; }
 
 let dictsP = null;
-const getDicts = () => { if (!dictsP) dictsP = api('products:dicts', {}).catch(e => { dictsP = null; throw e; }); return dictsP; };
+// słowniki kategorii i producentów (Worker odświeża je co 6 h): od razu z pamięci (także po przeładowaniu), odświeżane w tle — następna karta ma świeże
+const getDicts = () => { if (!dictsP) dictsP = cachedRead('products:dicts', {}, { ttl: 10 * 60e3, personal: false, onUpdate: d => { dictsP = Promise.resolve(d); } }).catch(e => { dictsP = null; throw e; }); return dictsP; };
 let lastTab = { id: '', tab: 'podstawowe' };
 
 const fileToBase64 = f => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => bad(new Error('Nie udało się odczytać pliku')); r.readAsDataURL(f); });

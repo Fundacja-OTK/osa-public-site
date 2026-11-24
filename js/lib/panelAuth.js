@@ -71,6 +71,8 @@
     'bulk:list', 'bulk:get', 'bulk:meta', 'bulk:preview', 'bulk:select',
     'mag:init', 'mag:orders', 'mag:settled',
     'sm:init', 'sm:list', 'sm:get', 'sm:pace',
+    // stany wg Selly per magazyn (kopia D1) i podgląd startu; mag:sellyRefresh — jak orders:invoiceScan: tylko odczyt w Selly, porcja ≤ 15, budżet minutowy
+    'mag:sellyStock', 'mag:sellyPreview', 'mag:sellyRefresh', 'mag:sellyLive',
     'res:list', 'res:get', 'res:options',
     'native:read',
     'feedback:list', 'client:errors:list', 'client:exits:list', 'health:get', 'logins:list', 'map:latest', 'map:history',
@@ -89,6 +91,7 @@
     'bulk:start', 'bulk:step', 'bulk:pause', 'bulk:resume', 'bulk:stop', 'bulk:undo',
     'mag:moves', 'mag:packs', 'mag:confirm',
     'sm:configSave', 'sm:recount', 'sm:mark', 'sm:keep', 'sm:batch', 'sm:cancel', 'sm:move',
+    'mag:sellyStart',
     'res:save', 'res:delete', 'res:itemSave', 'res:itemDelete', 'res:marginsSave',
     'reports:familySave',
     'native:save', 'native:create',

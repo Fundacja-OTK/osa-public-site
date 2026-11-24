@@ -1,11 +1,12 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=64a1b3e';
-import { api, ctx } from '../core/client.js?v=64a1b3e';
-import { go, setLeaveGuard } from '../core/router.js?v=64a1b3e';
-import { RESOURCES } from '../core/resources.js?v=64a1b3e';
-import { registerListKeys } from '../core/listKeys.js?v=64a1b3e';
-import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=64a1b3e';
+import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=06f22ba';
+import { api, ctx } from '../core/client.js?v=06f22ba';
+import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=06f22ba';
+import { go, setLeaveGuard } from '../core/router.js?v=06f22ba';
+import { RESOURCES } from '../core/resources.js?v=06f22ba';
+import { registerListKeys } from '../core/listKeys.js?v=06f22ba';
+import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=06f22ba';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -43,7 +44,9 @@ export function createResource(id) {
 
   // ─── Słowniki (listy wyboru) ───────────────────────────────────────────────
   async function options(ref) {
-    if (!S.opts.has(ref)) S.opts.set(ref, api('res:options', { res: ref }).then(r => { S.lists[ref] = r.options || []; return S.lists[ref]; }, e => { S.opts.delete(ref); throw e; }));
+    // słowniki z Selly (każde pobranie = zapytania do Selly): od razu z pamięci (core/cache.js; sessionStorage tylko dla słowników z PERSIST),
+    // odświeżane w tle po przeładowaniu i po 10 min — kolejne użycie dostaje świeże
+    if (!S.opts.has(ref)) S.opts.set(ref, cachedRead('res:options', { res: ref }, { ttl: 10 * 60e3, personal: false, onUpdate: r => { S.lists[ref] = r.options || []; S.opts.set(ref, Promise.resolve(S.lists[ref])); } }).then(r => { S.lists[ref] = r.options || []; return S.lists[ref]; }, e => { S.opts.delete(ref); throw e; }));
     return S.opts.get(ref);
   }
 
@@ -318,7 +321,8 @@ export function createResource(id) {
       try {
         const r = await api('res:save', { res: id, id: create ? undefined : item[def.idField], fields: changed, productId: pid || undefined });
         setDirty(false);
-        if (def.tree || id === 'kategorie') S.opts.delete('kategorie');
+        if (def.tree || id === 'kategorie') { S.opts.delete('kategorie'); invalidate(cacheKey('res:options', { res: 'kategorie' })); }
+        invalidate(cacheKey('res:options', { res: id }));
         flash('', create ? 'Dodano w Selly: ' + def.one : 'Zapisano w Selly');
         if (create) go(r.id ? '/' + id + '/' + encodeURIComponent(r.id) : '/' + id);
         else renderCard(String(item[def.idField]));
@@ -339,7 +343,7 @@ export function createResource(id) {
           const usedTxt = used ? 'UWAGA: ' + (u.products ? 'przypisanych produktów: ' + u.products + (u.productsExact ? '' : ' lub więcej') + '. ' : '') + (u.children ? 'Ma podkategorie. ' : '') + '\n\n' : '';
           if (!confirm('Usunąć „' + name + '” z Selly?\n\n' + usedTxt + (def.deleteWarn ? def.deleteWarn + '\n\n' : '') + 'Tego nie można cofnąć.')) return;
           del.disabled = true;
-          try { await api('res:delete', { res: id, id: item[def.idField], force: used ? true : undefined, productId: pid || undefined }); setDirty(false); S.opts.delete(id); flash('', 'Usunięto z Selly'); go('/' + id); }
+          try { await api('res:delete', { res: id, id: item[def.idField], force: used ? true : undefined, productId: pid || undefined }); setDirty(false); S.opts.delete(id); invalidate(cacheKey('res:options', { res: id })); flash('', 'Usunięto z Selly'); go('/' + id); }
           catch (e) { del.disabled = false; msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Nie udało się usunąć: ' + ((e && e.message) || 'błąd'))); }
         } }, 'Usuń');
     }

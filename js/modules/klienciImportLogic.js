@@ -3,8 +3,8 @@
 // Do serwera panelu trafiają tylko: lista adresów e-mail (sprawdzenie duplikatów, clients:emailsExist — odczyt kopii, bez Selly)
 // i — dopiero po potwierdzeniu — pojedyncze, sprawdzone rekordy (clients:create z kluczem idempotencji opId).
 // Parser CSV, kodowanie i nagłówki: wspólne z importem wpłat (wplatyCsv.js). Walidatory: wspólne z formularzem klienta (klienciValid.js).
-import { decodeBytes, detectSeparator, parseCsv, normHeader, headerSignature } from './wplatyCsv.js?v=64a1b3e';
-import { nipError, postcodeError, emailError, phoneError, fixPostcode } from './klienciValid.js?v=64a1b3e';
+import { decodeBytes, detectSeparator, parseCsv, normHeader, headerSignature } from './wplatyCsv.js?v=06f22ba';
+import { nipError, postcodeError, emailError, phoneError, fixPostcode } from './klienciValid.js?v=06f22ba';
 
 export { headerSignature };
 export const MAX_ROWS = 1000;                // jeden import; większe pliki — podziel (przy limicie API to i tak ~35 minut)

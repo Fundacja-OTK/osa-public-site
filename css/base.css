@@ -389,6 +389,7 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 #modMag textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r2); padding: 7px 10px; }
 #modMag .toolbar label { display: inline-flex; align-items: center; }
 #modMag td select { max-width: 100%; }
+#modMag progress { width: 100%; height: 12px; accent-color: var(--accent); }   /* stany magazynów wg Selly: ile już sprawdzono */
 .smnums { overflow-wrap: break-word; }
 /* Kreator „Wysyłka SpeedMail” (modules/speedmail.js) */
 #smNav { margin-top: 0; margin-bottom: var(--s3); flex-wrap: wrap; }

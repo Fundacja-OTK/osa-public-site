@@ -3,11 +3,13 @@
 //   routes  — lista podwidoków (pierwszy = domyślny), tylko informacyjnie / do nawigacji
 //   mount   — pokaż moduł w kontenerze `el`; wołane przy każdej zmianie trasy w obrębie modułu (ma być idempotentne)
 //   unmount — moduł przestaje być widoczny (stan zostaje; kontener jest tylko ukrywany)
-//   load    — (zamiast mount) moduł wczytywany przy pierwszym wejściu: async () => moduł; podmieniany w rejestrze
+//   load    — (zamiast mount) moduł wczytywany przy pierwszym wejściu: async () => moduł; podmieniany w rejestrze.
+//             Na czas wczytywania kontener modułu pokazuje szkielet (hooks.loading) i nagłówek strony (onLoading) — nigdy pusty obszar.
+//   prefetch — (opcjonalnie, przy load) wstępne wczytanie bez pokazywania, np. po najechaniu na pozycję menu (prefetch(id))
 // params = { parts: ['orszaki'], view: 'orszaki' | '', query: URLSearchParams } (query = część po „?” w hashu, np. #/zamowienia?status=9).
 
 const modules = new Map();
-const hooks = { container: null, onRoute: null, fallback: null };
+const hooks = { container: null, onRoute: null, onLoading: null, loading: null, fallback: null };
 let current = null; // { mod, el }
 
 export function register(mod) {
@@ -16,6 +18,11 @@ export function register(mod) {
   return mod;
 }
 export const getModule = id => modules.get(id) || null;
+/** Wstępne wczytanie modułu trasy (bez pokazywania); nic nie robi dla modułów już wczytanych i nieznanych tras. */
+export function prefetch(id) {
+  const m = modules.get(id);
+  if (m && m.load && !m.mount && m.prefetch) m.prefetch();
+}
 export const listModules = () => [...modules.values()];
 
 export function parseHash(hash) {
@@ -60,6 +67,28 @@ function guardMessage(hash) {
 export function leaveMessage() { return guardMessage(location.hash); }
 
 let resolveSeq = 0;
+/** Ukrywa bieżący moduł i pokazuje kontener `el` (moduł `mod`). */
+function switchTo(mod, el) {
+  if (current && current.mod !== mod && current.el !== el) {
+    try { current.mod.unmount && current.mod.unmount(); } catch (e) { /* nie blokuje przejścia */ }
+    current.el.hidden = true;
+  }
+  el.hidden = false;
+}
+
+/** Szkielet w kontenerze modułu na czas pobierania jego kodu (zamiast pustego obszaru); usuwany przed mount(). */
+function showLoading(stub, params) {
+  if (!hooks.loading) return null;
+  const el = containerFor(stub);
+  switchTo(stub, el);
+  current = { mod: stub, el };
+  if (hooks.onLoading) { try { hooks.onLoading(stub, params); } catch (e) { /* tylko nagłówek */ } }
+  const box = hooks.loading();
+  box.setAttribute('data-router-loading', '');
+  el.prepend(box);
+  return box;
+}
+
 async function resolve() {
   const seq = ++resolveSeq;
   if (lastHash !== null && location.hash !== lastHash) {
@@ -70,16 +99,14 @@ async function resolve() {
   const { id, parts, query } = parseHash(location.hash);
   let mod = modules.get(id);
   if (mod && mod.load && !mod.mount) {
-    try { const m = await mod.load(); modules.set(id, m); mod = m; } catch (e) { console.error(e); mod = null; }
+    const stub = mod, box = showLoading(stub, { parts, view: parts[0] || '', query });
+    try { const m = await stub.load(); modules.set(id, m); mod = m; } catch (e) { console.error(e); mod = null; }
+    if (box) box.remove();
     if (seq !== resolveSeq) return;
   }
   if (!mod) { const d = hooks.fallback && hooks.fallback(); if (d) go(d, { replace: true }); return; }
   const el = containerFor(mod);
-  if (current && current.mod !== mod) {
-    try { current.mod.unmount && current.mod.unmount(); } catch (e) { /* nie blokuje przejścia */ }
-    current.el.hidden = true;
-  }
-  el.hidden = false;
+  switchTo(mod, el);
   current = { mod, el };
   const params = { parts, view: parts[0] || '', query };
   if (hooks.onRoute) hooks.onRoute(mod, params);
@@ -89,9 +116,11 @@ async function resolve() {
 /**
  * @param {{ container: HTMLElement, fallback: () => string, onRoute?: (mod, params) => void }} o
  *   fallback — trasa domyślna (np. '/licencje'), gdy hash jest pusty albo nieznany
+ *   loading  — () => element szkieletu na czas wczytywania kodu modułu; onLoading(stub, params) — np. tytuł strony od razu
  */
 export function startRouter(o) {
   hooks.container = o.container; hooks.fallback = o.fallback; hooks.onRoute = o.onRoute || null;
+  hooks.onLoading = o.onLoading || null; hooks.loading = o.loading || null;
   window.addEventListener('hashchange', resolve);
   resolve();
 }

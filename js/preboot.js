@@ -1,4 +1,33 @@
+// Mapa statycznych importów modułów (scripts/preload.js, przy wdrożeniu) — preboot.js niżej i core/preload.js
+window.OSA_MODGRAPH = {"f":["js/core/api.js?v=06f22ba","js/core/auth.js?v=06f22ba","js/core/cache.js?v=06f22ba","js/core/client.js?v=06f22ba","js/core/datepicker.js?v=06f22ba","js/core/delivery.js?v=06f22ba","js/core/errorHook.js?v=06f22ba","js/core/errors.js?v=06f22ba","js/core/feedback.js?v=06f22ba","js/core/listKeys.js?v=06f22ba","js/core/liveRefresh.js?v=06f22ba","js/core/nav.js?v=06f22ba","js/core/osa.js?v=06f22ba","js/core/palette.js?v=06f22ba","js/core/photo.js?v=06f22ba","js/core/preload.js?v=06f22ba","js/core/recents.js?v=06f22ba","js/core/resources.js?v=06f22ba","js/core/router.js?v=06f22ba","js/core/search.js?v=06f22ba","js/core/sellyExits.js?v=06f22ba","js/core/shell.js?v=06f22ba","js/core/shortcuts.js?v=06f22ba","js/core/ui.js?v=06f22ba","js/core/update.js?v=06f22ba","js/lib/htmlSanitize.js?v=06f22ba","js/lib/noteParser.js?v=06f22ba","js/lib/panelAuth.js?v=06f22ba","js/lib/speedmailLogic.js?v=06f22ba","js/lib/statusBatch.js?v=06f22ba","js/main.js?v=06f22ba","js/modules/_placeholder.js?v=06f22ba","js/modules/adminNative.js?v=06f22ba","js/modules/chartCost.js?v=06f22ba","js/modules/chartCostLogic.js?v=06f22ba","js/modules/dropshipping.js?v=06f22ba","js/modules/klienci.js?v=06f22ba","js/modules/klienciBlokada.js?v=06f22ba","js/modules/klienciExtra.js?v=06f22ba","js/modules/klienciForm.js?v=06f22ba","js/modules/klienciGrupy.js?v=06f22ba","js/modules/klienciImport.js?v=06f22ba","js/modules/klienciImportLogic.js?v=06f22ba","js/modules/klienciValid.js?v=06f22ba","js/modules/konfSklepu.js?v=06f22ba","js/modules/koszyki.js?v=06f22ba","js/modules/kupony.js?v=06f22ba","js/modules/licencje.js?v=06f22ba","js/modules/magazyny.js?v=06f22ba","js/modules/masowe.js?v=06f22ba","js/modules/oferty.js?v=06f22ba","js/modules/produktKarta.js?v=06f22ba","js/modules/produktMagazyny.js?v=06f22ba","js/modules/produktPodglad.js?v=06f22ba","js/modules/produktWarianty.js?v=06f22ba","js/modules/produkty.js?v=06f22ba","js/modules/przesylki.js?v=06f22ba","js/modules/pulpit.js?v=06f22ba","js/modules/raporty.js?v=06f22ba","js/modules/raportyDaty.js?v=06f22ba","js/modules/raportyKit.js?v=06f22ba","js/modules/raportyLata.js?v=06f22ba","js/modules/raportyRodziny.js?v=06f22ba","js/modules/raportyZestaw.js?v=06f22ba","js/modules/raportyZestawLogika.js?v=06f22ba","js/modules/raportyZysk.js?v=06f22ba","js/modules/reklamacje.js?v=06f22ba","js/modules/sellyExitsCard.js?v=06f22ba","js/modules/sellyNative.js?v=06f22ba","js/modules/sellyNativeSettings.js?v=06f22ba","js/modules/sellyZmiany.js?v=06f22ba","js/modules/speedmail.js?v=06f22ba","js/modules/speedmailKit.js?v=06f22ba","js/modules/speedmailPaczki.js?v=06f22ba","js/modules/speedmailStan.js?v=06f22ba","js/modules/speedmailTempo.js?v=06f22ba","js/modules/speedmailUst.js?v=06f22ba","js/modules/speedmailZam.js?v=06f22ba","js/modules/tresci.js?v=06f22ba","js/modules/tresciEdytor.js?v=06f22ba","js/modules/uzytkownicy.js?v=06f22ba","js/modules/wplaty.js?v=06f22ba","js/modules/wplatyCsv.js?v=06f22ba","js/modules/wplatyFormats.js?v=06f22ba","js/modules/wplatyMatch.js?v=06f22ba","js/modules/wplatyUniversal.js?v=06f22ba","js/modules/zamFiltry.js?v=06f22ba","js/modules/zamowienia.js?v=06f22ba","js/modules/zamowieniaFaktury.js?v=06f22ba","js/modules/zamowieniaFakturyKit.js?v=06f22ba","js/modules/zamowieniaFiltry.js?v=06f22ba","js/modules/zamowieniaKarta.js?v=06f22ba","js/modules/zamowienieNowe.js?v=06f22ba","js/modules/zamowienieNoweLogika.js?v=06f22ba","js/modules/zasob.js?v=06f22ba","js/modules/zasobExtra.js?v=06f22ba","js/modules/zgloszeniaOsa.js?v=06f22ba","js/preboot.js?v=06f22ba"],"d":[[],[23],[3,1],[0,1,6,23,27],[23],[0],[],[5],[23,5],[22],[23,3],[],[23,26],[23,3,18,11,19,16,22],[],[],[],[],[],[],[5],[23,3,1,27,18,7,20,6,8,24,31,11,13,22,16,15],[],[4],[23],[],[],[],[],[],[21],[23],[68],[23,34],[],[23,3,18,9],[23,3,18,16,9,39,37,38,40,41,12],[23,68],[23,3,39],[23,43],[23,3,68,38,42],[23,3,18,82,42,40],[82,43],[],[69],[68],[68],[23,3],[23,3,18],[23,3,22],[68],[23,3,2,18,25,16,22,53,54,52],[23,3,53],[23],[23,3,2,53],[23,3,2,18,51,52,16,9],[23,3,9],[23,3,10,33],[23,3,18,12,22,60,65,33,61,62,63],[],[23,59],[23,60,59],[23,60,61,33],[23,60,61,59,64],[59],[23,60],[68],[23,3,11],[23,3,31,25,18,79],[23,68,31],[23,3,11],[23,18,72,77,74,73,75,76],[23,3,29,10,28],[23,3,18,72],[23,18,72],[23,18,60,61,72],[23,72],[23,18,72],[68],[25],[23,3,27],[23,3,85,82,84],[],[82],[],[82,83],[],[14,23,29,3,18,16,9,10,91,92,88,90,86,12],[23,4,3,89],[23,4,3,91],[23,86],[23,3,89],[23,3,18,93],[],[23,3,2,18,17,9,95],[23,3],[23,3,67],[]]};
 // Motyw i zwinięte menu ustawiane przed pierwszym malowaniem (zwykły skrypt, nie moduł — wykonuje się od razu; dawniej inline w index.html,
 // przeniesiony ze względu na CSP script-src 'self').
 try { var t = JSON.parse(localStorage.getItem('otk-theme') || 'null'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) { /* bez magazynu */ }
 try { if (JSON.parse(localStorage.getItem('osa-sb-collapsed') || 'false')) document.documentElement.classList.add('sb-collapsed'); } catch (e) { /* bez magazynu */ }
+// Wstępne pobranie kodu ekranu, który zaraz się otworzy (adres z hasha albo ostatniej trasy „osa-route”): plik modułu trasy zapamiętuje
+// powłoka w „osa-modpath” ({ trasa: 'js/modules/x.js' } — bez danych osobowych; core/shell.js), drzewo importów daje mapa OSA_MODGRAPH
+// dopisywana na początek tego pliku przy wdrożeniu (scripts/preload.js). Bez mapy (praca lokalna) albo bez sesji — nic nie robi.
+try {
+  (function () {
+    var g = window.OSA_MODGRAPH;
+    if (!g || !g.f || !g.d || !localStorage.getItem('osa-sess')) return;
+    var id = location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
+    if (!id) { var r = JSON.parse(localStorage.getItem('osa-route') || 'null'); id = typeof r === 'string' && r ? r.split('/')[0] : 'pulpit'; }
+    var p = (JSON.parse(localStorage.getItem('osa-modpath') || '{}') || {})[id];
+    if (typeof p !== 'string') return;
+    var start = -1;
+    for (var k = 0; k < g.f.length; k++) if (g.f[k].split('?')[0] === p) { start = k; break; }
+    if (start < 0) return;
+    var seen = {}, q = [start];
+    seen[start] = 1;
+    while (q.length) {
+      var j = q.shift(), d = g.d[j] || [];
+      if (!document.querySelector('link[rel="modulepreload"][href="' + g.f[j] + '"]')) {
+        var l = document.createElement('link');
+        l.rel = 'modulepreload'; l.href = g.f[j];
+        document.head.appendChild(l);
+      }
+      for (var x = 0; x < d.length; x++) if (!seen[d[x]]) { seen[d[x]] = 1; q.push(d[x]); }
+    }
+  })();
+} catch (e) { /* tylko przyspieszenie */ }

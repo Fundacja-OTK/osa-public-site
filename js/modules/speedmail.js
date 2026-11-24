@@ -3,14 +3,14 @@
 // paczki — przekazane paczki zleceń (plik .xlsx, statusy, anulowanie); tempo — sprzedaż wobec prognozy; ustawienia — lista produktów SM,
 // rozbicia, terminy, progi. Dane i zapisy: akcje sm:* (Worker + D1), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: shared/speedmail.js → lib/speedmailLogic.js (ta sama na serwerze). Bez danych osobowych.
-import { $, el } from '../core/ui.js?v=64a1b3e';
-import { go, addLeaveGuard } from '../core/router.js?v=64a1b3e';
-import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop } from './speedmailKit.js?v=64a1b3e';
-import { viewOrders } from './speedmailZam.js?v=64a1b3e';
-import { viewStock } from './speedmailStan.js?v=64a1b3e';
-import { viewBatches } from './speedmailPaczki.js?v=64a1b3e';
-import { viewPace } from './speedmailTempo.js?v=64a1b3e';
-import { viewSettings, settingsDirty } from './speedmailUst.js?v=64a1b3e';
+import { $, el } from '../core/ui.js?v=06f22ba';
+import { go, addLeaveGuard } from '../core/router.js?v=06f22ba';
+import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop } from './speedmailKit.js?v=06f22ba';
+import { viewOrders } from './speedmailZam.js?v=06f22ba';
+import { viewStock } from './speedmailStan.js?v=06f22ba';
+import { viewBatches } from './speedmailPaczki.js?v=06f22ba';
+import { viewPace } from './speedmailTempo.js?v=06f22ba';
+import { viewSettings, settingsDirty } from './speedmailUst.js?v=06f22ba';
 
 const TABS = [
   ['zamowienia', 'Zamówienia', 'Wszystkie otwarte zamówienia z podpowiedzią, kto je pakuje — SpeedMail czy my — i dlaczego. Stąd przekazujesz zamówienia do SpeedMail.', viewOrders, []],
