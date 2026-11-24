@@ -1,15 +1,15 @@
 // Karta produktu (#/produkty/<id>) i dodawanie produktu (#/produkty/nowy): zakładki, pasek zapisu ze strażnikiem wyjścia, walidacja pól.
 // Zapis: products:update (pola) + products:setMeta / setFeatures / setCategories; zdjęcia, warianty i stany magazynowe zapisują się od razu (osobne przyciski).
-import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=06f22ba';
-import { api, ctx } from '../core/client.js?v=06f22ba';
-import { cachedRead } from '../core/cache.js?v=06f22ba';
-import { go, addLeaveGuard } from '../core/router.js?v=06f22ba';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=06f22ba';
-import { noteVisit } from '../core/recents.js?v=06f22ba';
-import { isTyping, addKeyTip } from '../core/shortcuts.js?v=06f22ba';
-import { previewModal, shownValue } from './produktPodglad.js?v=06f22ba';
-import { variantsPanel } from './produktWarianty.js?v=06f22ba';
-import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=06f22ba';
+import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=786f98f';
+import { api, ctx } from '../core/client.js?v=786f98f';
+import { cachedRead } from '../core/cache.js?v=786f98f';
+import { go, addLeaveGuard } from '../core/router.js?v=786f98f';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=786f98f';
+import { noteVisit } from '../core/recents.js?v=786f98f';
+import { isTyping, addKeyTip } from '../core/shortcuts.js?v=786f98f';
+import { previewModal, shownValue } from './produktPodglad.js?v=786f98f';
+import { variantsPanel } from './produktWarianty.js?v=786f98f';
+import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=786f98f';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;

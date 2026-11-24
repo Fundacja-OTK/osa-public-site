@@ -1,9 +1,9 @@
 // Pulpit: sprzedaż z 30 dni (wykres wartość / ilość), liczniki z trendem, „Do zrobienia” (otwarte statusy),
 // najnowsze zamówienia, ostatnie zmiany i szybkie skróty. Dane: jedna akcja dashboard:get (tylko odczyt).
-import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=06f22ba';
-import { api } from '../core/client.js?v=06f22ba';
-import { liveRefresh } from '../core/liveRefresh.js?v=06f22ba';
-import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=06f22ba';
+import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=786f98f';
+import { api } from '../core/client.js?v=786f98f';
+import { liveRefresh } from '../core/liveRefresh.js?v=786f98f';
+import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=786f98f';
 
 const MODE_KEY = 'osa-pulpit-mode';
 const TODO_KEY = 'osa-pulpit-todo';

@@ -3,21 +3,26 @@
 // paczki — przekazane paczki zleceń (plik .xlsx, statusy, anulowanie); tempo — sprzedaż wobec prognozy; ustawienia — lista produktów SM,
 // rozbicia, terminy, progi. Dane i zapisy: akcje sm:* (Worker + D1), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: shared/speedmail.js → lib/speedmailLogic.js (ta sama na serwerze). Bez danych osobowych.
-import { $, el } from '../core/ui.js?v=06f22ba';
-import { go, addLeaveGuard } from '../core/router.js?v=06f22ba';
-import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop } from './speedmailKit.js?v=06f22ba';
-import { viewOrders } from './speedmailZam.js?v=06f22ba';
-import { viewStock } from './speedmailStan.js?v=06f22ba';
-import { viewBatches } from './speedmailPaczki.js?v=06f22ba';
-import { viewPace } from './speedmailTempo.js?v=06f22ba';
-import { viewSettings, settingsDirty } from './speedmailUst.js?v=06f22ba';
+import { $, el } from '../core/ui.js?v=786f98f';
+import { go, addLeaveGuard } from '../core/router.js?v=786f98f';
+import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop } from './speedmailKit.js?v=786f98f';
+import { viewOrders } from './speedmailZam.js?v=786f98f';
+// Zakładki poza domyślną (Zamówienia) ładują się dopiero po otwarciu — mniej plików przy pierwszym wejściu.
+const LAZY = {
+  stan: () => import('./speedmailStan.js?v=786f98f').then(m => m.viewStock),
+  paczki: () => import('./speedmailPaczki.js?v=786f98f').then(m => m.viewBatches),
+  tempo: () => import('./speedmailTempo.js?v=786f98f').then(m => m.viewPace),
+  ustawienia: () => import('./speedmailUst.js?v=786f98f').then(m => { settingsDirty = m.settingsDirty; return m.viewSettings; }),
+};
+const VIEWS = { zamowienia: viewOrders };
+let settingsDirty = () => false;
 
 const TABS = [
   ['zamowienia', 'Zamówienia', 'Wszystkie otwarte zamówienia z podpowiedzią, kto je pakuje — SpeedMail czy my — i dlaczego. Stąd przekazujesz zamówienia do SpeedMail.', viewOrders, []],
-  ['stan', 'Stan w SpeedMail', 'Ile towaru ma SpeedMail (wysłane + dosyłki − zlecone ± korekty), na ile dni wystarczy i co wymaga dosyłki', viewStock, ['list']],
-  ['paczki', 'Paczki zleceń', 'Paczki zamówień przekazane do SpeedMail: plik Excel, statusy w Selly, anulowanie zlecenia', viewBatches, ['list']],
-  ['tempo', 'Tempo sprzedaży', 'Sprzedaż narastająco wobec prognozy — sygnał do dodruku albo zmiany ceny', viewPace, ['pace']],
-  ['ustawienia', 'Ustawienia', 'Lista produktów SpeedMail, rozbicia zestawów, terminy sezonu, formy dostawy, statusy, progi alertów, prognozy', viewSettings, []],
+  ['stan', 'Stan w SpeedMail', 'Ile towaru ma SpeedMail (wysłane + dosyłki − zlecone ± korekty), na ile dni wystarczy i co wymaga dosyłki', null, ['list']],
+  ['paczki', 'Paczki zleceń', 'Paczki zamówień przekazane do SpeedMail: plik Excel, statusy w Selly, anulowanie zlecenia', null, ['list']],
+  ['tempo', 'Tempo sprzedaży', 'Sprzedaż narastająco wobec prognozy — sygnał do dodruku albo zmiany ceny', null, ['pace']],
+  ['ustawienia', 'Ustawienia', 'Lista produktów SpeedMail, rozbicia zestawów, terminy sezonu, formy dostawy, statusy, progi alertów, prognozy', null, []],
 ];
 // Dawne kroki kreatora → nowe zakładki (stare linki i zakładki przeglądarki działają dalej)
 const OLD = { kandydaci: 'zamowienia', podzial: 'zamowienia', plik: 'paczki', zatwierdz: 'paczki', historia: 'paczki' };
@@ -46,7 +51,16 @@ function render() {
   if (!S.d) { if (!err) parts.push(skeleton(8)); root.replaceChildren(...parts); return; }
   if (S.err) parts.push(notice('error', S.err, ' ', el('button', { type: 'button', class: 'link', onclick: () => { S.err = ''; render(); } }, 'Zamknij')));
   if (S.job) parts.push(jobCard());
-  parts.push(tabOf(S.view)[3]());
+  const cfgOk = S.d.v && S.d.v.cfg && Array.isArray(S.d.v.cfg.products);
+  if (!cfgOk) { parts.push(notice('error', 'Serwer zwrócił niepełne dane SpeedMail (brak ustawień produktów). Odśwież stronę; jeśli problem wraca, sprawdź wdrożenie backendu.')); root.replaceChildren(...parts); return; }
+  const view = VIEWS[S.view];
+  if (!view) {
+    const k = S.view;
+    parts.push(skeleton(6)); root.replaceChildren(...parts);
+    LAZY[k]().then(fn => { VIEWS[k] = fn; if (S.view === k) render(); }).catch(() => { if (S.view === k) root.replaceChildren(notice('error', 'Nie udało się wczytać zakładki. Odśwież stronę.')); });
+    return;
+  }
+  parts.push(view());
   root.replaceChildren(...parts);
   if (keep) { const n = $(keep.id); if (n && n !== document.activeElement) { n.focus(); try { if (keep.s != null) n.setSelectionRange(keep.s, keep.e); } catch (e) { /* pole bez zaznaczenia */ } } }
 }
