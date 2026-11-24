@@ -1,7 +1,8 @@
 // Moduł „Zgłoszenia z panelu” (tylko administrator): uwagi z przycisku „Zgłoś” (feedback:list / feedback:status),
 // błędy z przeglądarek z ostatnich 7 dni (client:errors:list) i stan zdrowia Workera (health:get).
-import { el, flash, loadingBox, isUnavailable, dateStr, field } from '../core/ui.js?v=3a6189b';
-import { api, ctx } from '../core/client.js?v=3a6189b';
+import { el, flash, loadingBox, isUnavailable, dateStr, field } from '../core/ui.js?v=abc9fbd';
+import { api, ctx } from '../core/client.js?v=abc9fbd';
+import { sellyExitsCard } from './sellyExitsCard.js?v=abc9fbd';
 
 const STATUS = { nowe: 'Nowe', w_toku: 'W toku', zamkniete: 'Zamknięte' };
 const STATUS_TIP = 'Nowe — jeszcze nikt się nie zajął; W toku — ktoś nad tym pracuje; Zamknięte — załatwione (zostaje na liście).';
@@ -74,7 +75,8 @@ function build() {
     el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Zgłoszenia z panelu'), el('div', { class: 'sub' }, 'Uwagi, pomysły i pytania wysyłane przyciskiem „Zgłoś”. Do każdego możesz ustawić status.')),
       el('div', { class: 'ord-filter-row' }, field('Status', filter, 'Filtr listy według statusu')), S.ui.items),
     el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Błędy w przeglądarkach (7 dni)'),
-      el('div', { class: 'sub' }, 'Zbierane automatycznie, bez danych osobowych; powtarzające się błędy są zliczane razem.')), S.ui.errors));
+      el('div', { class: 'sub' }, 'Zbierane automatycznie, bez danych osobowych; powtarzające się błędy są zliczane razem.')), S.ui.errors),
+    sellyExitsCard());
 }
 
 export default {

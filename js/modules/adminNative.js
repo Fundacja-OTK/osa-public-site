@@ -2,7 +2,7 @@
 // zgłoszenia, płatności, zlecenia, usługi, rozszerzenia, wizyty, pliki, automatyzacje, integrator, Rest API / Front API (bez wartości kluczy), przesyłki
 // Furgonetka i Suus. Dane: serwer główny czyta Selly sesją użytkownika; sekrety są maskowane po stronie serwera (extension/lib/sellyNative.js).
 // Konfiguracja: screen = id ekranu (SCREENS), headerTips = wyjaśnienia kolumn. Nowy ekran: wpis tu + SCREENS + nav.js + shell.js (LAZY).
-import { createNative } from './sellyNative.js?v=3a6189b';
+import { createNative } from './sellyNative.js?v=abc9fbd';
 
 const ro = (id, title, a, noun, headerTips, extra) => createNative({ id, title, screen: id, a, noun, recordTitle: i => title + ' nr ' + i, headerTips: headerTips || {}, ...extra });
 

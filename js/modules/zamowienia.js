@@ -1,17 +1,17 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=3a6189b';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=3a6189b';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=3a6189b';
-import { api, ctx } from '../core/client.js?v=3a6189b';
-import { go, setLeaveGuard } from '../core/router.js?v=3a6189b';
-import { noteVisit } from '../core/recents.js?v=3a6189b';
-import { registerListKeys } from '../core/listKeys.js?v=3a6189b';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=3a6189b';
-import { showNewOrder } from './zamowienieNowe.js?v=3a6189b';
-import { createFilterUi } from './zamowieniaFiltry.js?v=3a6189b';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=3a6189b';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=3a6189b';
+import { photoSrc } from '../core/photo.js?v=abc9fbd';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=abc9fbd';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=abc9fbd';
+import { api, ctx } from '../core/client.js?v=abc9fbd';
+import { go, setLeaveGuard } from '../core/router.js?v=abc9fbd';
+import { noteVisit } from '../core/recents.js?v=abc9fbd';
+import { registerListKeys } from '../core/listKeys.js?v=abc9fbd';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=abc9fbd';
+import { showNewOrder } from './zamowienieNowe.js?v=abc9fbd';
+import { createFilterUi } from './zamowieniaFiltry.js?v=abc9fbd';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=abc9fbd';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=abc9fbd';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];

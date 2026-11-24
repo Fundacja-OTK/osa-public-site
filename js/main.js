@@ -1,10 +1,10 @@
 // Punkt wejścia panelu OSA: rejestruje moduły i uruchamia powłokę (logowanie → nawigacja → router).
-import { startShell } from './core/shell.js?v=3a6189b';
-import licencje from './modules/licencje.js?v=3a6189b';
-import magazyny from './modules/magazyny.js?v=3a6189b';
-import produkty from './modules/produkty.js?v=3a6189b';
-import klienci from './modules/klienci.js?v=3a6189b';
-import uzytkownicy from './modules/uzytkownicy.js?v=3a6189b';
-import zamowienia from './modules/zamowienia.js?v=3a6189b';
+import { startShell } from './core/shell.js?v=abc9fbd';
+import licencje from './modules/licencje.js?v=abc9fbd';
+import magazyny from './modules/magazyny.js?v=abc9fbd';
+import produkty from './modules/produkty.js?v=abc9fbd';
+import klienci from './modules/klienci.js?v=abc9fbd';
+import uzytkownicy from './modules/uzytkownicy.js?v=abc9fbd';
+import zamowienia from './modules/zamowienia.js?v=abc9fbd';
 
 startShell([licencje, magazyny, zamowienia, produkty, klienci, uzytkownicy]);

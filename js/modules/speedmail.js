@@ -5,11 +5,11 @@
 // Dane: mag:init / mag:settled / mag:confirm / mag:packs / mag:moves (Apps Script: Warehouses.gs, SpeedMail.gs), mag:orders
 // (Worker — świeże statusy z D1; zapasowo Apps Script), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: speedmailLogic.js. Bez danych osobowych — tylko numery zamówień, daty i pozycje.
-import { $, el, plural, store, flash, norm, tableTsv, tableHtml, downloadXlsx, copyToClipboard, today, cnt } from '../core/ui.js?v=3a6189b';
-import { api, canWriteSection } from '../core/client.js?v=3a6189b';
-import { go } from '../core/router.js?v=3a6189b';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=3a6189b';
-import * as L from './speedmailLogic.js?v=3a6189b';
+import { $, el, plural, store, flash, norm, tableTsv, tableHtml, downloadXlsx, copyToClipboard, today, cnt } from '../core/ui.js?v=abc9fbd';
+import { api, canWriteSection } from '../core/client.js?v=abc9fbd';
+import { go } from '../core/router.js?v=abc9fbd';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=abc9fbd';
+import * as L from './speedmailLogic.js?v=abc9fbd';
 
 const STATUS_WRITE = ['zamowienia', 'przesylki'];   // jak reguła orders:setStatus (shared/panelAuth.js)
 const STEPS = [
@@ -157,7 +157,7 @@ function render() {
   if (isPartial()) parts.push(notice('warn', 'Stan magazynu SpeedMail jest nieznany — nie było jeszcze inwentaryzacji, więc panel uzna, że SM nic nie ma. ',
     el('a', { href: '#/magazyny/inwentaryzacja' }, 'Przejdź do inwentaryzacji')));
   if (S.settledErr) parts.push(notice('warn', 'Nie udało się sprawdzić, które zamówienia mają już zapisane wydanie (' + S.settledErr + '). Zatwierdzenie i tak nie zapisze wydania tej samej pozycji drugi raz.'));
-  if (S.truncated) parts.push(notice('warn', 'Zamówień w wybranych statusach jest bardzo dużo — pokazano najstarsze 3000. Zawęź statusy kandydatów w ustawieniach.'));
+  if (S.truncated) parts.push(notice('warn', 'Zamówień w wybranych statusach jest bardzo dużo — pokazano najstarsze 3000. Zawęź w ustawieniach wysyłki statusy, z których wybierasz.'));
   const v = { kandydaci: viewCandidates, podzial: viewSplit, plik: viewFile, zatwierdz: viewConfirm, historia: viewHistory }[S.view];
   parts.push(v(m));
   root.replaceChildren(...parts);
@@ -194,7 +194,7 @@ function settingsCard() {
         sel('osa-sm-status', c.st, 'Status „Złożone SpeedMail”', 'Zamówienia przekazane do SpeedMail, czekające na wysyłkę pliku (krok 2–4)'),
         sel('osa-sm-acc', c.acc, 'Status „Przyjęte SpeedMail”', 'Status ustawiany po zatwierdzeniu wysyłki (SpeedMail przyjął zamówienia do realizacji)'),
         sel('osa-sm-otk', c.otk, 'Status „Złożone OTK”', 'Status dla zamówień, których SpeedMail nie zrealizuje — realizujesz je na miejscu')),
-      el('p', { class: 'muted small', style: 'margin-top:var(--s3)' }, el('span', { class: 'tip', title: 'Zamówienia w tych statusach pokazujemy w kroku 1 jako kandydatów do SpeedMail. Statusy SpeedMail i OTK są pomijane.' }, 'Statusy kandydatów (krok 1):')),
+      el('p', { class: 'muted small', style: 'margin-top:var(--s3)' }, el('span', { class: 'tip', title: 'W kroku 1 widzisz wszystkie zamówienia w zaznaczonych tu statusach i z nich wybierasz, co przekazać do SpeedMail. Chcesz przekazać zamówienie w innym statusie — zaznacz tu ten status. Statusy SpeedMail i OTK są pomijane.' }, 'Z jakich statusów wybierasz zamówienia (krok 1):')),
       openBox,
       el('p', { class: 'muted small' }, 'Ustawienia zapamiętuje ta przeglądarka. Przeliczniki (sztuk w komplecie) i układ kolumn pliku są wspólne dla wszystkich. ',
         el('a', { href: '#/magazyny/stany', title: 'Stany fizyczne wszystkich magazynów, przyjęcia, przesunięcia i inwentaryzacja' }, 'Stany magazynów →'))));
@@ -214,10 +214,10 @@ function viewCandidates(m) {
   const fitsN = rows.filter(r => r.fits).length;
   const box = el('div');
   box.append(el('div', { class: 'tabs', style: 'margin-top:var(--s3)' },
-    tile(rows.length, 'kandydatów', 'Zamówienia w statusach: ' + m.c.open.map(statusName).join(', ') + ' (z pozycjami do wysłania)'),
+    tile(rows.length, 'do wyboru', 'WSZYSTKIE zamówienia w statusach: ' + m.c.open.map(statusName).join(', ') + ', które mają jeszcze coś do wysłania. Panel niczego nie odsiewa — sam decydujesz, które zaznaczyć. Statusy zmienisz w „Ustawieniach wysyłki”.'),
     tile(fitsN, 'SM zrealizuje', 'Zamówienia, które — każde osobno — mieszczą się w towarze dostępnym w SpeedMail (stan minus to, co już zarezerwowały zamówienia „Złożone SpeedMail”)'),
     tile(m.smOpen.length, 'już w „Złożone SpeedMail”', 'Zamówienia przekazane wcześniej, jeszcze bez zatwierdzonej wysyłki — ich towar jest zarezerwowany')));
-  if (!m.c.open.length) { box.append(el('div', { class: 'card' }, el('div', { class: 'empty' }, 'Wybierz w ustawieniach wysyłki statusy kandydatów (np. „Złożone”, „Opłacone”).'))); return box; }
+  if (!m.c.open.length) { box.append(el('div', { class: 'card' }, el('div', { class: 'empty' }, 'Wybierz w ustawieniach wysyłki statusy, z których chcesz wybierać zamówienia (np. „Złożone”, „Opłacone”).'))); return box; }
 
   const qn = norm(S.q);
   const shown = rows.filter(r => (!S.onlyFits || r.fits) && (!qn || norm(r.o.orderNumber).includes(qn)));
@@ -240,7 +240,7 @@ function viewCandidates(m) {
       el('td', null, itemsText(r.o.items)),
       el('td', null, r.fits ? el('span', { class: 'ok-txt', title: 'Każda pozycja mieści się w towarze dostępnym w SpeedMail' }, '✓ tak')
         : el('span', { class: 'diffbad', title: 'SpeedMail nie ma dość towaru (po odjęciu rezerwacji zamówień „Złożone SpeedMail”)' }, '✗ brakuje: ' + r.missing.map(x => x.name + ' (' + nf(x.lack) + ' szt.)').join(', '))));
-  }) : el('tr', null, el('td', { colspan: '6', class: 'empty' }, rows.length ? 'Brak zamówień pasujących do filtra.' : 'Brak zamówień w statusach kandydatów.')));
+  }) : el('tr', null, el('td', { colspan: '6', class: 'empty' }, rows.length ? 'Brak zamówień pasujących do filtra.' : 'Brak zamówień w wybranych statusach (zmienisz je w „Ustawieniach wysyłki”).')));
   const table = el('div', { class: 'table-wrap' }, el('table', { id: 'smCandTable' },
     el('thead', null, el('tr', null, th('✓', 'Zaznacz zamówienia, które przekazujesz do SpeedMail'), th('Zamówienie', 'Numer zamówienia w Selly'), th('Data'), th('Status', 'Obecny status w Selly'),
       th('Pozycje', 'Produkty zamówienia w sztukach'), th('SM ma towar?', 'Czy samo to zamówienie zmieści się w towarze dostępnym w SpeedMail: stan magazynu SM minus zamówienia już w „Złożone SpeedMail”'))), body));
@@ -257,6 +257,7 @@ function viewCandidates(m) {
     'Zaznaczono ' + cnt(n, 'zamówienie', 'zamówienia', 'zamówień') + '. Razem: ' + Object.keys(use).map(pid => (rows.find(r => r.names[pid]) || { names: {} }).names[pid] + ' ' + nf(use[pid]) + ' szt. (' + kitsText(pid, use[pid]) + ')').join(', ') + '.') : null;
   box.append(el('div', { class: 'card' },
     el('h3', null, 'Które zamówienia przekazać do SpeedMail?'),
+    el('p', { class: 'muted small', id: 'smCandInfo', style: 'margin:0 0 var(--s2)' }, 'Lista pokazuje wszystkie zamówienia w statusach: ' + m.c.open.map(statusName).join(', ') + '. Panel tylko podpowiada, na które SpeedMail ma towar — zaznaczyć możesz dowolne. Inne statusy dodasz w „Ustawieniach wysyłki”.'),
     el('div', { class: 'toolbar', style: 'margin-top:0' }, q, el('label', { title: 'Ukrywa zamówienia, na które SpeedMail nie ma dość towaru' }, of, 'tylko te, które SM zrealizuje'),
       el('span', { class: 'sp' }), pick, none),
     table, sumBox,

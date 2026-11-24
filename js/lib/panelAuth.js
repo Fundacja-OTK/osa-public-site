@@ -72,10 +72,10 @@
     'mag:init', 'mag:orders', 'mag:settled',
     'res:list', 'res:get', 'res:options',
     'native:read',
-    'feedback:list', 'client:errors:list', 'health:get', 'logins:list', 'map:latest', 'map:history',
+    'feedback:list', 'client:errors:list', 'client:exits:list', 'health:get', 'logins:list', 'map:latest', 'map:history',
   ];
   const WRITE_ACTIONS = [
-    'auth:logout', 'feedback:send', 'feedback:status', 'client:errors', 'grants:set', 'map:report', 'map:retry',
+    'auth:logout', 'feedback:send', 'feedback:status', 'client:errors', 'client:exits', 'grants:set', 'map:report', 'map:retry',
     'orders:setStatus', 'orders:update', 'orders:addItem', 'orders:updateItem', 'orders:create',
     'clients:save', 'clients:create', 'clients:update', 'clients:setBlock', 'clients:addressSave', 'clients:addressDelete', 'clients:affiliateAdd',
     'clients:affiliateDelete', 'clients:groupName', 'clients:priceSave', 'clients:priceDelete',
@@ -137,8 +137,8 @@
 
   // [wzorzec akcji, sekcje (dowolna z nich wystarcza) | ANY | ADMIN | funkcja(params) → sekcje]
   const RULES = [
-    [/^(whoami|init|auth:(logout|refresh|perms)|feedback:send|client:errors)$/, ANY],
-    [/^(feedback:(list|status)|client:errors:list|health:get|map:\w+|logins:list|grants:set|users:\w+)$/, ADMIN],
+    [/^(whoami|init|auth:(logout|refresh|perms)|feedback:send|client:errors|client:exits)$/, ANY],
+    [/^(feedback:(list|status)|client:errors:list|client:exits:list|health:get|map:\w+|logins:list|grants:set|users:\w+)$/, ADMIN],
     [/^orders:(list|get|meta|invoices)$/, ORD],
     [/^orders:setStatus$/, ['zamowienia', 'przesylki']],
     [/^orders:\w+$/, ['zamowienia']],

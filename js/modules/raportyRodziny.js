@@ -1,10 +1,10 @@
 // Widok „Rodziny” raportów sprzedaży: ten sam produkt „kanoniczny” w kolejnych latach (np. „Śpiewnik OTK 2021 … 2026” to osobne produkty w Selly).
 // Lista rodzin (grupowanie automatyczne po nazwie bez roku — Worker, lib/families.js) → wybór rodziny → porównanie rok do roku: wykres, tabela, produkty-członkowie.
 // Zaawansowane (ukryte, tylko administrator): scalanie, podział, dodawanie / usuwanie produktów, zmiana nazwy rodziny — zapis w D1, wspólny dla wszystkich.
-import { el, loadingBox, sortTh, downloadMenuButton, debounce, flash } from '../core/ui.js?v=3a6189b';
-import { svg, zl, zl0, int, qty, pctText, pctFmt, deltaEl, niceMax, tile } from './raportyKit.js?v=3a6189b';
-import { lineChart, sortState, sortRows, slotLabels, periodReq } from './raportyLata.js?v=3a6189b';
-import { costShown, costValue, costDefs, costBar, costTipText, costLegend } from './chartCost.js?v=3a6189b';
+import { el, loadingBox, sortTh, downloadMenuButton, debounce, flash } from '../core/ui.js?v=abc9fbd';
+import { svg, zl, zl0, int, qty, pctText, pctFmt, deltaEl, niceMax, tile } from './raportyKit.js?v=abc9fbd';
+import { lineChart, sortState, sortRows, slotLabels, periodReq } from './raportyLata.js?v=abc9fbd';
+import { costShown, costValue, costDefs, costBar, costTipText, costLegend } from './chartCost.js?v=abc9fbd';
 
 const MEAS = {
   qty: { label: 'Sprzedane sztuki', short: 'Sztuki', i: 0, fmt: qty, tip: 'Suma sztuk wszystkich produktów rodziny w liczonych zamówieniach' },
