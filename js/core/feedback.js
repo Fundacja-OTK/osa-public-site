@@ -1,8 +1,8 @@
 // „Zgłoś uwagę / błąd”: okno z typem, opisem i opcjonalnymi informacjami technicznymi (trasa, wersja, przeglądarka,
 // ostatnie błędy — bez danych ze ekranów). Dostarczanie dwiema ścieżkami (delivery.js): A = Worker (D1 + mail),
 // B = Apps Script (mail + arkusz). Gdy obie zawiodą: „Kopiuj treść” i link mailto.
-import { el } from './ui.js?v=094b3e3';
-import { deliver } from './delivery.js?v=094b3e3';
+import { el } from './ui.js?v=58f006c';
+import { deliver } from './delivery.js?v=58f006c';
 
 export const FB_TYPES = [
   { v: 'blad', label: 'Błąd', tip: 'Coś nie działa albo działa inaczej, niż powinno' },

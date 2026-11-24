@@ -1,9 +1,10 @@
 // Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS), tworzenie listów przewozowych
 // w porcjach, etykiety, zmiana statusu nadanych oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=094b3e3';
-import { api, ctx } from '../core/client.js?v=094b3e3';
-import { go } from '../core/router.js?v=094b3e3';
+import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=58f006c';
+import { api, ctx } from '../core/client.js?v=58f006c';
+import { go } from '../core/router.js?v=58f006c';
+import { registerListKeys } from '../core/listKeys.js?v=58f006c';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -318,6 +319,7 @@ function renderCourier() {
   u.bar = el('div', { class: 'ord-bulk ship-bar', id: 'shipBar' });
   u.dlg = el('div', { id: 'shipDlg' });
   u.results = el('div', { id: 'shipResults' });
+  registerListKeys({ screen: 'przesylki', table: 'shipTable', select: true, extra: [{ keys: ['r'], label: 'R', desc: 'Odśwież kolejkę', id: 'shipReload' }] });
   u.body.replaceChildren(el('div', { class: 'card' },
     el('div', { class: 'card-head' }, el('h2', null, 'Do nadania — ' + name), el('div', { class: 'sub' }, 'Zamówienia ze sposobem dostawy przypisanym do przewoźnika ' + name + ', jeszcze bez numeru przesyłki.')),
     el('div', { class: 'toolbar' },

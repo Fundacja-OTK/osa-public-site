@@ -285,7 +285,7 @@ a.ext:hover { text-decoration: underline; }
 
 /* Menu rozwijane (Kopiuj ▾ / Pobierz ▾) */
 .menu { position: relative; display: inline-flex; }
-.menu .caret { font-size: .8em; opacity: .85; }
+.menu .caret { font-size: .8em; }
 .menu-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 250px; max-width: calc(100vw - 16px);
   background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r2); padding: var(--s1);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .18), 0 1px 3px rgba(0, 0, 0, .1); }
@@ -918,3 +918,16 @@ button:active:not(:disabled) { translate: 0 1px; }
 .fx-num { width: 110px; }
 .fx-relax { margin-top: var(--s2); justify-content: center; }
 @media (max-width: 720px) { .fx-sum { padding: var(--s2); } .fx-name { min-width: 0; } }
+
+/* ═══ Szlify telefonu (≤ 640 px): cele dotyku, przyklejona pierwsza kolumna list, kolejność warstw ═══ */
+@media (max-width: 640px) {
+  main.content button:not(.icon):not(.pin):not(.zs-fold), main.content summary { min-height: 40px; }
+  main.content a.muted.small[href], main.content a.cell-name { display: inline-flex; align-items: center; min-height: 40px; }
+  /* Listy z identyfikującą pierwszą kolumną: przewijanie tabeli w poziomie zostawia ją na widoku */
+  #cliTable th:first-child, #cliTable td:first-child, #dsTable th:first-child, #dsTable td:first-child, #zsTable th:first-child, #zsTable td:first-child { position: sticky; left: 0; box-shadow: 1px 0 0 var(--border); }
+  #cliTable th:first-child, #dsTable th:first-child, #zsTable th:first-child { z-index: 4; }
+  #cliTable td:first-child, #dsTable td:first-child, #zsTable td:first-child { z-index: 1; background: var(--surface); }
+  #cliTable tbody tr:nth-child(even) > td:first-child, #dsTable tbody tr:nth-child(even) > td:first-child, #zsTable tbody tr:nth-child(even) > td:first-child { background: var(--zebra); }
+  #cliTable tbody tr:hover > td:first-child, #dsTable tbody tr:hover > td:first-child, #zsTable tbody tr:hover > td:first-child, tr.kb-hl > td:first-child { background: var(--hover); }
+  #cliTable tbody tr.sel > td:first-child, #zsTable tbody tr.sel > td:first-child { background: var(--accent-soft); }
+}

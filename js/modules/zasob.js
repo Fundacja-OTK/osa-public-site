@@ -1,10 +1,11 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=094b3e3';
-import { api, ctx } from '../core/client.js?v=094b3e3';
-import { go, setLeaveGuard } from '../core/router.js?v=094b3e3';
-import { RESOURCES } from '../core/resources.js?v=094b3e3';
-import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=094b3e3';
+import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=58f006c';
+import { api, ctx } from '../core/client.js?v=58f006c';
+import { go, setLeaveGuard } from '../core/router.js?v=58f006c';
+import { RESOURCES } from '../core/resources.js?v=58f006c';
+import { registerListKeys } from '../core/listKeys.js?v=58f006c';
+import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=58f006c';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -108,6 +109,7 @@ export function createResource(id) {
     const filterBox = (def.filters || []).length ? el('details', { class: 'zs-filters', id: 'zsFilters', open: Object.keys(S.Q.filters).length ? true : null },
       el('summary', { title: 'Dodatkowe filtry listy' }, 'Filtry'), el('div', { class: 'zs-filter-row' }, def.filters.map(f => filterControl(f)))) : null;
     u.results = el('div', { id: 'zsResults' });
+    registerListKeys({ screen: 'zasob', table: 'zsTable', search: 'zsSearch', back: 'zsBack', extra: [{ keys: ['n'], label: 'N', desc: 'Dodaj nowy rekord', id: 'zsAdd' }] });
     const add = def.canCreate ? el('a', { href: '#/' + id + '/nowy', id: 'zsAdd', class: 'zs-add', title: 'Otwiera pusty formularz — nowy rekord zapisze się w Selly' }, '+ ' + def.addLabel) : null;
     box.replaceChildren(el('div', { class: 'card' },
       el('div', { class: 'toolbar head zs-head' }, el('h2', { id: 'zsTitle' }, def.many), add),

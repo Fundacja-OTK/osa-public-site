@@ -1,5 +1,5 @@
 // Reklamacje (Selly ?a=reklamacje) — natywny ekran przez rozszerzenie OSA; bez rozszerzenia ramka / link (docs/selly-embed.md, etap 2).
-import { createNative } from './sellyNative.js?v=094b3e3';
+import { createNative } from './sellyNative.js?v=58f006c';
 
 export default createNative({
   id: 'reklamacje', title: 'Reklamacje', screen: 'reklamacje', a: 'reklamacje', recordRoute: 'reklamacje.edycja', noun: 'reklamacji',
