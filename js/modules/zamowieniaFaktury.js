@@ -2,10 +2,10 @@
 // wydruk i rozliczenie. Selly API nie ma listy faktur sklepu, więc lista czyta kopię w bazie panelu (orders:invoiceList), a przycisk
 // „Uzupełnij z Selly” sprawdza porcjami zamówienia jeszcze niesprawdzone (orders:invoiceScan; po jednym zapytaniu do Selly na zamówienie,
 // z przerwami i bezpiecznikiem limitu API). Wystawianie faktur zostaje w Selly (numeracja) — zob. zamowieniaFakturyKit.js.
-import { el, gateWrite, debounce, money, cnt, plural, sortTh, pager, pageToolbar, loadingBox, downloadMenuButton, sellyLink, syncedLabel, flash } from '../core/ui.js?v=79bd162';
-import { dateRange } from '../core/datepicker.js?v=79bd162';
-import { api, ctx } from '../core/client.js?v=79bd162';
-import { INV_STATUS, invStatusPill, isOverdue, invoiceEditor, printButton } from './zamowieniaFakturyKit.js?v=79bd162';
+import { el, gateWrite, debounce, money, cnt, plural, sortTh, pager, pageToolbar, loadingBox, downloadMenuButton, sellyLink, syncedLabel, flash } from '../core/ui.js?v=6bba789';
+import { dateRange } from '../core/datepicker.js?v=6bba789';
+import { api, ctx } from '../core/client.js?v=6bba789';
+import { INV_STATUS, invStatusPill, isOverdue, invoiceEditor, printButton } from './zamowieniaFakturyKit.js?v=6bba789';
 
 const SIZE = 50;
 const PAUSE_MS = 4000;   // przerwa między porcjami „Uzupełnij z Selly” (≤ 15 zapytań / 4 s — z zapasem pod limitem Selly ~500/min)
@@ -68,7 +68,7 @@ function build() {
   u.dl.querySelector('button').addEventListener('click', ev => { if (!V.exportTable || V.exportKey !== JSON.stringify(params())) { ev.stopImmediatePropagation(); prepareExport(ev.currentTarget); } }, true);
   V.box.replaceChildren(el('div', { class: 'card' },
     pageToolbar({ title: 'Faktury', sub: 'Faktury ze wszystkich zamówień: rozliczenia, wydruk i eksport. Wystawianie nowych faktur — w panelu Selly (Selly prowadzi numerację).',
-      actions: [el('a', { href: '#/zamowienia', class: 'btn-link', id: 'invBack', title: 'Wraca do listy zamówień' }, '← Zamówienia'), u.dl,
+      actions: [el('a', { href: '#/zamowienia', class: 'btn-secondary', id: 'invBack', title: 'Wraca do listy zamówień' }, '← Zamówienia'), u.dl,
         sellyLink('Zamówienia w Selly ↗', adminUrl() + '?a=zamowienia', 'Otwiera zamówienia w panelu Selly — tam wystawisz fakturę (karta zamówienia → faktura)')] }),
     el('div', { class: 'toolbar inv-toolbar' }, u.search, u.seg),
     el('div', { class: 'toolbar inv-toolbar' }, u.range.node),

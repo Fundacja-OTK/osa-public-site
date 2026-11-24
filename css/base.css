@@ -563,6 +563,11 @@ tbody tr { transition: background-color .08s; }
 .page-toolbar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--s2) var(--s4); margin-bottom: var(--s2); }
 .page-toolbar .pt-title { min-width: 0; flex: 1 1 280px; }
 .page-toolbar .pt-actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+/* Jeden rozmiar wszystkich przycisków i linków-przycisków w pasku akcji strony (przyciski, linki, menu ▾) */
+.page-toolbar .pt-actions > :is(button, a.btn-primary, a.btn-secondary, a.btn-link, a.btn-primary-link), .page-toolbar .pt-actions > .menu > button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); box-sizing: border-box; min-height: 36px; margin: 0; padding: 7px 14px;
+  font-size: var(--fs-md); font-weight: 600; line-height: 1.2; border-radius: var(--r2); white-space: nowrap; }
+@media (max-width: 640px) { .page-toolbar .pt-actions > :is(button, a.btn-primary, a.btn-secondary, a.btn-link, a.btn-primary-link), .page-toolbar .pt-actions > .menu > button { min-height: 44px; } }
 a.btn-primary { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 16px; border-radius: var(--r1); background: var(--accent); color: var(--accent-text); font-weight: 700; font-size: var(--fs-sm); text-decoration: none; }
 a.btn-primary:hover { background: var(--accent-strong); }
 /* Nawigacja jako link (da się otworzyć w nowej karcie) o wyglądzie przycisku drugorzędnego */

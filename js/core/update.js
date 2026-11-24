@@ -1,7 +1,7 @@
 // „Jest nowa wersja panelu”: co 10 min pobiera config.js (generowany przy każdym wdrożeniu, zawiera version)
 // i porównuje z wersją załadowaną w tej karcie. Pasek jest dyskretny; „Odśwież” respektuje strażnika wyjścia routera
 // (niezapisane zmiany w karcie → pytanie o potwierdzenie), żeby nie zgubić edycji.
-import { el } from './ui.js?v=79bd162';
+import { el } from './ui.js?v=6bba789';
 
 export const POLL_MS = 10 * 60 * 1000;
 
