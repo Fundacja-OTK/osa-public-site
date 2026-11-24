@@ -2,14 +2,14 @@
 // Dwa widoki: „Okres” (okres kontra poprzedni okres albo ten sam okres rok temu) i „Lata” (kilka lat obok siebie: wykres rok do roku, mapa miesięcy, produkty).
 // Cały stan raportu siedzi w adresie (#/raporty?od=…&do=…&cmp=…): link można wysłać dalej, a „wstecz / dalej” w przeglądarce działa.
 // Na górze zawsze pasek „co oglądasz”: zakres, porównanie, statusy, grupowanie — każdy element to przycisk otwierający odpowiednie ustawienie.
-import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu } from '../core/ui.js?v=5b9e0d7';
-import { api, ctx } from '../core/client.js?v=5b9e0d7';
-import { go } from '../core/router.js?v=5b9e0d7';
-import { wojLabel } from '../core/osa.js?v=5b9e0d7';
-import { shortcuts } from '../core/shortcuts.js?v=5b9e0d7';
-import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=5b9e0d7';
-import { zyskRender } from './raportyZysk.js?v=5b9e0d7';
-import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=5b9e0d7';
+import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu } from '../core/ui.js?v=094b3e3';
+import { api, ctx } from '../core/client.js?v=094b3e3';
+import { go } from '../core/router.js?v=094b3e3';
+import { wojLabel } from '../core/osa.js?v=094b3e3';
+import { shortcuts } from '../core/shortcuts.js?v=094b3e3';
+import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=094b3e3';
+import { zyskRender } from './raportyZysk.js?v=094b3e3';
+import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=094b3e3';
 
 /** Domyślne wartości ustawień — w adresie zapisujemy tylko to, co się od nich różni. */
 const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '10', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '' };

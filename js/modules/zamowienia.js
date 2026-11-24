@@ -1,17 +1,20 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=5b9e0d7';
-import { api, ctx } from '../core/client.js?v=5b9e0d7';
-import { go, setLeaveGuard } from '../core/router.js?v=5b9e0d7';
-import { noteVisit } from '../core/recents.js?v=5b9e0d7';
-import { registerListKeys } from '../core/listKeys.js?v=5b9e0d7';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=5b9e0d7';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=5b9e0d7';
+import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=094b3e3';
+import { api, ctx } from '../core/client.js?v=094b3e3';
+import { go, setLeaveGuard } from '../core/router.js?v=094b3e3';
+import { noteVisit } from '../core/recents.js?v=094b3e3';
+import { registerListKeys } from '../core/listKeys.js?v=094b3e3';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=094b3e3';
+import { createFilterUi } from './zamowieniaFiltry.js?v=094b3e3';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=094b3e3';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=094b3e3';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
 const SIZES = [25, 50, 100, 200];
 const EXTRA_CLEAR = { payment: '', delivery: '', product: '', pname: '' };
+const CLEAR_ALL = () => ({ status: '', q: '', from: '', to: '', ...EXTRA_CLEAR, ...EMPTY_F, ...OSA_CLEAR });
 // Eksport czyta z bazy panelu (nie z Selly — nie zużywa limitu API); górna granica tylko jako bezpiecznik
 const EXPORT_MAX = 50000;
 const MSG_UNAVAILABLE = 'Moduł Zamówienia wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -33,6 +36,7 @@ setLeaveGuard(() => (S.guard && S.guard() ? 'W karcie zamówienia są niezapisan
 const adminUrl = () => (S.meta && S.meta.adminUrl) || (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
 const dayStr = d => (d ? String(d).slice(0, 10) : '');
 const statusName = id => { const s = S.meta && S.meta.statuses.find(x => String(x.id) === String(id)); return s ? s.name : (id == null || id === '' ? '—' : 'Status ' + id); };
+const nameIn = (list, id) => { const x = (list || []).find(y => String(y.id) === String(id)); return x ? x.name : String(id); };
 const sellyOrderUrl = id => adminUrl() + '?a=zamowienia.view&id=' + encodeURIComponent(id);
 
 function statusTone(name) {
@@ -59,13 +63,13 @@ function readQ(query) {
   const g = k => (query && query.get(k)) || '';
   const sort = SORTS.includes(g('sort')) ? g('sort') : 'date';
   return {
-    status: g('status'), q: g('q'), from: g('from'), to: g('to'), payment: g('payment'), delivery: g('delivery'), product: g('product'), pname: g('pname'), ...readOsa(g),
+    status: g('status'), q: g('q'), from: g('from'), to: g('to'), payment: g('payment'), delivery: g('delivery'), product: g('product'), pname: g('pname'), ...readFilters(g), ...readOsa(g),
     page: Math.max(1, parseInt(g('page'), 10) || 1), sort, dir: g('dir') === 'asc' ? 'asc' : g('dir') === 'desc' ? 'desc' : (sort === 'date' || sort === 'total' ? 'desc' : 'asc'),
   };
 }
 function qsOf(Q) {
   const p = new URLSearchParams();
-  if (Q.status) p.set('status', Q.status);
+  writeFilters(Q, p);
   if (Q.q) p.set('q', Q.q);
   if (Q.from) p.set('from', Q.from);
   if (Q.to) p.set('to', Q.to);
@@ -81,10 +85,11 @@ function qsOf(Q) {
 const pageSize = () => { const v = store('osa-ord-size'); return SIZES.includes(v) ? v : 50; };
 const listParams = (Q, extra) => {
   const p = { sort: Q.sort, dir: Q.dir, pageSize: pageSize(), page: Q.page };
-  if (Q.status) p.statusIds = Q.status.split(',').filter(Boolean);
+  Object.assign(p, filterParams(Q));
   if (Q.q) p.q = Q.q;
   if (Q.from) p.dateFrom = Q.from;
-  if (Q.to) p.dateTo = Q.to;
+  const to = effectiveDateTo(Q.to, Q.older);
+  if (to) p.dateTo = to;
   if (Q.payment) p.paymentId = Q.payment;
   if (Q.delivery) p.deliveryId = Q.delivery;
   if (Q.product) p.productId = Q.product;
@@ -128,26 +133,25 @@ function buildList() {
   const mkMs = (id, all, short, noun, tip, field) => multiSelect({ id, all, short, noun, tip, none: false, onChange: csv => setQ({ [field]: csv }) });
   u.payment = mkMs('ordPayment', 'Wszystkie płatności', 'Płatność', 'Płatność', 'Tylko zamówienia z wybranymi sposobami płatności — można zaznaczyć kilka', 'payment');
   u.deliverySel = mkMs('ordDelivery', 'Wszystkie dostawy', 'Dostawa', 'Dostawa', 'Tylko zamówienia z wybranymi sposobami dostawy — można zaznaczyć kilka', 'delivery');
-  u.statusMs = mkMs('ordStatusMs', 'Wszystkie statusy', 'Status', 'Status', 'Tylko zamówienia w wybranych statusach — można zaznaczyć kilka (to samo wybierzesz przyciskami nad tabelą). Liczby to zamówienia w statusie.', 'status');
   u.prodLabel = el('span', { class: 'ord-prod-on', id: 'ordProdOn', hidden: true });
   u.prodPick = productPicker({ id: 'ordProdSearch', placeholder: 'Szukaj produktu…', tip: 'Tylko zamówienia zawierające wybrany produkt. Wpisz nazwę, kod lub EAN i wybierz produkt z listy.', onPick: p => setQ({ product: String(p.id), pname: p.name || '' }) });
   u.prodClear = el('button', { type: 'button', class: 'ghost', id: 'ordProdClear', title: 'Usuń filtr produktu', onclick: () => setQ({ product: '', pname: '' }) }, 'Usuń');
   u.filtersBtn = el('button', { type: 'button', class: 'secondary', id: 'ordFiltersBtn', 'aria-expanded': 'false', 'aria-controls': 'ordFilters',
     title: 'Pokaż lub ukryj panel filtrów po lewej: płatność, dostawa, produkt, zakres dat, dane z notatek klientów. Wybór jest zapamiętywany.', onclick: () => toggleFilters() }, 'Filtry');
-  u.filtersInner = el('div', { class: 'opts-box ord-filters' },
-    // filtry z notatki klienta (województwo, rodzaj podmiotu, tytuł, tag, licencja) — tworzone niżej, wstawiane na początek
-    el('div', { class: 'ord-filter-row' },
-      el('div', { class: 'field-inline' }, 'Status', u.statusMs.node),
-      el('div', { class: 'field-inline' }, 'Płatność', u.payment.node),
-      el('div', { class: 'field-inline' }, 'Dostawa', u.deliverySel.node),
-      el('div', { class: 'field-inline ord-prodf' }, 'Produkt', u.prodPick.node, u.prodLabel, u.prodClear)),
-    el('div', { class: 'ord-filter-row' },
-      u.range.node,
-      el('label', { class: 'field-inline' }, 'Wierszy na stronie', u.size),
-      el('button', { type: 'button', class: 'ghost', id: 'ordClear', title: 'Usuń wyszukiwanie, zakres dat, wybrany status i filtry z notatek klientów', onclick: () => setQ({ status: '', q: '', from: '', to: '', ...EXTRA_CLEAR, ...OSA_CLEAR }) }, 'Wyczyść filtry')));
+  u.fx = createFilterUi({ Q: () => S.Q, meta: () => S.meta, setQ: patch => setQ(patch), osaOn: () => osaActive(S.Q), osaClear: OSA_CLEAR, qsOf, clearAll: () => setQ(CLEAR_ALL()),
+    goQs: qs => go('/zamowienia' + (qs ? '?' + qs : '')), linkFor: qs => location.href.split('#')[0] + '#/zamowienia' + (qs ? '?' + qs : '') });
+  u.filtersInner = el('div', { class: 'opts-box ord-filters' });
   u.thumbs = el('input', { type: 'checkbox', id: 'ordThumbs', checked: thumbsOn(), onchange: () => { store('osa-ord-thumbs', u.thumbs.checked ? 1 : 0); if (S.data) renderList(); } });
-  u.filtersInner.append(el('label', { class: 'field-inline', style: 'flex-direction:row;align-items:center;gap:6px', title: 'Pokazuje lub ukrywa miniatury zdjęć przy produktach w kolumnie „Zamówione produkty”' }, u.thumbs, 'Pokazuj małe zdjęcia produktów'));
   u.osa = osaBar({ prefix: 'ordOsa', withLicense: true, plain: true, getQ: () => S.Q, apply: patch => setQ(patch), facets: () => S.meta && S.meta.facets });
+  u.filtersInner.append(...u.fx.panelNodes({
+    payMethod: el('div', { class: 'field-inline' }, 'Sposób płatności', u.payment.node), delivery: el('div', { class: 'field-inline' }, 'Sposób dostawy', u.deliverySel.node), range: u.range.node,
+    more: [el('section', { class: 'fp-sec' }, el('h3', { class: 'tip', title: 'Dane z notatek klientów (województwo, rodzaj podmiotu, tytuł, tagi, licencja) i produkt w zamówieniu' }, 'Klient i produkt'), u.osa.node,
+      el('div', { class: 'field-inline ord-prodf' }, 'Produkt', u.prodPick.node, u.prodLabel, u.prodClear))],
+  }));
+  u.filtersInner.append(el('div', { class: 'ord-filter-row' },
+    el('label', { class: 'field-inline' }, 'Wierszy na stronie', u.size),
+    el('label', { class: 'field-inline', style: 'flex-direction:row;align-items:center;gap:6px', title: 'Pokazuje lub ukrywa miniatury zdjęć przy produktach w kolumnie „Zamówione produkty”' }, u.thumbs, 'Pokazuj małe zdjęcia produktów'),
+    el('button', { type: 'button', class: 'ghost', id: 'ordClear', title: 'Usuń wyszukiwanie, zakres dat, statusy, płatność, przesyłkę, wartość i filtry z notatek klientów', onclick: () => setQ(CLEAR_ALL()) }, 'Wyczyść filtry')));
   u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Status zamówienia' });
   u.exportBtn = menuButton({ id: 'ordExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz zamówienia z tabeli do pliku Excel lub CSV — zaznaczone albo cały wynik filtra', items: exportItems });
   u.colMenu = columnMenu({ id: 'ordColsBtn', storeKey: 'osa-ord-cols2',   // v2: Klient i Informacje dodatkowe domyślnie wyłączone
@@ -163,7 +167,7 @@ function buildList() {
   u.bulk = el('div', { class: 'ord-bulk', id: 'ordBulk', hidden: true });
   u.results = el('div', { id: 'ordResults' });
   u.layout = filterLayout({ key: 'zamowienia', panelId: 'ordFilters', panelNodes: [u.filtersInner],
-    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info), u.dlg, u.bulk, u.results] });
+    mainNodes: [u.segs, u.fx.presets, u.fx.sum, el('div', { class: 'toolbar' }, u.search, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info), u.dlg, u.bulk, u.results] });
   u.filters = u.layout.panel;
   S.listBox = el('div', { class: 'ord-list' },
     el('div', { class: 'card' },
@@ -171,7 +175,6 @@ function buildList() {
         actions: [u.filtersBtn, el('a', { class: 'btn-primary', id: 'ordAdd', href: adminUrl() + '?a=zamowienia.add', target: '_blank', rel: 'noopener',
           title: 'Dodawanie zamówień odbywa się w panelu Selly (panel OSA nie tworzy nowych zamówień). Otwiera się w nowej karcie.' }, '+ Dodaj zamówienie')] }),
       u.layout.node));
-  u.filtersInner.prepend(u.osa.node);
   S.root.append(S.listBox);
 }
 
@@ -185,7 +188,7 @@ function toggleFilters(force) {
 /** „Filtry (3) ▾” — liczba aktywnych filtrów z panelu (płatność, dostawa, produkt, daty, dane z notatek klientów). */
 function filtersLabel(open) {
   const Q = S.Q || {};
-  const n = ['payment', 'delivery', 'product', 'from', 'to', 'woj', 'kind', 'title', 'tag', 'lic'].filter(k => Q[k]).length;
+  const n = ['payment', 'delivery', 'product', 'from', 'to', 'woj', 'kind', 'title', 'tag', 'lic', ...FKEYS].filter(k => Q[k]).length;
   return 'Filtry' + (n ? ' (' + n + ')' : '') + (open ? ' ◂' : ' ▸');
 }
 
@@ -196,13 +199,13 @@ function syncList() {
   u.filtersBtn.textContent = filtersLabel(u.layout.isOpen());
   u.payment.set((S.meta.payments || []).map(x => ({ key: String(x.id), label: x.name })), Q.payment);
   u.deliverySel.set((S.meta.deliveries || []).map(x => ({ key: String(x.id), label: x.name })), Q.delivery);
-  u.statusMs.set((S.meta.statuses || []).map(x => ({ key: String(x.id), label: x.name, n: countOf(x.id) })), Q.status);
   u.prodLabel.hidden = u.prodClear.hidden = !Q.product; u.prodLabel.textContent = Q.product ? '„' + (Q.pname || 'produkt #' + Q.product) + '”' : '';
   const extra = !!(Q.from || Q.to || Q.payment || Q.delivery || Q.product) || pageSize() !== 50;
   u.filtersBtn.classList.toggle('on', extra);
   if (extra && u.filters.hidden) toggleFilters(true);
   renderSegs();
   u.osa.sync();
+  u.fx.sync();
 }
 
 function renderSegs() {
@@ -215,11 +218,11 @@ function renderSegs() {
   const rest = withN.filter(s => !top.includes(s) && s.n > 0);
   const chip = (label, n, active, tip, onclick, id) => el('button', { type: 'button', class: 'chip', 'aria-pressed': String(active), title: tip, id, onclick },
     label, el('span', { class: 'ord-n' }, String(n)));
-  const parts = [chip('Wszystkie', total, !Q.status, 'Wszystkie zamówienia, w każdym statusie: ' + total + ' (liczba z ostatniej synchronizacji, niezależna od wyszukiwania i dat)', () => setQ({ status: '' }), 'ordSegAll')];
-  for (const s of top) parts.push(chip(s.name, s.n, Q.status === String(s.id), 'Zamówienia w statusie „' + s.name + '”: ' + s.n + ' (liczba z ostatniej synchronizacji, niezależna od wyszukiwania i dat)', () => setQ({ status: String(s.id) }), 'ordSeg' + s.id));
+  const parts = [chip('Wszystkie', total, !Q.status && !Q.xstatus, 'Wszystkie zamówienia, w każdym statusie: ' + total + ' (liczba z ostatniej synchronizacji, niezależna od wyszukiwania i dat)', () => setQ({ status: '', xstatus: '' }), 'ordSegAll')];
+  for (const s of top) parts.push(chip(s.name, s.n, Q.status === String(s.id), 'Zamówienia w statusie „' + s.name + '”: ' + s.n + ' (liczba z ostatniej synchronizacji, niezależna od wyszukiwania i dat)', () => setQ({ status: String(s.id), xstatus: '' }), 'ordSeg' + s.id));
   if (rest.length) {
     parts.push(menuButton({ id: 'ordSegMore', label: 'Pozostałe statusy', cls: 'secondary', title: 'Pozostałe, rzadziej używane statusy z liczbą zamówień',
-      items: () => rest.map(s => ({ label: s.name, count: s.n, title: 'Pokaż zamówienia w statusie „' + s.name + '”', run: () => setQ({ status: String(s.id) }) })) }));
+      items: () => rest.map(s => ({ label: s.name, count: s.n, title: 'Pokaż zamówienia w statusie „' + s.name + '”', run: () => setQ({ status: String(s.id), xstatus: '' }) })) }));
   }
   u.segs.replaceChildren(...parts);
 }
@@ -325,10 +328,16 @@ function renderList() {
         r.tracking ? el('div', { class: 'cell-sub', title: 'Numer przesyłki' }, '📦 ' + r.tracking) : null))));
     body.append(tr);
   }
-  const filtered = !!(Q.status || Q.q || Q.from || Q.to || Q.payment || Q.delivery || Q.product || osaActive(Q));
-  if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length + 1), class: 'empty' },
-    filtered ? 'Brak zamówień pasujących do wybranych filtrów.' : 'Brak zamówień.', ' ',
-    filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ status: '', q: '', from: '', to: '', ...EXTRA_CLEAR, ...OSA_CLEAR }) }, 'Wyczyść filtry') : null)));
+  const filtered = anyFilter(Q, osaActive(Q));
+  if (!d.rows.length) {
+    // Pusty wynik: podpowiedz kolejny krok — zwolnij któryś z filtrów (każdy przycisk usuwa jeden warunek) albo wyczyść wszystko
+    const cl = clausesOf(Q, { statusName, payName: id => nameIn(S.meta.payments, id), deliveryName: id => nameIn(S.meta.deliveries, id), osaOn: osaActive(Q), osaClear: OSA_CLEAR });
+    body.append(el('tr', null, el('td', { colspan: String(cols.length + 1), class: 'empty', id: 'ordEmpty' },
+      filtered ? 'Brak zamówień pasujących do wybranych filtrów.' : 'Brak zamówień.',
+      filtered ? el('div', { class: 'fx-relax' }, el('span', { class: 'muted small' }, 'Spróbuj poluzować filtry:'),
+        ...cl.map(c => el('button', { type: 'button', class: 'chip', title: 'Usuń ten warunek i pokaż więcej zamówień', onclick: () => setQ(c.clear) }, 'Usuń: ' + c.name)),
+        el('button', { type: 'button', class: 'secondary', onclick: () => setQ(CLEAR_ALL()) }, 'Wyczyść filtry')) : null)));
+  }
   const pg = pager({ prefix: 'ord', page: Q.page, pages, total: d.total, noun: ['zamówienie', 'zamówienia', 'zamówień'], onPage: p => setQ({ page: p }),
     sizes: SIZES, size: pageSize(), onSize: n => { store('osa-ord-size', n); setQ({}); } });
   u.results.replaceChildren(

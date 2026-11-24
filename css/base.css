@@ -892,3 +892,29 @@ button:active:not(:disabled) { translate: 0 1px; }
   .view-stack > div > .card, .menu-pop, .dp-pop { animation: none !important; }
   button:active:not(:disabled) { translate: none; }
 }
+
+/* ─── Zamówienia: filtry złożone (szybkie widoki, zdanie z plakietkami, grupy statusów) — przedrostek fx- ─── */
+.fx-presets { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; margin-top: var(--s2); }
+.fx-sum { margin-top: var(--s3); padding: var(--s3); border: 1px solid var(--border); border-radius: var(--r, 8px); background: var(--surface-2, var(--accent-soft)); display: flex; flex-direction: column; gap: var(--s2); }
+.fx-sentence { margin: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.fx-chips, .fx-actions, .fx-namerow, .fx-row, .fx-relax { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; }
+.fx-x .fx-k { color: var(--muted); font-weight: 400; }
+.fx-x .fx-xx { opacity: .6; }
+.fx-x:hover .fx-xx { opacity: 1; }
+.chip.neg { border-style: dashed; border-color: var(--warn-border); background: var(--warn-soft); color: var(--warn); }
+.chip.neg[aria-pressed=true] { text-decoration: line-through; }
+.fx-name { min-width: 220px; flex: 1 1 220px; }
+.fx-groups { display: flex; flex-direction: column; gap: var(--s3); }
+.fx-group { display: flex; flex-direction: column; gap: 4px; }
+.fx-gname { align-self: flex-start; background: none; border: 0; padding: 2px 0; font-weight: 600; color: var(--text); cursor: pointer; }
+.fx-gname[aria-pressed=true] { color: var(--accent); }
+.fx-gname.neg { color: var(--warn); }
+.fx-hint { margin: 0 0 var(--s2); }
+.fx-more { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s2); }
+.fx-morebox p { margin: 2px 0 var(--s2); }
+.fx-grow, .fx-view { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.fx-grow > span { min-width: 140px; }
+.fx-view input { flex: 1 1 160px; }
+.fx-num { width: 110px; }
+.fx-relax { margin-top: var(--s2); justify-content: center; }
+@media (max-width: 720px) { .fx-sum { padding: var(--s2); } .fx-name { min-width: 0; } }

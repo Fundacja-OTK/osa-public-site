@@ -1,11 +1,11 @@
 // Karta produktu (#/produkty/<id>) i dodawanie produktu (#/produkty/nowy): zakładki, pasek zapisu ze strażnikiem wyjścia, walidacja pól.
 // Zapis: products:update (pola) + products:setMeta / setFeatures / setCategories; zdjęcia, warianty i stany magazynowe zapisują się od razu (osobne przyciski).
-import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=5b9e0d7';
-import { api, ctx } from '../core/client.js?v=5b9e0d7';
-import { go, addLeaveGuard } from '../core/router.js?v=5b9e0d7';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=5b9e0d7';
-import { noteVisit } from '../core/recents.js?v=5b9e0d7';
-import { isTyping, addKeyTip } from '../core/shortcuts.js?v=5b9e0d7';
+import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=094b3e3';
+import { api, ctx } from '../core/client.js?v=094b3e3';
+import { go, addLeaveGuard } from '../core/router.js?v=094b3e3';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=094b3e3';
+import { noteVisit } from '../core/recents.js?v=094b3e3';
+import { isTyping, addKeyTip } from '../core/shortcuts.js?v=094b3e3';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;

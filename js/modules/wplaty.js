@@ -3,10 +3,11 @@
 // 2) panel dopasowuje wpłaty do nieopłaconych zamówień (numer w tytule, kwota, nazwisko/e-mail; punktacja i powody),
 // 3) przeglądasz tabelę (pewne / prawdopodobne / brak) i zaznaczasz, co oznaczyć jako opłacone,
 // 4) zapis przez Worker (payments:apply — do serwera idą wyłącznie numery zamówień i kwoty „zapłacono”), podsumowanie i „Cofnij”.
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=5b9e0d7';
-import { api } from '../core/client.js?v=5b9e0d7';
-import { parseStatement, BANKS } from './wplatyCsv.js?v=5b9e0d7';
-import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=5b9e0d7';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=094b3e3';
+import { api } from '../core/client.js?v=094b3e3';
+import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=094b3e3';
+import { loadMapping, saveMapping } from './wplatyCsv.js?v=094b3e3';
+import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=094b3e3';
 
 const zl = v => money(v) + ' zł';
 const SKEY = 'osa-wplaty-rules', DKEY = 'osa-wplaty-days';
@@ -38,23 +39,29 @@ function dialog({ id, title, body, ok, okClass, onOk }) {
 
 // ─── Krok 1: plik ───────────────────────────────────────────────────────
 function fileCard() {
-  const input = el('input', { type: 'file', id: 'wpFile', accept: '.csv,.txt,text/csv,text/plain', 'aria-label': 'Plik wyciągu CSV', title: 'Plik CSV pobrany z bankowości internetowej (historia rachunku → eksport CSV)',
+  const input = el('input', { type: 'file', id: 'wpFile', accept: '.csv,.txt,.xml,.sta,.mt940,.940,text/csv,text/plain,text/xml,application/xml', 'aria-label': 'Plik wyciągu (camt.053 / MT940 / CSV)', title: 'Plik pobrany z bankowości internetowej (historia rachunku → eksport). Najlepiej camt.053 (XML) lub MT940, jeśli bank je oferuje; CSV też działa.',
     onchange: () => { if (input.files[0]) loadFile(input.files[0]); } });
-  const drop = el('div', { class: 'wp-drop', id: 'wpDrop', title: 'Upuść tu plik wyciągu albo kliknij „Wybierz plik”' }, el('div', null, 'Upuść plik CSV z wyciągiem tutaj albo'), input);
+  const drop = el('div', { class: 'wp-drop', id: 'wpDrop', title: 'Upuść tu plik wyciągu albo kliknij „Wybierz plik”' }, el('div', null, 'Upuść plik wyciągu (camt.053, MT940 lub CSV) tutaj albo'), input);
   ['dragover', 'dragenter'].forEach(t => drop.addEventListener(t, ev => { ev.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', ev => { const f = ev.dataTransfer && ev.dataTransfer.files[0]; if (f) loadFile(f); });
   return el('section', { class: 'card bm-card', id: 'wpStep1' }, el('h2', null, el('span', { class: 'bm-num' }, '1'), 'Wczytaj wyciąg z banku'),
     el('p', { class: 'wp-privacy', id: 'wpPrivacy', title: 'Plik jest czytany i analizowany w pamięci tej karty przeglądarki. Do serwera trafiają dopiero numery zaznaczonych zamówień i kwoty zapłacone.' },
       '🔒 Wyciąg zostaje w Twojej przeglądarce — nie wysyłamy go na serwer ani nigdzie nie zapisujemy. Do Selly trafia tylko numer zamówienia i kwota zapłacona.'),
-    drop, el('p', { class: 'muted wp-hint' }, 'Obsługiwane: mBank, PKO BP, ING, Santander, Millennium, Pekao oraz inne banki (wskażesz kolumny ręcznie). Kodowanie, separator i przecinek dziesiętny rozpoznajemy sami.'),
+    drop, el('p', { class: 'muted wp-hint' }, 'Działa z każdym bankiem: formaty standardowe (camt.053 / camt.052 XML, MT940) oraz pliki CSV/TXT — kodowanie, separator, kolumny i zapis kwot rozpoznajemy sami. Gdy plik jest nietypowy, poprosimy o wskazanie kolumn (zapamiętamy to na przyszłość).'),
+    el('details', { class: 'bm-opts', id: 'wpHelp' }, el('summary', { title: 'Jak pobrać wyciąg z bankowości internetowej' }, 'Jak pobrać wyciąg z banku?'),
+      el('ol', { class: 'muted' },
+        el('li', null, 'Zaloguj się do bankowości internetowej i wejdź w historię operacji (lub „Wyciągi”) rachunku, na który wpływają płatności.'),
+        el('li', null, 'Ustaw zakres dat (np. ostatnie 2–4 tygodnie) i kliknij „Eksport” / „Pobierz” / „Zapisz jako”.'),
+        el('li', null, 'Jeśli bank daje wybór, wybierz „camt.053” (XML) lub „MT940” — są najdokładniejsze. Inaczej wystarczy CSV (najlepiej z kolumnami: data, kwota, nadawca, tytuł).'),
+        el('li', null, 'Wczytaj pobrany plik tutaj. Plik zostaje w tej przeglądarce — nie trafia na żaden serwer.'))),
     el('div', { id: 'wpFileInfo' }));
 }
 
 async function loadFile(file) {
   const my = ++S.seq;
   if (file.size > 8 * 1024 * 1024) { setInfo('Plik jest za duży (maks. 8 MB) — to raczej nie jest wyciąg bankowy.', true); return; }
-  S.file = file; S.opts = { decimal: 'auto', separator: '', headerRow: null, mapping: null }; S.result = null; S.undone = false;
+  S.file = file; S.opts = { decimal: 'auto', separator: '', headerRow: null, mapping: null }; S.result = null; S.undone = false; S.remembered = false;
   try { S.bytes = new Uint8Array(await file.arrayBuffer()); } catch (e) { setInfo('Nie udało się odczytać pliku.', true); return; }
   if (my !== S.seq) return;
   reparse(); await ensureOrders(true);
@@ -65,7 +72,14 @@ function reparse() {
   if (S.opts.separator) o.separator = S.opts.separator;
   if (S.opts.headerRow != null) o.headerRow = S.opts.headerRow;
   if (S.opts.mapping) o.mapping = S.opts.mapping;
-  try { S.parsed = parseStatement(S.bytes, o); } catch (e) { S.parsed = null; setInfo('Nie udało się odczytać tego pliku jako CSV.', true); return; }
+  try {
+    S.parsed = parseStatement(S.bytes, o);
+    // układ kolumn już wskazany wcześniej (klucz = skrót nazw kolumn, bez danych) → użyj automatycznie
+    if (S.parsed.needsMapping && !S.opts.mapping && S.parsed.format === 'csv' && S.parsed.signature) {
+      const mem = loadMapping(S.parsed.signature, localStorage);
+      if (mem && mem.mapping) { S.opts.mapping = mem.mapping; S.opts.headerRow = mem.headerRow; S.remembered = true; S.parsed = parseStatement(S.bytes, { ...o, mapping: mem.mapping, headerRow: mem.headerRow }); }
+    }
+  } catch (e) { S.parsed = null; setInfo('Nie udało się odczytać tego pliku (nieznany lub uszkodzony format).', true); return; }
   paintInfo();
   if (S.orders) rematch();
 }
@@ -76,12 +90,16 @@ function paintInfo() {
   const p = S.parsed, box = $('wpFileInfo');
   if (!box || !p) return;
   const parts = [];
-  parts.push(el('p', { id: 'wpDetected' }, el('b', null, S.file.name), ' — ', el('span', { class: 'tip', title: 'Bank rozpoznany po nazwach kolumn w nagłówku pliku. „Inny bank” = wskaż kolumny ręcznie.' }, BANKS[p.bank] || 'nieznany format'),
-    ', kodowanie ' + p.encoding + ', separator „' + (p.separator === '\t' ? 'tabulator' : p.separator) + '”. ',
-    p.needsMapping ? 'Wskaż niżej, w której kolumnie jest co.' : el('b', null, cnt(p.txs.length, 'wpłata', 'wpłaty', 'wpłat') + ' (wpływy)'),
-    !p.needsMapping && p.skipped.debits ? ', pominięto ' + cnt(p.skipped.debits, 'obciążenie', 'obciążenia', 'obciążeń') : '', !p.needsMapping && p.skipped.invalid ? ', ' + cnt(p.skipped.invalid, 'wiersz', 'wiersze', 'wierszy') + ' nie do odczytania' : '', '.'));
+  const csv = p.format === 'csv', nOps = p.total || (p.txs.length + p.skipped.debits);
+  parts.push(el('p', { id: 'wpDetected' }, el('b', null, S.file.name), ' — Rozpoznano: ',
+    el('span', { class: 'tip', title: csv ? 'Plik tekstowy z kolumnami. Bank rozpoznany po nazwach kolumn; „Inny bank” = kolumny dobrane automatycznie lub wskazane ręcznie.' : 'Format standardowy — nie wymaga wskazywania kolumn.' }, csv ? (p.needsMapping ? 'plik CSV/TXT (nieznany układ)' : 'CSV' + (p.bank && p.bank !== 'generic' ? ' — ' + BANKS[p.bank] : '')) : FORMATS[p.format]),
+    ', kodowanie ' + p.encoding + (csv ? ', separator „' + (p.separator === '	' ? 'tabulator' : p.separator) + '”' : '') + '. ',
+    p.needsMapping ? 'Nie jestem pewien, która kolumna jest którą — wskaż niżej.' : el('span', null, cnt(nOps, 'operacja', 'operacje', 'operacji') + ', ', el('b', null, cnt(p.txs.length, 'wpłata', 'wpłaty', 'wpłat') + ' (wpływy)'), '.'),
+    S.remembered ? el('span', { class: 'muted', id: 'wpRemembered', title: 'Ten układ kolumn już wskazywałeś — użyto zapamiętanego mapowania (zapisanego tylko w tej przeglądarce).' }, ' Użyto zapamiętanego mapowania kolumn.') : ''));
+  const why = p.needsMapping ? [] : skipReasons(p.skipped);
+  if (why.length) parts.push(el('p', { class: 'muted', id: 'wpSkipped', title: 'Tylko wpływy trafiają do dopasowania. Reszta wiersza z pliku jest pomijana z podanego powodu.' }, 'Pominięto: ' + why.map(w => w.n + ' ' + w.text).join('; ') + '.'));
   if (p.needsMapping) parts.push(mappingForm(p));
-  parts.push(el('details', { class: 'bm-opts', id: 'wpFmt' }, el('summary', { title: 'Zmień rozpoznany separator, wiersz nagłówka lub zapis kwot — potrzebne tylko, gdy kwoty lub kolumny wyglądają źle' }, 'Format pliku (zaawansowane)'),
+  if (csv) parts.push(el('details', { class: 'bm-opts', id: 'wpFmt' }, el('summary', { title: 'Zmień rozpoznany separator, wiersz nagłówka lub zapis kwot — potrzebne tylko, gdy kwoty lub kolumny wyglądają źle' }, 'Format pliku (zaawansowane)'),
     el('div', { class: 'bm-row' },
       field('Separator', el('select', { id: 'wpSep', onchange: ev => { S.opts.separator = ev.target.value; S.opts.headerRow = null; S.opts.mapping = null; reparse(); } },
         [['', 'rozpoznaj automatycznie'], [';', 'średnik ;'], [',', 'przecinek ,'], ['\t', 'tabulator'], ['|', 'kreska |']].map(([v, l]) => el('option', { value: v, selected: v === S.opts.separator }, l))), 'Znak oddzielający kolumny w pliku'),
@@ -92,13 +110,21 @@ function paintInfo() {
 }
 
 function mappingForm(p) {
-  const roles = [['date', 'Data', true, 'Data księgowania lub operacji'], ['amount', 'Kwota (wpływ dodatni)', false, 'Jedna kolumna z kwotą: wpływy dodatnie, wydatki ujemne'], ['credit', 'Wpływy (osobna kolumna)', false, 'Gdy bank ma osobne kolumny uznań i obciążeń — wskaż kolumnę uznań'],
-    ['title', 'Tytuł / opis', false, 'Tytuł przelewu — tu szukamy numeru zamówienia'], ['party', 'Płatnik', false, 'Nazwa nadawcy (do porównania z klientem)']];
-  const m = Object.assign({ date: -1, amount: -1, credit: -1, debit: -1, title: -1, party: -1, account: -1, desc: -1 }, S.opts.mapping || {});
-  const sels = roles.map(([k, label, , tip]) => field(label, el('select', { id: 'wpMap-' + k, onchange: ev => { m[k] = Number(ev.target.value); } },
+  const roles = [['date', 'Data', 'Data księgowania lub operacji'], ['amount', 'Kwota (wpływ dodatni)', 'Jedna kolumna z kwotą: wpływy dodatnie, wydatki ujemne'], ['credit', 'Wpływy (osobna kolumna)', 'Tylko gdy bank ma osobne kolumny uznań i obciążeń — wskaż kolumnę uznań'],
+    ['debit', 'Wydatki (osobna kolumna)', 'Opcjonalnie: kolumna obciążeń, gdy jest osobno'], ['title', 'Tytuł / opis', 'Tytuł przelewu — tu szukamy numeru zamówienia'], ['party', 'Płatnik', 'Nazwa nadawcy (do porównania z klientem)'], ['account', 'Rachunek płatnika', 'Opcjonalnie: numer konta nadawcy']];
+  const m = Object.assign({ date: -1, amount: -1, credit: -1, debit: -1, title: -1, party: -1, account: -1, desc: -1 }, p.suggest || {}, S.opts.mapping || {});
+  const sels = roles.map(([k, label, tip]) => field(label, el('select', { id: 'wpMap-' + k, onchange: ev => { m[k] = Number(ev.target.value); } },
     el('option', { value: '-1' }, '— brak —'), p.headers.map((h, i) => el('option', { value: String(i), selected: m[k] === i }, (h || 'kolumna ' + (i + 1)).slice(0, 40)))), tip));
-  return el('div', { class: 'bm-row', id: 'wpMapping' }, sels, el('button', { type: 'button', class: 'primary', id: 'wpMapOk', title: 'Wczytaj wpłaty według wskazanych kolumn',
-    onclick: () => { if (m.date < 0 || (m.amount < 0 && m.credit < 0)) { flash(null, 'Wskaż co najmniej kolumnę z datą i z kwotą.'); return; } S.opts.mapping = { ...m }; S.opts.headerRow = p.headerRow; reparse(); } }, 'Wczytaj wpłaty'));
+  const width = Math.max(p.headers.length, ...p.sample.map(r => r.length));
+  const sample = el('div', { class: 'table-wrap', id: 'wpSample', title: 'Podgląd pierwszych wierszy po zamaskowaniu: imiona, nazwy i numery są ukryte (zostają pierwsze litery), daty i kwoty widać.' },
+    el('table', null, el('thead', null, el('tr', null, Array.from({ length: width }, (_, i) => el('th', { title: p.headers[i] || 'kolumna ' + (i + 1) }, (p.headers[i] || 'kolumna ' + (i + 1)).slice(0, 30))))),
+      el('tbody', null, p.sample.map(r => el('tr', null, Array.from({ length: width }, (_, i) => el('td', null, r[i] || '')))))));
+  return el('div', { id: 'wpMapBox' }, el('p', { class: 'muted' }, 'Poniżej podgląd kilku wierszy (dane osobowe zamaskowane). Dopasowaliśmy kolumny na podstawie zawartości — sprawdź i popraw.'), sample,
+    el('div', { class: 'bm-row', id: 'wpMapping' }, sels, el('button', { type: 'button', class: 'primary', id: 'wpMapOk', title: 'Wczytaj wpłaty według wskazanych kolumn i zapamiętaj ten układ w tej przeglądarce',
+      onclick: () => {
+        if (m.date < 0 || (m.amount < 0 && m.credit < 0)) { flash(null, 'Wskaż co najmniej kolumnę z datą i z kwotą.'); return; }
+        S.opts.mapping = { ...m }; S.opts.headerRow = p.headerRow; saveMapping(p.signature, { headerRow: p.headerRow, mapping: S.opts.mapping }, localStorage); reparse();
+      } }, 'Wczytaj wpłaty')));
 }
 
 // ─── Zamówienia do dopasowania ─────────────────────────────────────────
