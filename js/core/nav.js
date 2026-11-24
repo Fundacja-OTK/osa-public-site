@@ -11,6 +11,7 @@
 export const SECTIONS = [
   { id: 'sprzedaz', title: 'Sprzedaż', icon: 'bag', items: [
     { id: 'zamowienia', title: 'Zamówienia', a: 'zamowienia', kind: 'osa', tip: 'Lista zamówień, karta z edycją, statusy (także masowo), eksport' },
+    { id: 'speedmail', title: 'Wysyłka SpeedMail', kind: 'osa', tip: 'Kreator wysyłki do magazynu SpeedMail: wybór zamówień, sprawdzenie stanu SM, podział (SM / na miejscu), plik w kompletach, zatwierdzenie i statusy w Selly' },
     { id: 'oferty', title: 'Oferty', a: 'offersAdm', kind: 'osa', tip: 'Oferty z Selly: lista, filtry, karta oferty i zmiana statusu / opiekuna / notatek (na Twojej sesji Selly)' },
     { id: 'subskrypcje', title: 'Subskrypcje', a: 'subskrypcje', kind: 'resource' },
     '-',
@@ -45,7 +46,7 @@ export const SECTIONS = [
     { id: 'produkty', title: 'Produkty', a: 'produkty', kind: 'osa', tip: 'Lista produktów, stany, ceny, karta produktu' },
     { id: 'zestawy', title: 'Zestawy', a: 'zestawy', kind: 'resource' },
     { id: 'kategorie', title: 'Kategorie', a: 'kategorie', kind: 'resource' },
-    { id: 'magazyny', title: 'Magazyny', a: 'magazyny', kind: 'osa', tip: 'Stany fizyczne, wydania do zamówień, przesunięcia, inwentaryzacja, wysyłka SpeedMail' },
+    { id: 'magazyny', title: 'Magazyny', a: 'magazyny', kind: 'osa', tip: 'Stany fizyczne, wydania do zamówień, przesunięcia, inwentaryzacja; wysyłka SpeedMail ma własny kreator w „Sprzedaży”' },
     { id: 'producenci', title: 'Producenci', a: 'producenci', kind: 'resource' },
     '-',
     { id: 'gpsr', title: 'Dane GPSR', a: 'bezpieczenstwoProduktu', kind: 'selly' },

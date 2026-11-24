@@ -1,15 +1,17 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=d317124';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=d317124';
-import { api, ctx } from '../core/client.js?v=d317124';
-import { go, setLeaveGuard } from '../core/router.js?v=d317124';
-import { noteVisit } from '../core/recents.js?v=d317124';
-import { registerListKeys } from '../core/listKeys.js?v=d317124';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=d317124';
-import { createFilterUi } from './zamowieniaFiltry.js?v=d317124';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=d317124';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=d317124';
+import { photoSrc } from '../core/photo.js?v=0b00058';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=0b00058';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=0b00058';
+import { api, ctx } from '../core/client.js?v=0b00058';
+import { go, setLeaveGuard } from '../core/router.js?v=0b00058';
+import { noteVisit } from '../core/recents.js?v=0b00058';
+import { registerListKeys } from '../core/listKeys.js?v=0b00058';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=0b00058';
+import { showNewOrder } from './zamowienieNowe.js?v=0b00058';
+import { createFilterUi } from './zamowieniaFiltry.js?v=0b00058';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=0b00058';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=0b00058';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -172,8 +174,10 @@ function buildList() {
   S.listBox = el('div', { class: 'ord-list' },
     el('div', { class: 'card' },
       pageToolbar({ title: 'Zamówienia', sub: 'Lista zamówień ze sklepu (kopia odświeżana co minutę). Kliknij numer zamówienia, aby zobaczyć szczegóły.',
-        actions: [u.filtersBtn, el('a', { class: 'btn-primary', id: 'ordAdd', href: adminUrl() + '?a=zamowienia.add', target: '_blank', rel: 'noopener',
-          title: 'Dodawanie zamówień odbywa się w panelu Selly (panel OSA nie tworzy nowych zamówień). Otwiera się w nowej karcie.' }, '+ Dodaj zamówienie')] }),
+        actions: [u.filtersBtn, el('button', { type: 'button', class: 'secondary', id: 'ordSpeedMail', onclick: () => go('/speedmail'),
+          title: 'Kreator wysyłki do magazynu SpeedMail: wybór zamówień, sprawdzenie stanu SM, podział, plik dla SpeedMail i zmiana statusów w Selly' }, 'Wysyłka SpeedMail'),
+          el('a', { class: 'btn-primary', id: 'ordAdd', href: '#/zamowienia/nowe', write: 'zamowienia',
+          title: 'Dodaj zamówienie ręcznie: klient, produkty, dostawa i płatność (formularz w panelu)' }, '+ Nowe zamówienie')] }),
       u.layout.node));
   S.root.append(S.listBox);
 }
@@ -413,22 +417,10 @@ function startStatusChange(host, orders, targetId, onDone) {
 
   async function run(ids) {
     const batch = Math.max(1, Number(S.meta && S.meta.maxStatusBatch) || 50);
-    const chunks = []; for (let i = 0; i < ids.length; i += batch) chunks.push(ids.slice(i, i + batch));
     const bar = el('progress', { max: String(ids.length), value: '0', id: 'ordProgress', 'aria-label': 'Postęp zmiany statusu' });
     const label = el('div', { class: 'muted small', role: 'status' }, 'Zapisuję: 0 z ' + ids.length);
     box.replaceChildren(el('h3', null, 'Zmieniam status na „' + target + '”…'), bar, label);
-    const done = [], failed = [];
-    for (const chunk of chunks) {
-      try {
-        const r = await api('orders:setStatus', { ids: chunk, statusId: targetId });
-        const ok = new Set((r.done || []).map(String));
-        done.push(...ok);
-        for (const f of r.failed || []) failed.push({ id: String(f.id), error: f.error || 'błąd' });
-        for (const id of chunk) if (!ok.has(id) && !(r.failed || []).some(f => String(f.id) === id)) failed.push({ id, error: 'brak potwierdzenia z serwera' });
-      } catch (e) { for (const id of chunk) failed.push({ id, error: e.message || 'błąd połączenia' }); }
-      bar.value = done.length + failed.length;
-      label.textContent = 'Zapisuję: ' + (done.length + failed.length) + ' z ' + ids.length;
-    }
+    const { done, failed } = await setStatusInChunks(api, ids, targetId, { batch, onProgress: (n, all) => { bar.value = n; label.textContent = 'Zapisuję: ' + n + ' z ' + all; } });
     doneAll.push(...done);
     summary(failed);
     if (done.length && onDone) onDone(done);
@@ -546,7 +538,7 @@ async function renderDetail(id) {
       dlg),
     card.notes,
     el('div', { class: 'ord-grid' }, card.grid),
-    card.items, card.totals, card.invoices,
+    card.items, card.totals, card.invoices, card.sellyOnly,
     osaHost, movesCard, eventsCard);
 }
 
@@ -606,6 +598,7 @@ export default {
       el0.append(S.metaBox, S.detailBox);
     }
     S.route = { id: params && params.parts && params.parts[0] || '', Q: readQ(params && params.query) };
+    if (showNewOrder(el0, S.route.id === 'nowe') && S.route.id === 'nowe') { S.routeSeq++; S.guard = null; show(''); return; }   // #/zamowienia/nowe → zamowienieNowe.js
     mountRoute();
   },
   unmount() { S.seq++; S.routeSeq++; S.guard = null; },

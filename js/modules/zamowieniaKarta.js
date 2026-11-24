@@ -1,7 +1,7 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=d317124';
-import { api } from '../core/client.js?v=d317124';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=0b00058';
+import { api } from '../core/client.js?v=0b00058';
 const gw = e => gateWrite(e, 'zamowienia');   // bez prawa zmian w sekcji: wyszarzone z podpowiedzią (core/ui.js)
 
 const EDIT_KEY = 'osa-ord-edit';
@@ -42,9 +42,9 @@ export function productPicker({ id, onPick, placeholder, tip }) {
 
 export function orderTotals(o) {
   const items = (o.products || []).reduce((a, p) => a + (isFinite(Number(p.price_total)) && p.price_total !== '' && p.price_total != null ? Number(p.price_total) : (Number(p.price_with_tax) || 0) * (Number(p.quantity) || 0)), 0);
-  const delivery = Number(o.delivery_price) || 0, discount = Number(o.discount_price) || 0, paid = Number(o.paid_price) || 0;
-  const total = r2(items + delivery - discount);
-  return { items: r2(items), delivery, discount, total, paid, diff: r2(total - paid) };
+  const delivery = Number(o.delivery_price) || 0, payment = Number(o.payment_price) || 0, discount = Number(o.discount_price) || 0, paid = Number(o.paid_price) || 0;
+  const total = r2(items + delivery + payment - discount);
+  return { items: r2(items), delivery, payment, discount, total, paid, diff: r2(total - paid) };
 }
 
 // ─── Pola formularza ────────────────────────────────────────────────────────
@@ -80,8 +80,48 @@ function buildControl(C, f, o) {
     if (f.type === 'select') return v !== '' && v !== orig;
     return v !== orig;
   };
-  const send = () => { const v = val(); return f.type === 'number' ? (v === '' ? 0 : r2(num(v))) : f.type === 'flag' ? (v === '1' ? 1 : 0) : f.type === 'select' ? Number(v) : v; };
+  const send = () => { const v = val(); return f.type === 'number' ? (v === '' ? 0 : r2(num(v))) : f.type === 'flag' ? (v === '1' ? 1 : 0) : f.type === 'select' ? (f.text ? v : Number(v)) : v; };
   return { ctl, val, changed, send, orig, f };
+}
+
+// ─── Podgląd zmian przed zapisem ────────────────────────────────────────────
+
+const EMPTY = '(puste)';
+/** Wartość pola w czytelnej postaci (podgląd zmian): etykieta opcji, tak/nie, kwota w zł. */
+function showVal(c, v) {
+  const f = c.f;
+  if (f.type === 'flag') return v === '1' ? 'tak' : 'nie';
+  if (v === '' || v == null) return EMPTY;
+  if (f.type === 'select') { const o = [...c.ctl.options].find(x => x.value === v); return o ? o.textContent : v; }
+  if (f.type === 'number') return money(num(v)) + ' zł';
+  return String(v);
+}
+
+/**
+ * Podgląd zmian: lista „co: było → będzie” + „Zatwierdź i zapisz w Selly” / „Wróć do edycji”.
+ * rows: [[etykieta, było, będzie]]; onConfirm() — błąd (wyjątek) zostaje w podglądzie, można ponowić albo wrócić.
+ */
+export function previewBox(key, rows, { onConfirm, onBack, note }) {
+  const err = el('div', { class: 'notice error', role: 'alert', hidden: true });
+  const back = el('button', { type: 'button', class: 'secondary', id: 'ordBackEdit-' + key, title: 'Wraca do formularza — nic nie zostało zapisane', onclick: () => onBack() }, 'Wróć do edycji');
+  const ok = gw(el('button', { type: 'button', class: 'primary', id: 'ordConfirm-' + key, title: 'Zapisuje w Selly dokładnie zmiany z listy powyżej' }, 'Zatwierdź i zapisz w Selly'));
+  ok.addEventListener('click', async () => {
+    const label = ok.textContent;
+    ok.disabled = back.disabled = true; ok.textContent = 'Zapisuję…'; err.hidden = true;
+    try { await onConfirm(); } catch (e) {
+      err.textContent = 'Nie udało się zapisać: ' + (e.message || 'błąd') + '. Nic nie zostało utracone — spróbuj ponownie albo wróć do edycji.';
+      err.hidden = false; ok.disabled = back.disabled = false; ok.textContent = label;
+    }
+  });
+  const box = el('div', { class: 'ord-preview', id: 'ordPreview-' + key, role: 'region', 'aria-label': 'Podgląd zmian przed zapisem' },
+    el('div', { class: 'ord-preview-h' }, 'Sprawdź zmiany przed zapisem (' + rows.length + ')'),
+    el('ul', { class: 'ord-diff' }, rows.map(([label, was, will]) => el('li', null, el('span', { class: 'ord-diff-l' }, label), ' ',
+      el('span', { class: 'ord-diff-old', title: 'Obecna wartość w Selly' }, String(was)), el('span', { class: 'ord-diff-arr', 'aria-label': 'zmieni się na' }, ' → '),
+      el('strong', { class: 'ord-diff-new', title: 'Nowa wartość po zapisie' }, String(will))))),
+    note || null, err, el('div', { class: 'ord-actions' }, ok, back));
+  // Podgląd na środek ekranu (formularz znika, strona się przesuwa; przyklejony nagłówek nie może go zasłonić) i fokus na „Zatwierdź”
+  setTimeout(() => { try { box.scrollIntoView({ block: 'center' }); ok.focus({ preventScroll: true }); } catch (e) { /* bez przewijania */ } }, 0);
+  return box;
 }
 
 /** Sekcja formularza: podgląd z przyciskiem „Edytuj” albo od razu pola (tryb „Domyślnie w trybie edycji”). cfg: { id, title, sub, fields, view(o), extraView(o), attention } */
@@ -97,24 +137,22 @@ function section(C, cfg) {
   };
   const refreshState = () => {
     const n = ctls.filter(c => c.changed()).length, blocked = ctls.some(c => { const k = checkOne(c); return k && k.err; });
-    if (saveBtn) { saveBtn.disabled = !n || blocked; saveBtn.title = !n ? 'Nie ma zmian do zapisania' : blocked ? 'Popraw zaznaczone pola, aby zapisać' : 'Zapisuje w Selly tylko zmienione pola (' + n + ')'; }
+    if (saveBtn) { saveBtn.disabled = !n || blocked; saveBtn.title = !n ? 'Nie ma zmian do zapisania' : blocked ? 'Popraw zaznaczone pola, aby zapisać' : 'Pokaże podgląd zmienionych pól (' + n + ') — zapis w Selly dopiero po zatwierdzeniu'; }
     if (flag) flag.hidden = !n;
     const asShip = ctls.find(c => c.f.k === 'invoice_as_ship');
     if (asShip) for (const c of ctls) if (/^invoice_(company|nip|first|last|post|city|addr)/.test(c.f.k)) { c.ctl.disabled = asShip.ctl.checked; c.ctl.title = asShip.ctl.checked ? 'Wyłączone: dane do faktury są takie same jak adres wysyłki' : ''; }
   };
   function setEditing(on) { editing = on; render(); }
 
-  async function save() {
-    const changed = ctls.filter(c => c.changed()), fields = {};
+  // Zapis po potwierdzeniu w podglądzie; błąd → wyjątek (zostaje w podglądzie z możliwością ponowienia)
+  async function save(changed) {
+    const fields = {};
     for (const c of changed) fields[c.f.k] = c.send();
-    saveBtn.disabled = true; errBox.hidden = true;
-    const old = saveBtn.textContent; saveBtn.textContent = 'Zapisuję…';
-    try {
-      await api('orders:update', { id: C.id, fields });
-      flash('', 'Zapisano w Selly: ' + cfg.title.toLowerCase() + ' (' + changed.length + ' ' + (changed.length === 1 ? 'pole' : 'pól') + ')');
-      await C.refresh();
-      editing = C.editDefault; sec.render();
-    } catch (e) { errBox.textContent = 'Nie udało się zapisać: ' + (e.message || 'błąd') + '. Zmiany zostały w formularzu — popraw i spróbuj ponownie.'; errBox.hidden = false; saveBtn.textContent = old; refreshState(); }
+    await api('orders:update', { id: C.id, fields });
+    flash('', 'Zapisano w Selly: ' + cfg.title.toLowerCase() + ' (' + changed.length + ' ' + (changed.length === 1 ? 'pole' : 'pól') + ')');
+    editing = C.editDefault;
+    try { await C.refresh(); } catch (e) { /* zapis się udał; dane odświeży ponowne otwarcie karty */ }
+    sec.render();
   }
 
   function render() {
@@ -122,23 +160,35 @@ function section(C, cfg) {
     const head = (actions) => el('div', { class: 'card-head ord-sec-head' }, el('div', null, el('h2', null, cfg.title), cfg.sub ? el('div', { class: 'sub' }, cfg.sub) : null), actions);
     if (!editing) {
       ctls = [];
-      host.replaceChildren(head(gw(el('button', { type: 'button', class: 'secondary', id: 'ordEdit-' + cfg.id, title: 'Edytuj: ' + cfg.title.toLowerCase() + ' (zapis do Selly dopiero po kliknięciu „Zapisz”)', onclick: () => setEditing(true) }, 'Edytuj'))),
+      host.replaceChildren(head(gw(el('button', { type: 'button', class: 'secondary', id: 'ordEdit-' + cfg.id, title: 'Edytuj: ' + cfg.title.toLowerCase() + ' (przed zapisem w Selly pokażemy podgląd zmian)', onclick: () => setEditing(true) }, 'Edytuj'))),
         cfg.view(o), cfg.extraView ? cfg.extraView(o) : null);
       return;
     }
     ctls = cfg.fields.map(f => buildControl(C, f, o));
     errBox = el('div', { class: 'notice error', role: 'alert', hidden: true });
     flag = el('span', { class: 'ord-dirty tip', hidden: true, title: 'W tej sekcji są niezapisane zmiany' }, '● niezapisane zmiany');
-    saveBtn = gw(el('button', { type: 'button', class: 'primary', id: 'ordSave-' + cfg.id, onclick: save }, 'Zapisz'));
+    saveBtn = gw(el('button', { type: 'button', class: 'primary', id: 'ordSave-' + cfg.id, onclick: () => showPreview() }, 'Zapisz…'));
     const cancel = el('button', { type: 'button', class: 'secondary', id: 'ordCancel-' + cfg.id, title: 'Odrzuć zmiany w tej sekcji', onclick: () => setEditing(false) }, 'Anuluj');
-    const form = el('div', { class: 'ord-form' }, ctls.map(c => {
+    const pv = el('div', { hidden: true });
+    let form = null, actions = null;
+    function showPreview() {
+      const changed = ctls.filter(c => c.changed());
+      if (!changed.length || ctls.some(c => { const k = checkOne(c); return k && k.err; })) { refreshState(); return; }
+      errBox.hidden = true; form.hidden = actions.hidden = true; pv.hidden = false;
+      pv.replaceChildren(previewBox(cfg.id, changed.map(c => [c.f.label, showVal(c, c.orig), showVal(c, c.val())]), {
+        onConfirm: () => save(changed),
+        onBack: () => { pv.hidden = true; pv.replaceChildren(); form.hidden = actions.hidden = false; refreshState(); },
+      }));
+    }
+    form = el('div', { class: 'ord-form' }, ctls.map(c => {
       c.warn = el('div', { class: 'ord-warn', hidden: true, role: 'status' });
       const lab = el('span', { class: 'ord-f-l' + (c.f.tip ? ' tip' : '') }, c.f.label);
       const wrap = el('label', { class: 'ord-f' + (c.f.wide ? ' wide' : '') + (c.f.type === 'flag' ? ' flag' : ''), title: c.f.tip || null }, c.f.type === 'flag' ? [c.ctl, lab] : [lab, c.ctl]);
       c.ctl.addEventListener('input', refreshState); c.ctl.addEventListener('change', refreshState);
       return el('div', { class: 'ord-fw' + (c.f.wide ? ' wide' : '') }, wrap, c.f.after ? c.f.after(c, C) : null, c.warn);
     }));
-    host.replaceChildren(head(flag), errBox, form, el('div', { class: 'ord-actions' }, saveBtn, cancel));
+    actions = el('div', { class: 'ord-actions' }, saveBtn, cancel);
+    host.replaceChildren(head(flag), errBox, form, actions, pv);
     refreshState();
   }
   render();
@@ -156,8 +206,9 @@ function itemsCard(C) {
   function mkRow(p, idx) {
     const price0 = Number(p.price_with_tax) || 0, qty0 = Number(p.quantity) || 0;
     const hasBase = p.pricetax_without_discount != null && p.pricetax_without_discount !== '' && Number(p.pricetax_without_discount) > 0;
-    const row = { p, base: hasBase ? Number(p.pricetax_without_discount) : price0 };
+    const row = { p, base: hasBase ? Number(p.pricetax_without_discount) : price0, qty0, price0 };
     const disc0 = row.base > price0 ? r2((1 - price0 / row.base) * 100) : 0;
+    row.disc0 = disc0;
     const pid = p.product_order_id;
     const tag = k => 'ordItem' + k + '-' + pid;
     row.qty = el('input', { type: 'text', inputmode: 'numeric', class: 'ord-in qty', id: tag('Qty'), value: String(qty0), 'aria-label': 'Nowa ilość: ' + (p.name || ''), title: 'Nowa ilość sztuk (liczba całkowita większa od 0)' });
@@ -219,21 +270,70 @@ function itemsCard(C) {
       editing ? el('td', { class: 'n nw', title: 'Suma pozycji po wprowadzonych (jeszcze niezapisanych) zmianach' }, changed ? el('strong', { id: 'ordItemsNew' }, money(r2(nu))) : '') : null, el('td', { colspan: '2' }));
   }
 
-  async function saveAll(btn, box) {
+  // Opis zmian pozycji do podglądu: [etykieta, było, będzie]
+  function diffRows(r) {
+    const f = r.fields() || {}, nm = r.p.name || ('Pozycja ' + r.p.product_order_id), out = [];
+    if ('quantity' in f) out.push([nm + ' — ilość', String(r.qty0), String(f.quantity)]);
+    if ('price_with_tax' in f) {
+      const d = num(r.disc.value);
+      if (isFinite(d) && r2(d) !== r2(r.disc0)) out.push([nm + ' — rabat', fmtIn(r.disc0) + '%', fmtIn(d) + '%']);
+      out.push([nm + ' — cena brutto', money(r.price0) + ' zł', money(f.price_with_tax) + ' zł']);
+    }
+    if ('vat_rate_id' in f) out.push([nm + ' — VAT', vatName(r.p.vat_rate_id), vatName(f.vat_rate_id)]);
+    if ('personel_comment' in f) out.push([nm + ' — komentarz', str(r.p.personel_comment) || EMPTY, f.personel_comment || EMPTY]);
+    return out;
+  }
+  const lockInputs = on => {
+    for (const r of rows) for (const x of [r.qty, r.disc, r.price, r.vat, r.comment]) x.disabled = on;
+    for (const x of host.querySelectorAll('#ordBulkItems input, #ordBulkItems select, #ordBulkItems button')) x.disabled = on;
+  };
+
+  // „Zapisz zmiany w pozycjach…” → walidacja → podgląd (pola zablokowane) → zatwierdzenie → zapis
+  function preview(actions, pv, box) {
     const todo = rows.filter(r => r.fields());
     let bad = 0;
     for (const r of todo) { const m = r.invalid(); r.err.hidden = !m; r.err.textContent = m; if (m) bad++; }
     if (bad) { flash('', 'Popraw zaznaczone pozycje, aby zapisać'); return; }
-    btn.disabled = true; box.hidden = true;
+    if (!todo.length) return;
+    box.hidden = true; lockInputs(true); actions.hidden = true; pv.hidden = false;
+    pv.replaceChildren(previewBox('items', todo.flatMap(diffRows), {
+      note: todo.length > 1 ? el('p', { class: 'muted small' }, 'Selly zapisuje pozycje po jednej (' + todo.length + ' zapisy). Jeśli któraś się nie zapisze, pokażemy którą.') : null,
+      onBack: () => { pv.hidden = true; pv.replaceChildren(); actions.hidden = false; lockInputs(false); },
+      onConfirm: () => runSave(todo),
+    }));
+  }
+
+  async function runSave(todo) {
     const fails = []; let done = 0;
     for (const r of todo) {
-      btn.textContent = 'Zapisuję pozycję ' + (done + fails.length + 1) + ' z ' + todo.length + '…';
       try { await api('orders:updateItem', { id: C.id, productOrderId: String(r.p.product_order_id), fields: r.fields() }); done++; } catch (e) { fails.push((r.p.name || r.p.product_order_id) + ' — ' + (e.message || 'błąd')); }
     }
+    if (!done) throw new Error(fails.join('; '));   // nic się nie zapisało → błąd zostaje w podglądzie
     flash('', 'Pozycje: zapisano ' + done + ' z ' + todo.length + (fails.length ? ', błędy: ' + fails.length : ''));
-    if (done) { try { await C.refresh(); } catch (e) { /* karta zostaje; dane odświeży ponowne otwarcie */ } }
+    try { await C.refresh(); } catch (e) { /* karta zostaje; dane odświeży ponowne otwarcie */ }
     editing = C.editDefault; render();
     if (fails.length) { const b = host.querySelector('#ordItemsMsg'); if (b) { b.hidden = false; b.replaceChildren(el('strong', null, 'Nie zapisano ' + fails.length + ' z ' + todo.length + ' pozycji:'), el('ul', null, fails.map(f => el('li', null, f)))); } }
+  }
+
+  // „Zmień wszystkie pozycje naraz” (jak „Ustaw rabat na produkty” i „Zmień VAT” w Selly) — wypełnia pola, zapis jak zwykle (podgląd → zatwierdzenie)
+  function bulkTools() {
+    const disc = el('input', { type: 'text', inputmode: 'decimal', id: 'ordBulkDisc', class: 'ord-in disc', placeholder: '%', 'aria-label': 'Rabat % dla wszystkich pozycji' });
+    const vat = el('select', { id: 'ordBulkVat', class: 'ord-in vat', 'aria-label': 'Stawka VAT dla wszystkich pozycji' }, el('option', { value: '' }, '— wybierz —'), (C.meta.vat || []).map(v => el('option', { value: String(v.id) }, v.name)));
+    const fire = (x, ev) => x.dispatchEvent(new Event(ev, { bubbles: true }));
+    return el('details', { class: 'ord-bulk-items', id: 'ordBulkItems' },
+      el('summary', { title: 'Ustaw ten sam rabat albo tę samą stawkę VAT we wszystkich pozycjach naraz. Pola wypełnią się od razu, a zapis — jak zwykle, po podglądzie zmian.' }, 'Zmień wszystkie pozycje naraz ▾'),
+      el('div', { class: 'ord-add-row' },
+        el('label', { class: 'ord-f' }, el('span', { class: 'ord-f-l tip', title: 'Rabat w procentach liczony od ceny przed rabatem każdej pozycji' }, 'Rabat % na wszystkie'), disc),
+        el('button', { type: 'button', class: 'secondary small-btn', id: 'ordBulkDiscApply', title: 'Wpisuje ten rabat we wszystkich pozycjach i przelicza ich ceny', onclick: () => {
+          const d = num(disc.value);
+          if (disc.value.trim() === '' || !isFinite(d) || d < 0 || d > 100) { flash('', 'Rabat musi być liczbą od 0 do 100'); return; }
+          for (const r of rows) { r.disc.value = fmtIn(d); fire(r.disc, 'input'); }
+        } }, 'Przelicz'),
+        el('label', { class: 'ord-f' }, el('span', { class: 'ord-f-l' }, 'VAT na wszystkie'), vat),
+        el('button', { type: 'button', class: 'secondary small-btn', id: 'ordBulkVatApply', title: 'Ustawia wybraną stawkę VAT we wszystkich pozycjach (kwoty netto przeliczy Selly)', onclick: () => {
+          if (!vat.value) { flash('', 'Wybierz stawkę VAT'); return; }
+          for (const r of rows) { if (![...r.vat.options].some(o => o.value === vat.value)) r.vat.append(el('option', { value: vat.value }, vatName(vat.value))); r.vat.value = vat.value; fire(r.vat, 'change'); }
+        } }, 'Ustaw')));
   }
 
   function addPanel() {
@@ -278,12 +378,14 @@ function itemsCard(C) {
     rows = prods.map(mkRow);
     const addBtn = gw(el('button', { type: 'button', class: 'secondary', id: 'ordAddToggle', disabled: sec.dirty(), title: 'Wyszukaj produkt i dodaj go jako nową pozycję zamówienia', onclick: () => { addOpen = !addOpen; render(); } }, addOpen ? 'Zwiń dodawanie' : 'Dodaj produkt'));
     const msg = el('div', { class: 'notice warn', id: 'ordItemsMsg', hidden: true });
-    const saveBtn = gw(el('button', { type: 'button', class: 'primary', id: 'ordSave-items', disabled: true, onclick: () => saveAll(saveBtn, msg) }, 'Zapisz zmiany w pozycjach'));
+    const pv = el('div', { hidden: true });
+    let actions = null;
+    const saveBtn = gw(el('button', { type: 'button', class: 'primary', id: 'ordSave-items', disabled: true, onclick: () => preview(actions, pv, msg) }, 'Zapisz zmiany w pozycjach…'));
     const dirtyFlag = el('span', { class: 'ord-dirty tip', hidden: true, title: 'W pozycjach są niezapisane zmiany' }, '● niezapisane zmiany');
     sec.onChange = () => {
       const n = rows.filter(r => r.fields()).length;
       saveBtn.disabled = !n; dirtyFlag.hidden = !n; addBtn.disabled = !!n;
-      saveBtn.title = n ? 'Zapisuje w Selly zmienione pozycje (' + n + '), po jednej akcji na pozycję' : 'Nie ma zmian do zapisania';
+      saveBtn.title = n ? 'Pokaże podgląd zmian w pozycjach (' + n + ') — zapis w Selly dopiero po zatwierdzeniu' : 'Nie ma zmian do zapisania';
       addBtn.title = n ? 'Najpierw zapisz lub anuluj zmiany w pozycjach' : 'Wyszukaj produkt i dodaj go jako nową pozycję zamówienia';
     };
     const th = (label, tip, cls, tipped) => el('th', { class: cls || null }, el('span', { title: tip, class: tipped ? 'tip' : null }, label));
@@ -298,11 +400,12 @@ function itemsCard(C) {
     updateFoot();
     host.replaceChildren(
       el('div', { class: 'card-head ord-sec-head' }, el('div', null, el('h2', null, 'Pozycje (' + prods.length + ')'),
-        editing ? el('div', { class: 'sub' }, 'Zmień ilość, rabat, cenę, VAT lub komentarz — wartości przeliczają się na żywo.') : null),
+        editing ? el('div', { class: 'sub' }, 'Zmień ilość, rabat, cenę, VAT lub komentarz — wartości przeliczają się na żywo. ',
+          sellyLink('Usunięcie pozycji — w panelu Selly ↗', C.sellyUrl, 'API Selly nie pozwala usuwać pozycji zamówienia — otwiera to zamówienie w panelu Selly w nowej karcie')) : null),
       el('div', { class: 'ord-head-actions' }, dirtyFlag, addBtn, editing ? null : gw(el('button', { type: 'button', class: 'secondary', id: 'ordEdit-items', title: 'Edytuj pozycje: ilość, cenę, rabat, VAT, komentarz', disabled: !prods.length, onclick: () => sec.setEditing(true) }, 'Edytuj pozycje')))),
-      addOpen ? addPanel() : null, msg,
+      addOpen ? addPanel() : null, editing && prods.length > 1 ? bulkTools() : null, msg,
       prods.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'ordItems' }, el('thead', null, head), body, el('tfoot', null, foot))) : el('div', { class: 'empty' }, 'Zamówienie nie ma pozycji.'),
-      editing && prods.length ? el('div', { class: 'ord-actions' }, saveBtn, el('button', { type: 'button', class: 'secondary', id: 'ordCancel-items', title: 'Odrzuć niezapisane zmiany w pozycjach', onclick: () => sec.setEditing(false) }, 'Anuluj')) : null);
+      editing && prods.length ? (actions = el('div', { class: 'ord-actions' }, saveBtn, el('button', { type: 'button', class: 'secondary', id: 'ordCancel-items', title: 'Odrzuć niezapisane zmiany w pozycjach', onclick: () => sec.setEditing(false) }, 'Anuluj'))) : null, pv);
     sec.onChange();
   }
   render();
@@ -320,8 +423,10 @@ function totalsCard(C) {
     else if (t.diff > 0) verdict = el('strong', { class: 'ord-under', id: 'ordPayState', title: 'Wartość zamówienia jest większa niż kwota zapłacona' }, 'Niedopłata: ' + money(t.diff) + ' zł');
     else verdict = el('strong', { class: 'ord-over', id: 'ordPayState', title: 'Zapłacono więcej niż wartość zamówienia' }, 'Nadpłata: ' + money(-t.diff) + ' zł');
     host.replaceChildren(el('div', { class: 'card-head' }, el('h2', null, 'Podsumowanie płatności'), el('div', { class: 'sub' }, 'Liczone z zapisanych danych zamówienia (po zapisie zmian odświeża się samo).')),
-      dl([[tip('Pozycje (zł)', 'Suma wartości wszystkich pozycji'), money(t.items)], [tip('Dostawa (zł)', 'Koszt dostawy'), money(t.delivery)], [tip('Rabat (zł)', 'Rabat na całe zamówienie — odejmowany od sumy'), t.discount ? '− ' + money(t.discount) : money(0)],
-        [tip('Razem do zapłaty (zł)', 'Pozycje + dostawa − rabat'), el('strong', { id: 'ordTotalSum' }, money(t.total))], [tip('Zapłacono (zł)', 'Kwota, którą Selly uznaje za zapłaconą'), el('span', { id: 'ordPaidSum' }, money(t.paid))], ['Stan', verdict]]));
+      dl([[tip('Pozycje (zł)', 'Suma wartości wszystkich pozycji'), money(t.items)], [tip('Dostawa (zł)', 'Koszt dostawy'), money(t.delivery)],
+        t.payment ? [tip('Koszt płatności (zł)', 'Dopłata za wybrany sposób płatności (np. pobranie)'), money(t.payment)] : null,
+        [tip('Rabat (zł)', 'Rabat na całe zamówienie — odejmowany od sumy'), t.discount ? '− ' + money(t.discount) : money(0)],
+        [tip('Razem do zapłaty (zł)', 'Pozycje + dostawa + koszt płatności − rabat'), el('strong', { id: 'ordTotalSum' }, money(t.total))], [tip('Zapłacono (zł)', 'Kwota, którą Selly uznaje za zapłaconą'), el('span', { id: 'ordPaidSum' }, money(t.paid))], ['Stan', verdict]]));
   }
   render();
   return { host, render, dirty: () => false, setEditing: () => {} };
@@ -332,21 +437,46 @@ function totalsCard(C) {
 function invoicesCard(C) {
   const host = el('div', { class: 'card', id: 'ordInvoices' });
   const pick = (inv, keys) => { for (const k of keys) if (inv[k] != null && inv[k] !== '') return inv[k]; return ''; };
-  const link = sellyLink('Wystaw / edytuj w panelu Selly ↗', C.sellyUrl, 'Wystawianie i edycja faktur odbywa się w panelu Selly — otwiera to zamówienie w nowej karcie');
-  const head = el('div', { class: 'card-head' }, el('h2', null, 'Faktury'), el('div', { class: 'sub' }, 'Faktury wystawione do tego zamówienia (odczyt z Selly).'));
-  host.replaceChildren(head, el('p', { class: 'muted small' }, 'Pobieram faktury…'));
+  // Wystawianie zostaje w Selly: POST /api/orders/{id}/invoices wymaga ręcznego numeru i danych sprzedawcy (numerację prowadzi Selly)
+  const link = sellyLink('Wystaw / edytuj fakturę lub paragon w panelu Selly ↗', C.sellyUrl, 'Wystawianie dokumentów sprzedaży zostaje w panelu Selly: to Selly nadaje kolejne numery i wpisuje dane sprzedawcy. Otwiera to zamówienie w nowej karcie.');
+  const head = el('div', { class: 'card-head' }, el('h2', null, 'Faktury i paragon'), el('div', { class: 'sub' }, 'Dokumenty sprzedaży tego zamówienia (odczyt z Selly).'));
+  const o = C.o || {};
+  const receipt = o.receipt_number ? dl([[el('span', { class: 'tip', title: 'Numer paragonu zapisany w zamówieniu w Selly' }, 'Paragon'), el('span', { id: 'ordReceipt' }, String(o.receipt_number) + (o.receipt_date ? ' (' + dayOf(o.receipt_date) + ')' : ''))]]) : null;
+  const STATUS = { 1: ['rozliczona', 'ok'], 2: ['nierozliczona', 'warn'], 3: ['częściowo rozliczona', 'warn'], 4: ['anulowana', 'bad'] };
+  host.replaceChildren(head, receipt, el('p', { class: 'muted small' }, 'Pobieram faktury…'));
   (async () => {
     try {
       const r = await api('orders:invoices', { id: C.id });
       const list = r.invoices || [];
-      host.replaceChildren(head, list.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'ordInvTable' }, el('thead', null, el('tr', null, [['Numer', 'Numer faktury (prefiks + numer + sufiks)'], ['Data', 'Data wystawienia'], ['Wartość (zł)', 'Wartość faktury']].map(([h, t], i) => el('th', { class: i === 2 ? 'n' : null }, el('span', { title: t }, h))))),
-        el('tbody', null, list.map(inv => { const v = pick(inv, ['price', 'total', 'value', 'price_total', 'gross', 'amount']);
+      const cols = [['Numer', 'Numer faktury (prefiks + numer + sufiks)'], ['Data', 'Data wystawienia'], ['Wartość (zł)', 'Wartość faktury (brutto)'], ['Status', 'Stan rozliczenia faktury w Selly']];
+      host.replaceChildren(head, receipt, list.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'ordInvTable' }, el('thead', null, el('tr', null, cols.map(([h, t], i) => el('th', { class: i === 2 ? 'n' : null }, el('span', { title: t }, h))))),
+        el('tbody', null, list.map(inv => { const v = pick(inv, ['order_values', 'price', 'total', 'value', 'price_total', 'gross', 'amount']), st = STATUS[Number(inv.status_id)];
           return el('tr', null, el('td', { class: 'nw' }, [inv.prefix, inv.number, inv.sufiks].filter(x => x != null && x !== '').join('') || (inv.invoice_id != null ? '#' + inv.invoice_id : '—')),
-            el('td', { class: 'nw' }, dateStr(pick(inv, ['date', 'issue_date', 'invoice_date', 'created', 'created_at']))), el('td', { class: 'n nw' }, v === '' ? '' : money(v))); })))) :
+            el('td', { class: 'nw' }, dateStr(pick(inv, ['created_at', 'date', 'issue_date', 'invoice_date', 'created']))), el('td', { class: 'n nw' }, v === '' ? '' : money(v)),
+            el('td', null, st ? el('span', { class: 'ord-st ' + st[1] }, st[0]) : '')); })))) :
         el('div', { class: 'empty' }, 'Do tego zamówienia nie wystawiono faktur.'), link);
-    } catch (e) { host.replaceChildren(head, el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać faktur z Selly: ' + (e.message || 'błąd')), link); }
+    } catch (e) { host.replaceChildren(head, receipt, el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać faktur z Selly: ' + (e.message || 'błąd')), link); }
   })();
   return { host };
+}
+
+// ─── Co zostaje w Selly (brak zapisu w REST API, spec. 1.11) ─────────────────
+
+const SELLY_ONLY = [
+  ['Usuwanie pozycji z zamówienia', 'API pozwala pozycje dodawać i zmieniać, ale nie usuwać.'],
+  ['Wystawianie faktury i paragonu (numer, data sprzedaży na dokumencie)', 'Numerację i dane sprzedawcy prowadzi Selly; API wymagałoby wpisania numeru ręcznie.'],
+  ['Opiekun zamówienia', 'API nie udostępnia listy pracowników, z której można by wybrać opiekuna.'],
+  ['Data sprzedaży, zwrot transakcji, numer paczki i waga przesyłki', 'Tych pól nie ma w zapisie zamówienia przez API.'],
+  ['Notatki grupowe (widoczne dla wybranych grup)', 'API nie opisuje, jak wskazać grupy, które widzą notatkę.'],
+  ['Załączniki, SMS do klienta, zaplanowana zmiana statusu', 'Brak takich operacji w API.'],
+  ['Ceny zakupu pozycji w magazynach', 'Brak zapisu w API zamówień.'],
+  ['Wydruki (zamówienie, list przewozowy, do magazynu), utworzenie reklamacji lub zwrotu', 'Funkcje panelu Selly bez odpowiednika w API.'],
+];
+function sellyOnlyCard(C) {
+  return el('details', { class: 'card ord-selly-only', id: 'ordSellyOnly' },
+    el('summary', { title: 'Lista rzeczy z karty zamówienia Selly, których panel OSA nie zmienia, bo API Selly na to nie pozwala' }, 'Czego tu nie zmienisz (tylko w panelu Selly) ▾'),
+    el('ul', null, SELLY_ONLY.map(([what, why]) => el('li', null, el('strong', null, what), ' — ', el('span', { class: 'muted' }, why)))),
+    sellyLink('Otwórz to zamówienie w panelu Selly ↗', C.sellyUrl, 'Otwiera to zamówienie w panelu administracyjnym Selly w nowej karcie'));
 }
 
 // ─── Karta ──────────────────────────────────────────────────────────────────
@@ -356,6 +486,9 @@ const addr = (o, p) => {
   const lines = [fullName(g('first_name'), g('last_name')), g('company'), g('nip') ? 'NIP: ' + g('nip') : '', g('address'), fullName(g('postcode'), g('city'))].filter(Boolean);
   return lines.length ? el('div', null, lines.map(l => el('div', null, l))) : el('span', { class: 'muted' }, 'brak danych');
 };
+// Spec. API: invoice_type ∈ paragon | faktura
+const DOC_TYPES = [{ id: 'paragon', name: 'Paragon' }, { id: 'faktura', name: 'Faktura' }];
+const docName = v => { const d = DOC_TYPES.find(x => x.id === String(v)); return d ? d.name : String(v); };
 const addrFields = (p, who) => [
   { k: p + '_first_name', label: 'Imię', tip: 'Imię ' + who }, { k: p + '_last_name', label: 'Nazwisko', tip: 'Nazwisko ' + who },
   { k: p + '_company', label: 'Firma', tip: 'Nazwa firmy (jeśli zamówienie na firmę)', wide: true }, { k: p + '_nip', label: 'NIP', tip: 'NIP firmy', check: 'nip' },
@@ -392,10 +525,10 @@ export function buildOrderCard(deps) {
   const inv = mk(c => section(c, {
     id: 'invoice', title: 'Dane do faktury',
     fields: [{ k: 'invoice_as_ship', label: 'takie same jak adres wysyłki', type: 'flag', wide: true, tip: 'Po zaznaczeniu Selly użyje adresu wysyłki także na dokumencie sprzedaży' },
-      { k: 'invoice_type', label: 'Dokument (paragon / faktura)', wide: true, list: 'ordInvTypes', tip: 'Rodzaj dokumentu sprzedaży — kod taki, jak zapisuje go Selly. Pokazujemy wartość z zamówienia; innego kodu użyj tylko, gdy wiesz, jaki jest poprawny.',
-        after: (ctl) => el('datalist', { id: 'ordInvTypes' }, [...new Set(['faktura', 'paragon', ctl.orig].filter(Boolean))].map(v => el('option', { value: v }))) },
+      { k: 'invoice_type', label: 'Dokument sprzedaży', type: 'select', text: true, wide: true, tip: 'Czy klient chce paragon, czy fakturę (Selly przyjmuje tylko te dwie wartości). Sam dokument wystawia się w panelu Selly.',
+        options: () => DOC_TYPES },
       ...addrFields('invoice', 'nabywcy')],
-    view: o => dl([['Dokument', o.invoice_type ? el('span', { id: 'ordInvType' }, String(o.invoice_type)) : ''], ['Adres', Number(o.invoice_as_ship) ? el('span', { class: 'tag' }, 'takie same jak wysyłka') : ''], ['Dane', addr(o, 'invoice')]]),
+    view: o => dl([['Dokument', o.invoice_type ? el('span', { id: 'ordInvType' }, docName(o.invoice_type)) : ''], ['Adres', Number(o.invoice_as_ship) ? el('span', { class: 'tag' }, 'takie same jak wysyłka') : ''], ['Dane', addr(o, 'invoice')]]),
   }));
 
   const delivery = mk(c => {
@@ -405,22 +538,35 @@ export function buildOrderCard(deps) {
         { k: 'delivery_id', label: 'Sposób dostawy', type: 'select', options: cc => cc.meta.deliveries || [] },
         { k: 'delivery_price', label: 'Koszt dostawy (zł)', type: 'number', check: 'money' },
         { k: 'payment_id', label: 'Sposób płatności', type: 'select', options: cc => cc.meta.payments || [] },
+        { k: 'payment_price', label: 'Koszt płatności (zł)', type: 'number', check: 'money', tip: 'Dopłata za wybrany sposób płatności (np. za pobranie) — doliczana do sumy zamówienia' },
         { k: 'paid_price', label: 'Zapłacono (zł)', type: 'number', check: 'money', tip: 'Kwota, którą Selly uznaje za zapłaconą',
-          after: ctl => el('button', { type: 'button', class: 'ghost small-btn', id: 'ordMarkPaidEdit', title: 'Wstawia wartość zamówienia (pozycje + dostawa − rabat) w pole „Zapłacono”; zapis po kliknięciu „Zapisz”',
+          after: ctl => el('button', { type: 'button', class: 'ghost small-btn', id: 'ordMarkPaidEdit', title: 'Wstawia wartość zamówienia (pozycje + dostawa + koszt płatności − rabat) w pole „Zapłacono”; zapis po podglądzie i zatwierdzeniu',
             onclick: () => { ctl.ctl.value = fmtIn(orderTotals(c.o).total); ctl.ctl.dispatchEvent(new Event('input', { bubbles: true })); } }, 'Oznacz jako opłacone') },
         { k: 'discount_price', label: 'Rabat na zamówienie (zł)', type: 'number', check: 'money', tip: 'Kwota odejmowana od sumy zamówienia' },
         { k: 'discount_description', label: 'Opis rabatu' },
         { k: 'tracking_code', label: 'Nr przesyłki', tip: 'Numer listu przewozowego / śledzenia' }, { k: 'inpost_parcel_locker', label: 'Paczkomat', tip: 'Kod paczkomatu InPost' },
-        { k: 'required_completion_date', label: 'Wymagana data realizacji', type: 'date', tip: 'Termin, do którego zamówienie ma być zrealizowane' }],
+        { k: 'poczta_polska_pickup_point', label: 'Punkt odbioru Poczty Polskiej', tip: 'Kod punktu odbioru Poczty Polskiej (gdy klient wybrał odbiór w punkcie)' },
+        { k: 'delivery_time', label: 'Termin dostawy', tip: 'Termin dostawy w formie tekstu, np. „2–3 dni robocze” (pole „Termin dostawy” w Selly)' },
+        { k: 'required_completion_date', label: 'Wymagana data realizacji', type: 'date', tip: 'Termin, do którego zamówienie ma być zrealizowane. Puste pole = brak terminu.' }],
       view: o => dl([['Dostawa', o.delivery_name], ['Koszt dostawy (zł)', o.delivery_price != null && o.delivery_price !== '' ? money(o.delivery_price) : ''], ['Płatność', o.payment_name],
+        ['Koszt płatności (zł)', Number(o.payment_price) ? money(o.payment_price) : '', 'Dopłata za wybrany sposób płatności'],
         ['Zapłacono (zł)', o.paid_price != null && o.paid_price !== '' ? money(o.paid_price) : '', 'Kwota, którą Selly uznaje za zapłaconą'], ['Rabat (zł)', Number(o.discount_price) ? money(o.discount_price) : ''], ['Opis rabatu', o.discount_description],
-        ['Nr przesyłki', o.tracking_code], ['Paczkomat', o.inpost_parcel_locker], ['Wymagana data realizacji', dayOf(o.required_completion_date)]]),
-      extraView: o => { const t = orderTotals(o); return Math.abs(t.diff) < 0.005 ? null : el('div', { class: 'ord-actions' }, gw(el('button', { type: 'button', class: 'secondary', id: 'ordMarkPaid',
-        title: 'Zapisuje w Selly kwotę zapłaconą = wartość zamówienia (' + money(t.total) + ' zł)', onclick: async ev => {
-          const b = ev.currentTarget; b.disabled = true;
-          try { await api('orders:update', { id: c.id, fields: { paid_price: t.total } }); flash('', 'Oznaczono jako opłacone: ' + money(t.total) + ' zł'); await c.refresh(); s.render(); }
-          catch (e) { b.disabled = false; flash('', 'Nie udało się zapisać: ' + (e.message || 'błąd')); }
-        } }, 'Oznacz jako opłacone (' + money(t.total) + ' zł)'))); },
+        ['Nr przesyłki', o.tracking_code], ['Paczkomat', o.inpost_parcel_locker], ['Punkt odbioru PP', o.poczta_polska_pickup_point, 'Punkt odbioru Poczty Polskiej'], ['Termin dostawy', o.delivery_time],
+        ['Wymagana data realizacji', dayOf(o.required_completion_date)]]),
+      // Szybkie „Oznacz jako opłacone” — też przez podgląd zmian (jedno pole: Zapłacono)
+      extraView: o => {
+        const t = orderTotals(o);
+        if (Math.abs(t.diff) < 0.005) return null;
+        const box = el('div', { class: 'ord-actions' });
+        const btn = gw(el('button', { type: 'button', class: 'secondary', id: 'ordMarkPaid', title: 'Ustawia kwotę zapłaconą = wartość zamówienia (' + money(t.total) + ' zł); przed zapisem pokażemy podgląd', onclick: () => {
+          box.replaceChildren(previewBox('paid', [['Zapłacono', money(t.paid) + ' zł', money(t.total) + ' zł']], {
+            onBack: () => box.replaceChildren(btn),
+            onConfirm: async () => { await api('orders:update', { id: c.id, fields: { paid_price: t.total } }); flash('', 'Oznaczono jako opłacone: ' + money(t.total) + ' zł'); await c.refresh(); s.render(); },
+          }));
+        } }, 'Oznacz jako opłacone (' + money(t.total) + ' zł)'));
+        box.append(btn);
+        return box;
+      },
     });
     return s;
   });
@@ -437,5 +583,5 @@ export function buildOrderCard(deps) {
       C.editDefault = ev.target.checked; store(EDIT_KEY, C.editDefault);
       for (const s of C.secs) s.setEditing && s.setEditing(C.editDefault);
     } }), ' Domyślnie w trybie edycji');
-  return { C, toggle, notes: notes.host, grid: [contact.host, ship.host, inv.host, delivery.host], items: items.host, totals: totals.host, invoices: invoices.host };
+  return { C, toggle, notes: notes.host, grid: [contact.host, ship.host, inv.host, delivery.host], items: items.host, totals: totals.host, invoices: invoices.host, sellyOnly: sellyOnlyCard(C) };
 }

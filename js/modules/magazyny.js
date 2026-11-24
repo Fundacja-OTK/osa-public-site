@@ -1,16 +1,14 @@
-// Moduł „Magazyny”: stany, wysyłka SpeedMail, do rozliczenia, nowy ruch, inwentaryzacja, historia.
-// Trasy: #/magazyny/stany, #/magazyny/speedmail, #/magazyny/rozliczenie, #/magazyny/ruch, #/magazyny/inwentaryzacja, #/magazyny/historia.
+// Moduł „Magazyny”: stany, do rozliczenia, nowy ruch, inwentaryzacja, historia (+ przejście do kreatora „Wysyłka SpeedMail”, modules/speedmail.js).
+// Trasy: #/magazyny/stany, #/magazyny/rozliczenie, #/magazyny/ruch, #/magazyny/inwentaryzacja, #/magazyny/historia; dawne #/magazyny/speedmail → #/speedmail.
 // Dane i zapisy: backend Warehouses.gs (akcje mag:init, mag:moves).
-import { $, el, plural, debounce, store, flash, norm, tableTsv, tableHtml, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, today, htmlEsc, dateInput } from '../core/ui.js?v=d317124';
-import { api } from '../core/client.js?v=d317124';
-import { go } from '../core/router.js?v=d317124';
+import { $, el, plural, store, flash, norm, dateInput } from '../core/ui.js?v=0b00058';
+import { api } from '../core/client.js?v=0b00058';
+import { go } from '../core/router.js?v=0b00058';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 
-// Adres widoku w hashu ↔ klucz widoku (SpeedMail ma w adresie czytelną nazwę)
-const SLUGS = { wysylka: 'speedmail' };
-const viewOfSlug = slug => { const k = Object.keys(SLUGS).find(x => SLUGS[x] === slug); return k || slug; };
-const goView = k => go('/magazyny/' + (SLUGS[k] || k));
+// Wysyłka SpeedMail to osobny kreator (#/speedmail) — przycisk w nawigacji Magazynów prowadzi tam
+const goView = k => go(k === 'wysylka' ? '/speedmail' : '/magazyny/' + k);
 
 
 const mag = {
@@ -23,7 +21,7 @@ const mag = {
 };
 const MAG_VIEWS = [
   ['stany', 'Stany', 'Ile sztuk każdego produktu jest fizycznie w każdym magazynie (z ruchów wpisanych w panelu) i czym to się różni od stanu w Selly'],
-  ['wysylka', 'Wysyłka SpeedMail', 'Podział zamówień „Złożone SpeedMail” na wysyłane do SpeedMail i realizowane na miejscu, plik dla SpeedMail i zatwierdzenie wysyłki'],
+  ['wysylka', 'Wysyłka SpeedMail ↗', 'Kreator wysyłki do SpeedMail (osobny ekran): wybór zamówień, podział na SpeedMail i realizację na miejscu, plik w kompletach, zatwierdzenie i statusy w Selly'],
   ['rozliczenie', 'Do rozliczenia', 'Wysłane zamówienia, z których jeszcze nie zapisano wydania towaru z magazynu'],
   ['ruch', 'Nowy ruch', 'Przyjęcie towaru, przesunięcie między magazynami albo ręczna korekta stanu'],
   ['inwentaryzacja', 'Inwentaryzacja', 'Policz towar w magazynie i wpisz, ile faktycznie jest — panel sam wyliczy korekty'],
@@ -90,7 +88,7 @@ function magRender() {
     root.replaceChildren(el('div', { class: 'card' }, el('div', { class: 'empty error' }, 'Nie udało się otworzyć magazynów: ' + mag.err, el('div', null, el('button', { type: 'button', class: 'secondary', onclick: () => magLoad() }, 'Spróbuj ponownie')))));
     return;
   }
-  const v = { stany: magStany, wysylka: magWysylka, rozliczenie: magRozliczenie, ruch: magRuch, inwentaryzacja: magInwent, historia: magHistoria }[mag.view];
+  const v = { stany: magStany, rozliczenie: magRozliczenie, ruch: magRuch, inwentaryzacja: magInwent, historia: magHistoria }[mag.view];
   const parts = [];
   if (mag.err) parts.push(el('div', { class: 'notice error' }, mag.err));
   if (isPartial() && (mag.view === 'stany' || mag.view === 'rozliczenie')) parts.push(magStartInfo());
@@ -250,181 +248,6 @@ function magRozliczenie() {
   return box;
 }
 
-// ── Wysyłka SpeedMail ──────────────────────────────────────────────────────
-// Sklep liczy sztuki, SpeedMail (SM) komplety (mag.data.packs[productId].size = sztuk w komplecie; brak wpisu = 1).
-const sm = { orders: null, loading: false, err: '', forStatus: '', forced: new Map(), ref: '', done: null, editPid: '', sort: { key: 'name', dir: 1 } };
-const smPack = pid => { const p = (mag.data.packs || {})[pid]; return { size: p && p.size >= 1 ? p.size : 1, smName: (p && p.smName) || '' }; };
-const smSettings = () => {
-  const d = mag.data;
-  let st = store('osa-sm-status'); if (!d.statuses.some(s => s.id === st)) { const f = d.statuses.find(s => norm(s.name).includes('speed') && norm(s.name).includes('zloz')); st = f ? f.id : ''; }
-  let wh = store('osa-sm-wh'); if (!d.warehouses.some(w => w.id === wh)) { const f = d.warehouses.find(w => norm(w.name).includes('speed')); wh = f ? f.id : ''; }
-  return { st, wh };
-};
-
-async function smLoad() {
-  const { st } = smSettings();
-  sm.loading = true; sm.err = ''; sm.forStatus = st; sm.forced.clear();
-  magRender();
-  try { sm.orders = (await api('mag:orders', { statusIds: [st] })).orders || []; }
-  catch (e) { sm.err = e.message || 'Nie udało się pobrać zamówień.'; sm.orders = []; }
-  sm.loading = false;
-  magRender();
-}
-
-/** Podział: najstarsze zamówienia pierwsze; do SM trafia zamówienie, którego WSZYSTKIE pozycje mieszczą się w pozostałym stanie SM. */
-function smCompute(orders, wh) {
-  const stock = {}; for (const p of mag.data.products) stock[p.id] = Math.max(0, (p.phys && p.phys[wh]) || 0);
-  const rem = Object.assign({}, stock), rows = [];
-  for (const o of orders) {
-    const need = {}, names = {};
-    for (const it of o.items) { need[it.productId] = (need[it.productId] || 0) + it.qty; names[it.productId] = it.name; }
-    const miss = Object.keys(need).filter(pid => need[pid] > (rem[pid] || 0)).map(pid => names[pid] + ' (brakuje ' + nf(need[pid] - (rem[pid] || 0)) + ' szt.)');
-    if (!miss.length) for (const pid in need) rem[pid] -= need[pid];
-    const auto = miss.length ? 'otk' : 'sm', group = sm.forced.get(o.orderId) || auto;
-    rows.push({ o, need, names, auto, group, reason: miss.join(', '), forced: group !== auto });
-  }
-  const send = rows.filter(r => r.group === 'sm'), local = rows.filter(r => r.group === 'otk');
-  const use = {}; for (const r of send) for (const pid in r.need) use[pid] = (use[pid] || 0) + r.need[pid];
-  for (const r of send) r.over = Object.keys(r.need).filter(pid => use[pid] > (stock[pid] || 0));
-  return { rows, send, local, stock, use };
-}
-
-function smXlsxTable(res) {
-  const prods = [], seen = new Set();
-  for (const r of res.send) for (const it of r.o.items) if (!seen.has(it.productId)) { seen.add(it.productId); prods.push({ id: it.productId, name: it.name }); }
-  const cols = [{ header: 'Nr zamówienia', type: 'text' }, { header: 'Data', type: 'text' }].concat(prods.map(p => ({ header: smPack(p.id).smName || p.name, type: 'number' })));
-  const rows = res.send.map(r => [r.o.orderNumber, r.o.date].concat(prods.map(p => (r.need[p.id] || 0) ? (r.need[p.id] / smPack(p.id).size) : null)));
-  rows.push(['Razem', ''].concat(prods.map(p => (res.use[p.id] || 0) / smPack(p.id).size)));
-  return { file: 'wysylka-speedmail', sheet: 'Wysyłka SM', columns: cols, rows };
-}
-
-function smListCard(title, tip, nums, empty) {
-  return el('div', { class: 'card' }, el('h3', { title: tip }, el('span', { class: 'tip' }, title)),
-    nums.length ? [el('div', { class: 'toolbar', style: 'margin-top:0' }, el('strong', { class: 'count' }, nums.length + ' ' + plural(nums.length, 'zamówienie', 'zamówienia', 'zamówień')), el('span', { class: 'sp' }),
-      el('button', { type: 'button', class: 'secondary', title: 'Kopiuje numery zamówień, po jednym w wierszu — wklej je w Selly przy zmianie statusu', onclick: () => copyToClipboard(nums.join('\n'), null, 'Skopiowano ' + nums.length + ' numerów zamówień') }, 'Kopiuj numery')),
-      el('div', { class: 'muted small smnums' }, nums.join(', '))] : el('div', { class: 'muted small' }, empty));
-}
-
-function magWysylka() {
-  const d = mag.data, box = el('div'), { st, wh } = smSettings();
-  const whSel = el('select', { 'aria-label': 'Magazyn SpeedMail', title: 'Magazyn, z którego liczymy dostępny towar i z którego zapiszemy wydanie' }, el('option', { value: '' }, '— wybierz —'), d.warehouses.map(w => el('option', { value: w.id }, w.name)));
-  const stSel = el('select', { 'aria-label': 'Status zamówień do SpeedMail', title: 'Zamówienia w tym statusie w Selly są kandydatami do wysłania do SpeedMail' }, el('option', { value: '' }, '— wybierz —'), d.statuses.map(s => el('option', { value: s.id }, s.name)));
-  whSel.value = wh; stSel.value = st;
-  whSel.addEventListener('change', () => { store('osa-sm-wh', whSel.value); magRender(); });
-  stSel.addEventListener('change', () => { store('osa-sm-status', stSel.value); sm.orders = null; sm.done = null; magRender(); });
-  box.append(el('div', { class: 'card' },
-    el('div', { class: 'toolbar', style: 'margin-top:0' }, el('strong', null, 'Wysyłka do SpeedMail'), el('span', { class: 'sp' }),
-      el('button', { type: 'button', class: 'secondary', title: 'Pobierz ponownie zamówienia i stany magazynów', onclick: async () => { await magLoad(); smLoad(); } }, '↻ Odśwież')),
-    el('details', { class: 'fold', open: !st || !wh }, el('summary', null, el('span', null, 'Ustawienia wysyłki')),
-      el('div', { class: 'mag-form' }, el('label', null, 'Status zamówień „do SpeedMail”', stSel), el('label', null, 'Magazyn SpeedMail', whSel)))));
-
-  if (!st || !wh) { box.append(el('div', { class: 'card' }, el('div', { class: 'empty' }, !wh && !st ? 'Wybierz w ustawieniach status zamówień i magazyn SpeedMail.' : !wh ? 'Nie znaleziono magazynu SpeedMail — wybierz go w ustawieniach wysyłki.' : 'Nie znaleziono statusu „Złożone SpeedMail” — wybierz go w ustawieniach wysyłki.'))); return box; }
-  if (sm.orders === null || sm.forStatus !== st) { if (!sm.loading) smLoad(); }
-  if (sm.loading || sm.orders === null) { box.append(el('div', { class: 'card' }, el('div', { class: 'loading' }, el('div', { class: 'line' }, el('span', { class: 'spinner' }), 'Pobieram zamówienia…')))); return box; }
-  if (sm.err) box.append(el('div', { class: 'notice error', role: 'alert' }, sm.err));
-  if (isPartial()) box.append(el('div', { class: 'notice warn' }, 'Stan magazynu SpeedMail jest nieznany — nie było jeszcze inwentaryzacji, więc wszystkie zamówienia trafią „na miejscu”. ',
-    el('a', { href: '#', onclick: ev => { ev.preventDefault(); goView('inwentaryzacja'); } }, 'Przejdź do inwentaryzacji')));
-
-  const all = sm.orders, open = all.map(o => Object.assign({}, o, { items: o.items.filter(i => !i.settled) })).filter(o => o.items.length), settledN = all.length - open.length;
-  if (sm.done) box.append(smDoneCard());
-  if (!open.length) {
-    box.append(el('div', { class: 'card' }, el('div', { class: 'empty' }, all.length ? 'Wszystkie zamówienia w tym statusie mają już zapisane wydanie (' + all.length + ').' : 'Brak zamówień w wybranym statusie.')));
-    return box;
-  }
-  const res = smCompute(open, wh);
-  const prods = new Map();
-  for (const o of open) for (const it of o.items) {
-    if (!prods.has(it.productId)) prods.set(it.productId, { id: it.productId, name: it.name, code: it.code || '', total: 0 });
-    prods.get(it.productId).total += it.qty;
-  }
-  const lacking = [...prods.values()].filter(p => p.total > (res.stock[p.id] || 0)).length;
-  const tile = (n, label, title) => el('div', { class: 'tab static', title }, el('b', null, String(n)), el('span', null, label));
-  box.append(el('div', { class: 'tabs', style: 'margin-top:var(--s3)' },
-    tile(res.send.length, 'do SpeedMail', 'Zamówienia, które w całości mieszczą się w stanie magazynu SpeedMail (lub zostały tam ręcznie przeniesione)'),
-    tile(res.local.length, 'na miejscu (Złożone OTK)', 'Zamówienia, których SpeedMail nie zrealizuje w całości — realizujesz je u siebie'),
-    tile(lacking, 'produktów z brakiem', 'Produkty, których w otwartych zamówieniach jest więcej niż w magazynie SpeedMail')));
-  if (settledN) box.append(el('div', { class: 'muted small', style: 'margin-top:8px' }, 'Pominięto ' + settledN + ' ' + plural(settledN, 'zamówienie', 'zamówienia', 'zamówień') + ' z już zapisanym wydaniem.'));
-
-  const flip = (r, to) => { if (to === r.auto) sm.forced.delete(r.o.orderId); else sm.forced.set(r.o.orderId, to); magRender(); };
-  const ordTable = (rows, toSm) => el('div', { class: 'table-wrap' }, el('table', null,
-    el('thead', null, el('tr', null,
-      el('th', null, el('span', { class: 'tip', title: 'Numer zamówienia w Selly' }, 'Zamówienie')), el('th', null, el('span', { title: 'Data zamówienia' }, 'Data')),
-      el('th', null, el('span', { class: 'tip', title: 'Pozycje zamówienia w sztukach' }, 'Pozycje')),
-      el('th', null, el('span', { class: 'tip', title: toSm ? 'Ostrzeżenie pojawia się, gdy zamówienie przeniesiono do SpeedMail mimo braku towaru' : 'Które produkty nie mieszczą się w stanie SpeedMail' }, toSm ? 'Uwagi' : 'Powód')),
-      el('th', null, el('span', { title: 'Ręczne przeniesienie zamówienia do drugiej grupy' }, 'Przenieś')))),
-    el('tbody', null, rows.length ? rows.map(r => el('tr', null,
-      el('td', null, r.o.orderNumber), el('td', null, r.o.date || ''),
-      el('td', null, r.o.items.map(i => i.name + ' × ' + nf(i.qty)).join(', ')),
-      el('td', null, toSm ? (r.over.length ? el('span', { class: 'diffbad', title: 'SpeedMail nie ma tyle towaru — przeniesiono ręcznie mimo braku' }, '⚠ brak towaru: ' + r.over.map(pid => r.names[pid]).join(', ')) : (r.forced ? 'przeniesiono ręcznie' : '')) : (r.reason || (r.forced ? 'przeniesiono ręcznie' : ''))),
-      el('td', null, el('button', { type: 'button', class: 'secondary', title: toSm ? 'Przenieś to zamówienie na miejscu (Złożone OTK)' : 'Przenieś to zamówienie do SpeedMail (nawet gdy brakuje towaru)', onclick: () => flip(r, toSm ? 'otk' : 'sm') }, toSm ? '→ na miejscu' : '→ do SM')))) :
-      el('tr', null, el('td', { colspan: '5', class: 'empty' }, 'Brak zamówień w tej grupie.')))));
-  box.append(el('div', { class: 'card' }, el('h3', null, 'Wyślij do SpeedMail (' + res.send.length + ')'), ordTable(res.send, true)));
-  box.append(el('div', { class: 'card' }, el('h3', null, 'Na miejscu — Złożone OTK (' + res.local.length + ')'), ordTable(res.local, false),
-    el('div', { style: 'margin-top:var(--s3)' }, smListCard('Zmień w Selly status na „Złożone OTK”', 'Numery zamówień, które realizujesz na miejscu', res.local.map(r => r.o.orderNumber), 'Brak.'))));
-
-  const cols = [
-    { key: 'name', label: 'Produkt', tip: 'Nazwa produktu i jego kod', val: p => p.name, cell: p => [prodCell(p), el('button', { type: 'button', write: 'magazyny', class: 'secondary', style: 'margin-top:4px', title: 'Edytuj przelicznik: ile sztuk jest w komplecie i jak produkt nazywa się w pliku dla SpeedMail', onclick: () => { sm.editPid = sm.editPid === p.id ? '' : p.id; magRender(); } }, '✎ komplet: ' + smPack(p.id).size + ' szt.')] },
-    { key: 'need', label: 'Potrzeba (szt.)', num: true, tip: 'Ile sztuk tego produktu jest w zamówieniach z grupy „Wyślij do SpeedMail”', val: p => res.use[p.id] || 0, cell: p => nf(res.use[p.id] || 0) },
-    { key: 'needK', label: 'Potrzeba (komplety)', num: true, tip: 'Sztuki ÷ sztuk w komplecie — tyle kompletów trafia do pliku dla SpeedMail. Wyróżnione, gdy zamówienie nie jest wielokrotnością kompletu', val: p => (res.use[p.id] || 0) / smPack(p.id).size,
-      cell: p => { const k = (res.use[p.id] || 0) / smPack(p.id).size; return Number.isInteger(k) ? nf(k) : el('span', { class: 'diffbad', title: 'Zamówienie nie jest wielokrotnością kompletu (' + smPack(p.id).size + ' szt.) — sprawdź przelicznik' }, nf(k)); } },
-    { key: 'stock', label: 'Stan SM (szt.)', num: true, tip: 'Ile sztuk jest w magazynie SpeedMail wg panelu (z inwentaryzacji i ruchów)', val: p => res.stock[p.id] || 0, cell: p => nf(res.stock[p.id] || 0) },
-    { key: 'stockK', label: 'Stan SM (komplety)', num: true, tip: 'Stan magazynu SpeedMail w kompletach', val: p => (res.stock[p.id] || 0) / smPack(p.id).size, cell: p => nf((res.stock[p.id] || 0) / smPack(p.id).size) },
-    { key: 'left', label: 'Zostanie po wysyłce (szt.)', num: true, tip: 'Stan SpeedMail minus potrzeba. Ujemny = brakuje towaru', val: p => (res.stock[p.id] || 0) - (res.use[p.id] || 0),
-      cell: p => { const x = (res.stock[p.id] || 0) - (res.use[p.id] || 0); return el('span', { class: x < 0 ? 'diffbad' : null }, nf(x)); } },
-  ];
-  const sumBox = el('div');
-  box.append(el('div', { class: 'card' }, el('h3', null, 'Podsumowanie produktów'), magTable(cols, [...prods.values()], sm.sort, magRender, 'Brak produktów.'), sumBox));
-  const ep = sm.editPid && prods.get(sm.editPid);
-  if (ep) {
-    const pk = smPack(ep.id);
-    const size = el('input', { type: 'number', min: '1', step: '1', value: String(pk.size), 'aria-label': 'Sztuk w komplecie' }), nm = el('input', { type: 'text', value: pk.smName, placeholder: ep.name, 'aria-label': 'Nazwa w pliku dla SpeedMail' });
-    const pmsg = el('div');
-    const save = el('button', { type: 'button', write: 'magazyny',  id: 'smPackSave', onclick: async () => {
-      const n = Number(size.value);
-      if (!Number.isInteger(n) || n < 1) { pmsg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Liczba sztuk w komplecie musi być całkowita, co najmniej 1.')); return; }
-      save.disabled = true;
-      try { await api('mag:packs', { packs: [{ productId: ep.id, name: ep.name, size: n, smName: nm.value.trim() }] }); flash('', 'Zapisano przelicznik'); sm.editPid = ''; await magLoad(); }
-      catch (e) { pmsg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, e.message)); save.disabled = false; }
-    } }, 'Zapisz przelicznik');
-    sumBox.append(el('div', { class: 'mag-form', id: 'smPackEdit' }, el('strong', null, 'Przelicznik: ' + ep.name),
-      el('label', { title: 'Ile sztuk sklepu to jeden komplet w SpeedMail (np. 50 chorągiewek)' }, 'Sztuk w komplecie', size),
-      el('label', { title: 'Nazwa produktu w nagłówku kolumny pliku dla SpeedMail; puste = nazwa ze sklepu' }, 'Nazwa w pliku dla SM', nm), pmsg,
-      el('div', { class: 'toolbar', style: 'margin-top:0' }, save, el('button', { type: 'button', class: 'secondary', onclick: () => { sm.editPid = ''; magRender(); } }, 'Anuluj'))));
-  }
-
-  const tbl = smXlsxTable(res);
-  const ref = el('input', { type: 'text', id: 'smRef', placeholder: 'SM-' + today().replace(/-/g, '') + '-1', value: sm.ref, 'aria-label': 'Numer referencyjny wysyłki', title: 'Unikalny numer, który nadajesz wysyłce — po nim zidentyfikujesz paczki w raporcie SpeedMail' });
-  ref.addEventListener('input', () => { sm.ref = ref.value; });
-  const msg = el('div');
-  const go = el('button', { type: 'button', write: 'magazyny',  id: 'smConfirm', disabled: !res.send.length, title: 'Zapisuje wydanie towaru z magazynu SpeedMail dla wszystkich zamówień z grupy „Wyślij do SpeedMail”' }, 'Zatwierdź wysyłkę do SM');
-  go.addEventListener('click', async () => {
-    const r = sm.ref.trim();
-    if (!r) { msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Wpisz numer referencyjny wysyłki.')); return; }
-    if (!confirm('Zatwierdzić wysyłkę ' + r + ' (' + res.send.length + ' ' + plural(res.send.length, 'zamówienie', 'zamówienia', 'zamówień') + ') i zapisać wydanie z magazynu SpeedMail?')) return;
-    go.disabled = true; msg.replaceChildren();
-    try {
-      const out = await api('mag:confirm', { ref: r, whId: wh, orderIds: res.send.map(x => x.o.orderId) });
-      flash('', 'Zatwierdzono wysyłkę ' + (out.ref || r) + ' (zamówień: ' + out.orders + ')');
-      sm.done = { ref: out.ref || r, sent: res.send.map(x => x.o.orderNumber), local: res.local.map(x => x.o.orderNumber) };
-      sm.ref = ''; sm.forced.clear();
-      await magLoad(); await smLoad();
-    } catch (e) { msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, e.message)); go.disabled = false; }
-  });
-  box.append(el('div', { class: 'card' }, el('h3', null, 'Plik i zatwierdzenie'),
-    el('div', { class: 'toolbar', style: 'margin-top:0' },
-      el('button', { type: 'button', class: 'secondary', id: 'smXlsx', disabled: !res.send.length, title: 'Wiersze: zamówienia do SpeedMail; kolumny: po jednej na produkt (liczba kompletów). Format pliku można dopasować do wzoru SpeedMail — adresy do wysyłki dojdą później', onclick: () => downloadXlsx(tbl, '') }, 'Pobierz plik dla SpeedMail (.xlsx)'),
-      el('button', { type: 'button', class: 'secondary', id: 'smCopy', disabled: !res.send.length, title: 'Ta sama tabela jako tekst do wklejenia w arkusz', onclick: () => copyToClipboard(tableTsv(tbl), tableHtml(tbl), 'Skopiowano tabelę dla SpeedMail — wklej w arkuszu') }, 'Kopiuj')),
-    el('div', { class: 'mag-form' }, el('label', null, 'Numer referencyjny wysyłki', ref), msg, el('div', null, go))));
-  return box;
-}
-
-function smDoneCard() {
-  const dn = sm.done;
-  return el('div', { class: 'card', id: 'smDone' }, el('h3', null, 'Co teraz zrobić w Selly (wysyłka ' + dn.ref + ')'),
-    smListCard('Zmień status na „Przyjęte SpeedMail”', 'Zamówienia wysłane do SpeedMail', dn.sent, 'Brak.'),
-    el('div', { style: 'margin-top:var(--s3)' }, smListCard('Zmień status na „Złożone OTK”', 'Zamówienia realizowane na miejscu', dn.local, 'Brak.')));
-}
-
 // ── Nowy ruch ──────────────────────────────────────────────────────────────
 function whSelect(value, onchange, label) {
   const s = el('select', { 'aria-label': label }, el('option', { value: '' }, '— wybierz —'), mag.data.warehouses.map(w => el('option', { value: w.id }, w.name)));
@@ -577,16 +400,17 @@ function magHistoria() {
 }
 
 let root = null;
-const VIEW_KEYS = new Set(MAG_VIEWS.map(v => v[0]));
+const VIEW_KEYS = new Set(MAG_VIEWS.map(v => v[0]).filter(k => k !== 'wysylka'));
 
 export default {
   id: 'magazyny',
   title: 'Magazyny',
-  routes: MAG_VIEWS.map(v => SLUGS[v[0]] || v[0]),
+  routes: [...VIEW_KEYS],
   mount(el, params) {
     if (!root) { root = el; el.innerHTML = TEMPLATE; }
-    const v = viewOfSlug(params && params.view);
-    if (!VIEW_KEYS.has(v)) { go('/magazyny/' + (SLUGS[mag.view] || mag.view), { replace: true }); return; } // brak/nieznany podwidok → ostatni
+    const v = params && params.view;
+    if (v === 'speedmail' || v === 'wysylka') { go('/speedmail', { replace: true }); return; }   // dawny adres wysyłki SpeedMail
+    if (!VIEW_KEYS.has(v)) { go('/magazyny/' + mag.view, { replace: true }); return; } // brak/nieznany podwidok → ostatni
     mag.view = v;
     if (!mag.data && !mag.loading) magLoad(); else magRender();
   },

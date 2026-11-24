@@ -1,5 +1,5 @@
 // Reklamacje (Selly ?a=reklamacje) — natywny ekran: serwer główny czyta i zapisuje Selly sesją zalogowanego użytkownika (docs/selly-embed.md, docs/auth.md).
-import { createNative } from './sellyNative.js?v=d317124';
+import { createNative } from './sellyNative.js?v=0b00058';
 
 export default createNative({
   id: 'reklamacje', title: 'Reklamacje', screen: 'reklamacje', a: 'reklamacje', recordRoute: 'reklamacje.edycja', noun: 'reklamacji',

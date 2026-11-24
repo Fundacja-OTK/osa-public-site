@@ -3,7 +3,7 @@
 // Wpisujesz „dd.mm.rrrr” (albo RRRR-MM-DD) lub wybierasz z kalendarza (pon. pierwszy; klawiatura: strzałki, PgUp/PgDn, Home/End, Enter, Esc).
 // Zmiana użytkownika wywołuje zdarzenia input i change na elemencie; ustawienie .value z kodu jest ciche (jak w natywnym polu).
 // Na telefonie (≤ 640 px) zwraca natywne <input type=date> — systemowy wybór daty jest tam wygodniejszy.
-import { el, menuButton } from './ui.js?v=d317124';
+import { el, menuButton } from './ui.js?v=0b00058';
 
 const MONTHS_PL = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
 const DAYS_PL = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];

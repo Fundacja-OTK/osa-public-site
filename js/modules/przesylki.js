@@ -1,17 +1,17 @@
 // Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS), tworzenie listów przewozowych
 // w porcjach, etykiety, zmiana statusu nadanych oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=d317124';
-import { api, ctx } from '../core/client.js?v=d317124';
-import { go } from '../core/router.js?v=d317124';
-import { registerListKeys } from '../core/listKeys.js?v=d317124';
+import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=0b00058';
+import { api, ctx } from '../core/client.js?v=0b00058';
+import { go } from '../core/router.js?v=0b00058';
+import { registerListKeys } from '../core/listKeys.js?v=0b00058';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
 const COURIER_FALLBACK = [{ key: 'inpost', name: 'InPost' }, { key: 'dpd', name: 'DPD' }, { key: 'dhl', name: 'DHL' }, { key: 'orlenpaczka', name: 'Orlen Paczka' }, { key: 'ups', name: 'UPS' }];
 const OTHER = {
   fedex: { name: 'FedEx', title: 'FedEx — przez magazyn SpeedMail', text: 'Przesyłki FedEx nie są nadawane z panelu — idą przez magazyn SpeedMail, poza Selly. Zamówienia do wysyłki SpeedMail przygotujesz w module Magazyny.',
-    href: '#/magazyny/speedmail', link: 'Otwórz wysyłkę SpeedMail →', tip: 'Przechodzi do wysyłki SpeedMail w module Magazyny', external: false },
+    href: '#/speedmail', link: 'Otwórz wysyłkę SpeedMail →', tip: 'Przechodzi do kreatora wysyłki SpeedMail', external: false },
   furgonetka: { name: 'Furgonetka', title: 'Furgonetka — tylko w panelu Selly', text: 'Furgonetka to pośrednik bez API, więc listów nie utworzymy stąd. Użyj listy „Przesyłki Furgonetka” w panelu Selly.',
     query: '?a=furgonetka.przesylki', link: 'Otwórz Furgonetkę w panelu Selly ↗', tip: 'Otwiera listę przesyłek Furgonetki w panelu administracyjnym Selly w nowej karcie', external: true },
 };

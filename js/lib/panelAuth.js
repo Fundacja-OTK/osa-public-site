@@ -69,14 +69,14 @@
     'reports:sales', 'reports:years', 'reports:product', 'reports:profit', 'reports:families', 'reports:familyYears', 'reports:productSearch', 'reports:compare',
     'dashboard:get',
     'bulk:list', 'bulk:get', 'bulk:meta', 'bulk:preview', 'bulk:select',
-    'mag:init', 'mag:orders',
+    'mag:init', 'mag:orders', 'mag:settled',
     'res:list', 'res:get', 'res:options',
     'native:read',
     'feedback:list', 'client:errors:list', 'health:get', 'logins:list', 'map:latest', 'map:history',
   ];
   const WRITE_ACTIONS = [
     'auth:logout', 'feedback:send', 'feedback:status', 'client:errors', 'grants:set', 'map:report', 'map:retry',
-    'orders:setStatus', 'orders:update', 'orders:addItem', 'orders:updateItem',
+    'orders:setStatus', 'orders:update', 'orders:addItem', 'orders:updateItem', 'orders:create',
     'clients:save', 'clients:create', 'clients:update', 'clients:setBlock', 'clients:addressSave', 'clients:addressDelete', 'clients:affiliateAdd',
     'clients:affiliateDelete', 'clients:groupName', 'clients:priceSave', 'clients:priceDelete',
     'products:create', 'products:update', 'products:duplicate', 'products:setCategories', 'products:setFeatures', 'products:setMeta', 'products:setStock',
@@ -99,6 +99,7 @@
     licencje: ['zamowienia', 'klienci'],
     wplaty: ['zamowienia'],          // import wpłat: dopasowanie wpłat do zamówień i oznaczanie opłaconych
     pulpit: ['zamowienia'],
+    speedmail: ['zamowienia', 'magazyny'],   // kreator wysyłki do SpeedMail: statusy zamówień (Selly) + ruchy magazynu SM
   };
   // Sekcje tylko dla administratora panelu
   const ADMIN_SECTIONS = ['uzytkownicy', 'selly-zmiany', 'zgloszenia-osa'];
@@ -165,7 +166,7 @@
     zamowienia: 'Zamówienia', dropshipping: 'Dropshipping', klienci: 'Klienci', przesylki: 'Przesyłki', produkty: 'Produkty', magazyny: 'Magazyny',
     raporty: 'Raporty sprzedaży', 'zmiana-cen': 'Masowa zmiana cen', 'zmiana-danych': 'Masowa zmiana danych', 'zmiana-kategorii': 'Masowa zmiana kategorii',
     subskrypcje: 'Subskrypcje', zwroty: 'Zwroty', zestawy: 'Zestawy', kategorie: 'Kategorie', producenci: 'Producenci',
-    atrybuty: 'Warianty i opcje', tagi: 'Tagi', opinie: 'Opinie o produktach', blog: 'Blog', licencje: 'Raport licencji', wplaty: 'Import wpłat bankowych', pulpit: 'Pulpit',
+    atrybuty: 'Warianty i opcje', tagi: 'Tagi', opinie: 'Opinie o produktach', blog: 'Blog', licencje: 'Raport licencji', wplaty: 'Import wpłat bankowych', pulpit: 'Pulpit', speedmail: 'Wysyłka SpeedMail',
   };
 
   /** Sekcje z wyniku sprawdzenia tras: probe = { trasa: true|false }. → posortowana lista id sekcji (z pochodnymi). */
