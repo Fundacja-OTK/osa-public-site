@@ -1,9 +1,9 @@
 // Moduł „Magazyny”: stany, do rozliczenia, nowy ruch, inwentaryzacja, historia (+ przejście do kreatora „Wysyłka SpeedMail”, modules/speedmail.js).
 // Trasy: #/magazyny/stany, #/magazyny/rozliczenie, #/magazyny/ruch, #/magazyny/inwentaryzacja, #/magazyny/historia; dawne #/magazyny/speedmail → #/speedmail.
 // Dane i zapisy: backend Warehouses.gs (akcje mag:init, mag:moves).
-import { $, el, plural, store, flash, norm, dateInput } from '../core/ui.js?v=e5c8181';
-import { api } from '../core/client.js?v=e5c8181';
-import { go } from '../core/router.js?v=e5c8181';
+import { $, el, plural, store, flash, norm, dateInput } from '../core/ui.js?v=3a6189b';
+import { api } from '../core/client.js?v=3a6189b';
+import { go } from '../core/router.js?v=3a6189b';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 
@@ -138,14 +138,16 @@ function magStany() {
     let whs = d.warehouses;
     if (mag.hideEmpty) whs = whs.filter(w => d.products.some(p => (p.phys[w.id] || 0) !== 0));
     const tot = p => d.warehouses.reduce((s, w) => s + (p.phys[w.id] || 0), 0);
-    const diff = p => (p.selly == null ? null : tot(p) - p.selly);
+    const unk = isPartial();   // ewidencja nie wystartowała (brak inwentaryzacji) — stan fizyczny nieznany, a nie 0
+    const unkCell = () => el('span', { class: 'muted tip', title: 'Nieznany — panel nie ma jeszcze inwentaryzacji tego magazynu. Zrób inwentaryzację, żeby zacząć liczyć stany fizyczne.' }, '—');
+    const diff = p => (unk || p.selly == null ? null : tot(p) - p.selly);
     let rows = d.products.filter(p => !qn || norm(p.name + ' ' + p.code).includes(qn));
     if (mag.onlyDiff) rows = rows.filter(p => diff(p) != null && diff(p) !== 0);
     count.textContent = rows.length + ' ' + plural(rows.length, 'produkt', 'produkty', 'produktów');
     const cols = [{ key: 'name', label: 'Produkt', tip: 'Nazwa produktu i jego kod', val: p => p.name, cell: prodCell }];
     for (const w of whs) cols.push({ key: 'wh:' + w.id, label: w.name, num: true, tip: 'Ile sztuk jest fizycznie w magazynie „' + w.name + '” (z ruchów wpisanych w panelu od startu ewidencji)',
-      val: p => p.phys[w.id] || 0, cell: p => nf(p.phys[w.id] || 0) });
-    cols.push({ key: 'tot', label: 'Razem fizycznie', num: true, tip: 'Suma stanów fizycznych ze wszystkich magazynów' + (mag.hideEmpty ? ' (także ukrytych)' : ''), val: tot, cell: p => el('strong', null, nf(tot(p))) });
+      val: p => unk ? null : (p.phys[w.id] || 0), cell: p => unk ? unkCell() : nf(p.phys[w.id] || 0) });
+    cols.push({ key: 'tot', label: 'Razem fizycznie', num: true, tip: 'Suma stanów fizycznych ze wszystkich magazynów' + (mag.hideEmpty ? ' (także ukrytych)' : ''), val: p => unk ? null : tot(p), cell: p => unk ? unkCell() : el('strong', null, nf(tot(p))) });
     cols.push({ key: 'selly', label: 'Selly', num: true, tip: 'Stan produktu wg Selly (łącznie, wszystkie magazyny Selly)', val: p => p.selly, cell: p => nf(p.selly) });
     cols.push({ key: 'diff', label: 'Różnica', num: true, tip: 'Fizycznie − Selly. Różna od zera = stan w Selly nie zgadza się z tym, co panel zna z ruchów', val: diff,
       cell: p => { const x = diff(p); return x == null ? '—' : el('span', { class: x !== 0 ? 'diffbad' : 'muted', title: x !== 0 ? (x > 0 ? 'Fizycznie jest więcej niż w Selly' : 'Fizycznie jest mniej niż w Selly') : null }, (x > 0 ? '+' : '') + nf(x)); } });
