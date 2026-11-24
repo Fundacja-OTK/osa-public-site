@@ -3,10 +3,10 @@
 // czyta je i zwraca strukturę (sekrety zamaskowane po stronie serwera); zapis tylko z allowlisty pól, zawsze przez podgląd zmian (dryRun)
 // i potwierdzenie (docs/selly-embed.md, docs/auth.md). „Tylko do podglądu” = flaga `readOnly` z odpowiedzi serwera (jedna, z silnika).
 // Strony ustawień (jedna strona-formularz) obsługuje modules/sellyNativeSettings.js.
-import { el, loadingBox, tapOpen } from '../core/ui.js?v=abc9fbd';
-import { api } from '../core/client.js?v=abc9fbd';
-import { sellyUrl } from './_placeholder.js?v=abc9fbd';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=abc9fbd';
+import { el, loadingBox, tapOpen } from '../core/ui.js?v=a73af4a';
+import { api } from '../core/client.js?v=a73af4a';
+import { sellyUrl } from './_placeholder.js?v=a73af4a';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=a73af4a';
 
 /** Żądanie do Workera: native:read / native:save / native:create → { ok, data } albo { ok:false, code, error } (nigdy nie rzuca). */
 export function sellyCall(req) {

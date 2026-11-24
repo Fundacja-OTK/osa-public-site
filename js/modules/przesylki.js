@@ -1,10 +1,9 @@
 // Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS), tworzenie listów przewozowych
 // w porcjach, etykiety, zmiana statusu nadanych oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=abc9fbd';
-import { api, ctx } from '../core/client.js?v=abc9fbd';
-import { go } from '../core/router.js?v=abc9fbd';
-import { registerListKeys } from '../core/listKeys.js?v=abc9fbd';
+import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=a73af4a';
+import { api, ctx } from '../core/client.js?v=a73af4a';
+import { registerListKeys } from '../core/listKeys.js?v=a73af4a';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -203,7 +202,7 @@ function build() {
 }
 
 function renderSegs() {
-  const seg = (id, label, tip) => el('button', { type: 'button', class: 'chip', id: 'shipSeg-' + id, 'aria-pressed': String(S.view === id), title: tip, onclick: () => go('/przesylki/' + id) }, label);
+  const seg = (id, label, tip) => el('a', { class: 'chip', id: 'shipSeg-' + id, href: '#/przesylki/' + id, 'aria-current': S.view === id ? 'page' : null, title: tip }, label);
   S.ui.segs.replaceChildren(
     ...couriers().map(c => seg(c.key, c.name + (S.counts[c.key] != null ? ' (' + S.counts[c.key] + ')' : ''), 'Kolejka zamówień do nadania przez ' + c.name)),
     seg('fedex', 'FedEx', 'FedEx idzie przez magazyn SpeedMail — poza Selly'),

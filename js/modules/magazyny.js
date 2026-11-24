@@ -1,14 +1,13 @@
 // Moduł „Magazyny”: stany, do rozliczenia, nowy ruch, inwentaryzacja, historia (+ przejście do kreatora „Wysyłka SpeedMail”, modules/speedmail.js).
 // Trasy: #/magazyny/stany, #/magazyny/rozliczenie, #/magazyny/ruch, #/magazyny/inwentaryzacja, #/magazyny/historia; dawne #/magazyny/speedmail → #/speedmail.
 // Dane i zapisy: backend Warehouses.gs (akcje mag:init, mag:moves).
-import { $, el, plural, store, flash, norm, dateInput } from '../core/ui.js?v=abc9fbd';
-import { api } from '../core/client.js?v=abc9fbd';
-import { go } from '../core/router.js?v=abc9fbd';
+import { $, el, plural, store, flash, norm, dateInput } from '../core/ui.js?v=a73af4a';
+import { api } from '../core/client.js?v=a73af4a';
+import { go } from '../core/router.js?v=a73af4a';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 
 // Wysyłka SpeedMail to osobny kreator (#/speedmail) — przycisk w nawigacji Magazynów prowadzi tam
-const goView = k => go(k === 'wysylka' ? '/speedmail' : '/magazyny/' + k);
 
 
 const mag = {
@@ -80,8 +79,7 @@ function magRender() {
   if (!root) return;
   nav.replaceChildren(...MAG_VIEWS.map(([k, label, tip]) => {
     const cnt = k === 'rozliczenie' && mag.data && !isPartial() ? ' (' + mag.data.pending.length + ')' : '';
-    return el('button', { type: 'button', 'aria-pressed': String(mag.view === k), title: tip + (cnt ? '\n\nLiczba w nawiasie = pozycje zamówień czekające na rozliczenie' : ''),
-      onclick: () => goView(k) }, label + cnt);
+    return el('a', { href: k === 'wysylka' ? '#/speedmail' : '#/magazyny/' + k, 'aria-current': mag.view === k ? 'page' : null, title: tip + (cnt ? '\n\nLiczba w nawiasie = pozycje zamówień czekające na rozliczenie' : ''), }, label + cnt);
   }));
   if (mag.loading && !mag.data) { root.replaceChildren(el('div', { class: 'card' }, el('div', { class: 'loading' }, el('div', { class: 'line' }, el('span', { class: 'spinner' }), 'Pobieram stany magazynów…')))); return; }
   if (!mag.data) {
@@ -100,7 +98,7 @@ function magStartInfo() {
   return el('div', { class: 'card' }, el('div', { class: 'empty' },
     el('p', null, el('strong', null, 'Zacznij od inwentaryzacji')),
     el('p', null, 'Wpisz, ile faktycznie masz w każdym magazynie; od tej daty panel liczy stany i pokazuje zamówienia do rozliczenia.'),
-    el('button', { type: 'button', onclick: () => goView('inwentaryzacja') }, 'Przejdź do inwentaryzacji')));
+    el('a', { class: 'btn-primary', href: '#/magazyny/inwentaryzacja' }, 'Przejdź do inwentaryzacji')));
 }
 
 /** Tabela z sortowaniem po kliknięciu w nagłówek. cols: { key, label, tip, num, val(row), cell(row) }. */

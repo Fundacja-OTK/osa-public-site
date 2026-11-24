@@ -4,7 +4,7 @@
 // Błędy „merytoryczne” (4xx: zła treść, limit) NIE przełączają ścieżki — na B byłyby takie same.
 // Bez zależności od przeglądarki — fetch, token i zegar wstrzykiwane (testy w node).
 
-import { backendList, requestFor } from './api.js?v=abc9fbd';
+import { backendList, requestFor } from './api.js?v=a73af4a';
 
 export const TIMEOUT_MS = 10000;
 

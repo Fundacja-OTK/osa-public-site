@@ -9,7 +9,7 @@
   .tb-field input, .ms-pop .ms-search, .year input[type=number] { font-size: 16px; min-height: 44px; }
   .tb-field input { height: 44px; }
   .btn, button.primary, button.secondary, button.ghost, button.small, .btn-link, a.btn-primary, .btn-primary-link,
-  .menu-item, .chip, .seg button, .ms-btn, .viewnav button, #magnav button, .sb-sec, .fly-item, .pin-item, .pg-in, summary { min-height: 44px; }
+  .menu-item, .chip, .seg button, .ms-btn, .viewnav :is(button, a), #magnav :is(button, a), .sb-sec, .fly-item, .pin-item, .pg-in, summary { min-height: 44px; }
   .tb-btn { height: 44px; min-width: 44px; justify-content: center; }
   .tb-field input { padding-left: 34px; }
   button.icon, .pin, .sb-collapse { width: 44px; min-height: 44px; }

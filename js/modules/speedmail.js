@@ -5,11 +5,11 @@
 // Dane: mag:init / mag:settled / mag:confirm / mag:packs / mag:moves (Apps Script: Warehouses.gs, SpeedMail.gs), mag:orders
 // (Worker — świeże statusy z D1; zapasowo Apps Script), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: speedmailLogic.js. Bez danych osobowych — tylko numery zamówień, daty i pozycje.
-import { $, el, plural, store, flash, norm, tableTsv, tableHtml, downloadXlsx, copyToClipboard, today, cnt } from '../core/ui.js?v=abc9fbd';
-import { api, canWriteSection } from '../core/client.js?v=abc9fbd';
-import { go } from '../core/router.js?v=abc9fbd';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=abc9fbd';
-import * as L from './speedmailLogic.js?v=abc9fbd';
+import { $, el, plural, store, flash, norm, tableTsv, tableHtml, downloadXlsx, copyToClipboard, today, cnt } from '../core/ui.js?v=a73af4a';
+import { api, canWriteSection } from '../core/client.js?v=a73af4a';
+import { go } from '../core/router.js?v=a73af4a';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=a73af4a';
+import * as L from './speedmailLogic.js?v=a73af4a';
 
 const STATUS_WRITE = ['zamowienia', 'przesylki'];   // jak reguła orders:setStatus (shared/panelAuth.js)
 const STEPS = [
@@ -141,8 +141,7 @@ function render() {
   if (!root) return;
   const m = S.mag && S.orders ? model() : null;
   const counts = m ? { kandydaci: m.chk.rows.length, podzial: m.split.rows.length, plik: m.split.send.length, zatwierdz: m.split.send.length } : {};
-  nav.replaceChildren(...STEPS.map(([k, label, tip]) => el('button', { type: 'button', 'aria-pressed': String(S.view === k), title: tip + (counts[k] != null ? '\n\nLiczba w nawiasie = zamówienia w tym kroku' : ''),
-    onclick: () => go('/speedmail/' + k) }, label + (counts[k] ? ' (' + counts[k] + ')' : ''))));
+  nav.replaceChildren(...STEPS.map(([k, label, tip]) => el('a', { href: '#/speedmail/' + k, 'aria-current': S.view === k ? 'page' : null, title: tip + (counts[k] != null ? '\n\nLiczba w nawiasie = zamówienia w tym kroku' : '') }, label + (counts[k] ? ' (' + counts[k] + ')' : ''))));
   if (!S.mag) {
     root.replaceChildren(el('div', { class: 'card' }, S.loading || !S.err ? el('div', { class: 'loading' }, el('div', { class: 'line' }, el('span', { class: 'spinner' }), 'Pobieram stany magazynów i zamówienia…'))
       : el('div', { class: 'empty error' }, 'Nie udało się otworzyć wysyłki SpeedMail: ' + S.err, el('div', null, el('button', { type: 'button', class: 'secondary', onclick: () => load(true) }, 'Spróbuj ponownie')))));
@@ -324,7 +323,7 @@ function viewSplit(m) {
         onclick: () => copyToClipboard(res.local.map(r => r.o.orderNumber).join('\n'), null, 'Skopiowano ' + nLocal + ' numerów zamówień') }, 'Kopiuj numery'))));
 
   box.append(productsCard(m, prods));
-  box.append(el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'primary', disabled: !res.send.length, onclick: () => go('/speedmail/plik') }, 'Dalej: plik dla SpeedMail →')));
+  box.append(el('div', { class: 'ord-actions' }, res.send.length ? el('a', { class: 'btn-primary', href: '#/speedmail/plik' }, 'Dalej: plik dla SpeedMail →') : el('button', { type: 'button', class: 'primary', disabled: true }, 'Dalej: plik dla SpeedMail →')));
   return box;
 }
 
@@ -457,7 +456,7 @@ function viewFile(m) {
     el('div', { class: 'ord-actions' },
       el('button', { type: 'button', class: 'primary', id: 'smXlsx', title: 'Pobiera tabelę jako plik Excel (.xlsx)', onclick: () => downloadXlsx(tbl, '') }, 'Pobierz plik (.xlsx)'),
       el('button', { type: 'button', class: 'secondary', id: 'smCopy', title: 'Ta sama tabela jako tekst do wklejenia w arkusz lub e-mail', onclick: () => copyToClipboard(tableTsv(tbl), tableHtml(tbl), 'Skopiowano tabelę dla SpeedMail — wklej w arkuszu') }, 'Kopiuj tabelę'),
-      el('button', { type: 'button', class: 'secondary', onclick: () => go('/speedmail/zatwierdz') }, 'Dalej: zatwierdź →')),
+      el('a', { class: 'btn-secondary', href: '#/speedmail/zatwierdz' }, 'Dalej: zatwierdź →')),
     el('details', { class: 'fold', id: 'smFileOpts', open: !!S.draft },
       el('summary', null, el('span', null, 'Układ pliku'), el('span', { class: 'sum' }, ' — kolumny, nazwy produktów w SM, kolejność')),
       el('div', { style: 'margin-top:var(--s2)' },

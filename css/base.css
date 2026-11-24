@@ -158,10 +158,10 @@ button:disabled { opacity: .5; cursor: default; }
 .seg.wrap { flex-wrap: wrap; }
 
 .viewnav { display: flex; gap: var(--s1); margin-top: var(--s4); padding: var(--s1); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r3); }
-.viewnav button { flex: 1 1 0; font-weight: 600; font-size: var(--fs-lg); color: var(--muted); background: transparent; border: 0; border-radius: var(--r2); padding: 10px var(--s3); cursor: pointer; transition: background-color .12s, color .12s; }
-.viewnav button:hover { color: var(--text); background: var(--hover); }
-.viewnav button[aria-pressed=true] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
-@media (max-width: 520px) { .viewnav button { font-size: var(--fs-md); padding: 9px 6px; } }
+.viewnav :is(button, a) { flex: 1 1 0; font-weight: 600; font-size: var(--fs-lg); color: var(--muted); background: transparent; border: 0; border-radius: var(--r2); padding: 10px var(--s3); cursor: pointer; transition: background-color .12s, color .12s; }
+.viewnav :is(button, a):hover { color: var(--text); background: var(--hover); }
+.viewnav :is(button, a):is([aria-pressed=true], [aria-current=page]) { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+@media (max-width: 520px) { .viewnav :is(button, a) { font-size: var(--fs-md); padding: 9px 6px; } }
 
 /* Dane i zmiany */
 .data-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3) var(--s4); }
@@ -323,7 +323,7 @@ a.ext:hover { text-decoration: underline; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; }
 .chip { font-size: var(--fs-sm); color: var(--text); background: var(--surface); cursor: pointer; border: 1px solid var(--border-strong); border-radius: 999px; padding: 3px 12px; min-height: 30px; transition: background-color .12s; }
 .chip:hover { background: var(--hover); }
-.chip[aria-pressed=true] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.chip:is([aria-pressed=true], [aria-current=page]) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 legend { font-weight: 700; font-size: var(--fs-lg); padding: 0; margin-bottom: var(--s3); }
 .crit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s3); margin-top: var(--s4); }
@@ -410,8 +410,8 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 #modSm progress { width: 100%; height: 12px; }
 #smCols input[type=text] { width: 100%; min-width: 140px; }
 .ok-txt { color: var(--ok); font-weight: 700; }
-@media (max-width: 520px) { #smNav button { flex: 1 1 40%; font-size: var(--fs-md); padding: 9px 6px; } }
-@media (max-width: 520px) { #magnav button { flex: 1 1 40%; font-size: var(--fs-md); padding: 9px 6px; } }
+@media (max-width: 520px) { #smNav :is(button, a) { flex: 1 1 40%; font-size: var(--fs-md); padding: 9px 6px; } }
+@media (max-width: 520px) { #magnav :is(button, a) { flex: 1 1 40%; font-size: var(--fs-md); padding: 9px 6px; } }
 
 .module[hidden] { display: none; }
 .btn-link { display: inline-block; margin-top: var(--s2); padding: 7px 14px; border-radius: var(--r2); background: var(--accent); color: var(--accent-text); font-weight: 600; text-decoration: none; }
@@ -420,7 +420,7 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 /* Moduł „Zamówienia” */
 .ord-segs { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; margin-top: var(--s3); }
 .ord-n { margin-left: 6px; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 700; }
-.chip[aria-pressed=true] .ord-n { color: inherit; }
+.chip:is([aria-pressed=true], [aria-current=page]) .ord-n { color: inherit; }
 .ord-info { margin-left: auto; }
 .ord-filters { margin-top: var(--s3); }
 .ord-filter-row { display: flex; flex-wrap: wrap; gap: var(--s3) var(--s5); align-items: center; }
@@ -775,9 +775,9 @@ input:disabled, select:disabled, textarea:disabled { opacity: .55; cursor: not-a
 .seg button:hover:not(:disabled):not([aria-pressed=true]), .pl-seg:hover:not([aria-pressed=true]) { background: var(--hover); }
 .seg button[aria-pressed=true], .pl-seg[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 1px 3px rgba(0, 0, 0, .2); }
 .chip { transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease); }
-.chip[aria-pressed=true] { box-shadow: inset 0 0 0 1px var(--accent); }
-.viewnav button { transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
-.viewnav button[aria-pressed=true] { box-shadow: var(--shadow-card); }
+.chip:is([aria-pressed=true], [aria-current=page]) { box-shadow: inset 0 0 0 1px var(--accent); }
+.viewnav :is(button, a) { transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.viewnav :is(button, a):is([aria-pressed=true], [aria-current=page]) { box-shadow: var(--shadow-card); }
 .ms-btn { transition: background-color var(--dur), border-color var(--dur); }
 
 /* Tabele */
@@ -1001,3 +1001,8 @@ button:active:not(:disabled) { translate: 0 1px; }
 .write-locked, button.write-locked:hover, button.secondary.write-locked:hover, button.primary.write-locked:hover { opacity: .5; cursor: not-allowed; }
 /* Ekran logowania: cel dotyku 44 px także na telefonie (reguła 40 px dla main.content wyżej ma większą szczegółowość) */
 main.content .login-form button:not(.icon):not(.pin):not(.zs-fold) { min-height: 44px; }
+/* Nawigacja jako linki (<a href="#/...">): ten sam wygląd co przyciski; aktywna zakładka = aria-current="page" */
+.viewnav a, a.chip { text-decoration: none; }
+.viewnav a { text-align: center; display: block; }
+a.chip { display: inline-flex; align-items: center; }
+.viewnav a:focus-visible, a.chip:focus-visible, .seg a:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }

@@ -1,10 +1,10 @@
 // Moduł „Dropshipping”: paczki dropshipping i produkty w paczkach (Selly REST API /api/dropshipping/packages…).
 // Lista paczek (filtr dat utworzenia, status, sortowanie, strony) → karta paczki (edycja danych, zmiana statusu, produkty: dodawanie,
 // zmiana ilości i magazynu, usuwanie) → nowa paczka (#/dropshipping/nowa). Backend: dropshipping:* (Worker, token READWRITE do zapisów).
-import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=abc9fbd';
-import { api } from '../core/client.js?v=abc9fbd';
-import { go } from '../core/router.js?v=abc9fbd';
-import { registerListKeys } from '../core/listKeys.js?v=abc9fbd';
+import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=a73af4a';
+import { api } from '../core/client.js?v=a73af4a';
+import { go } from '../core/router.js?v=a73af4a';
+import { registerListKeys } from '../core/listKeys.js?v=a73af4a';
 
 const STATUS = {
   '-1': { label: 'skasowana', tone: 'bad', tip: 'Paczka skasowana / ignorowana — nie jest brana pod uwagę.' },
@@ -96,7 +96,7 @@ function packageForm(pk, isNew) {
     field('Data wysyłki', dateInput({ id: 'dsSent', value: f.sent_date, label: 'Data wysyłki', title: 'Kiedy paczka została lub zostanie wysłana do dostawcy (może być pusta)', onChange: v => { f.sent_date = v; } }), 'Kiedy paczka została lub zostanie wysłana do dostawcy (może być pusta)'),
     field('Opis', el('textarea', { id: 'dsDesc', rows: '3', maxlength: '2000', oninput: ev => { f.package_description = ev.target.value; } }, f.package_description), 'Notatka do paczki — widoczna w Selly (maks. 2000 znaków)'),
     el('div', { class: 'bm-row' }, el('button', { type: 'button', class: 'primary', write: 'dropshipping', id: 'dsSave', onclick: save }, isNew ? 'Utwórz paczkę' : 'Zapisz zmiany'),
-      el('button', { type: 'button', class: 'secondary', id: 'dsCancel', onclick: () => go('dropshipping') }, isNew ? 'Anuluj' : 'Wróć do listy')));
+      el('a', { class: 'btn-secondary', id: 'dsCancel', href: '#/dropshipping' }, isNew ? 'Anuluj' : 'Wróć do listy')));
 }
 
 function confirmDialog({ id, title, text, ok, onOk }) {
@@ -178,8 +178,8 @@ function addProducts(pk, C) {
 function header() {
   const r = S.route;
   const actions = [];
-  if (r) actions.push(el('button', { type: 'button', class: 'secondary', id: 'dsBack', title: 'Wróć do listy paczek', onclick: () => go('dropshipping') }, '← Lista paczek'));
-  if (r !== 'nowa') actions.push(el('button', { type: 'button', class: 'primary', write: 'dropshipping', id: 'dsNew', title: 'Utwórz nową paczkę dropshipping w Selly', onclick: () => go('dropshipping/nowa') }, 'Nowa paczka'));
+  if (r) actions.push(el('a', { class: 'btn-secondary', id: 'dsBack', href: '#/dropshipping', title: 'Wróć do listy paczek' }, '← Lista paczek'));
+  if (r !== 'nowa') actions.push(el('a', { class: 'btn-primary', write: 'dropshipping', id: 'dsNew', href: '#/dropshipping/nowa', title: 'Utwórz nową paczkę dropshipping w Selly' }, 'Nowa paczka'));
   return pageToolbar({ title: 'Dropshipping', sub: 'Paczki zamawiane u dostawców i produkty w paczkach — zmiany zapisują się w Selly', actions });
 }
 function mountRoute() {

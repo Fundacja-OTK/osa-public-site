@@ -1,9 +1,8 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=abc9fbd';
-import { api, ctx } from '../core/client.js?v=abc9fbd';
-import { go } from '../core/router.js?v=abc9fbd';
-import { loadingBox } from '../core/ui.js?v=abc9fbd';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=a73af4a';
+import { api, ctx } from '../core/client.js?v=a73af4a';
+import { loadingBox } from '../core/ui.js?v=a73af4a';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
@@ -30,8 +29,8 @@ const TEMPLATE = `
 </section>
 
 <nav class="viewnav" aria-label="Widok raportu" id="viewnav" hidden>
-  <button type="button" data-view="list">Przedłużenia licencji</button>
-  <button type="button" data-view="orszaki">Orszaki wg województw</button>
+  <a href="#/licencje" data-view="list">Przedłużenia licencji</a>
+  <a href="#/licencje/orszaki" data-view="orszaki">Orszaki wg województw</a>
 </nav>
 <p class="intro" id="intro"></p>
 
@@ -213,7 +212,6 @@ function init() {
     for (const cb of $('products').querySelectorAll('input')) cb.checked = BOOT.products.find(p => p.code === cb.value).counted;
     settingsChanged();
   });
-  for (const b of $('viewnav').querySelectorAll('button')) b.addEventListener('click', () => go(b.dataset.view === 'orszaki' ? '/licencje/orszaki' : '/licencje'));
 
   renderBanners(BOOT.sync);
   initChanges();
@@ -296,7 +294,7 @@ function settingsChanged() {
 function setView(view) {
   state.view = view;
   store('otk-view', view);
-  for (const b of $('viewnav').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.view === view));
+  for (const b of $('viewnav').querySelectorAll('a')) { if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
   $('cardList').hidden = view !== 'list';
   $('cardOrszaki').hidden = view !== 'orszaki';
   $('yearLabel').textContent = view === 'list' ? 'Rok licencji' : 'Lata licencji';
