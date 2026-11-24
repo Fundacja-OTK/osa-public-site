@@ -1,7 +1,7 @@
 // Dodatki ekranu zasobu (zasob.js): składniki zestawu, podgląd logo, moderacja opinii (przyciski w wierszu).
 // Osobny plik, żeby zasob.js został czytelny; każdy element dostaje dane i wywołania z zasob.js.
-import { el, debounce, flash, money } from '../core/ui.js?v=2851893';
-import { api } from '../core/client.js?v=2851893';
+import { el, debounce, flash, money } from '../core/ui.js?v=3befa2d';
+import { api } from '../core/client.js?v=3befa2d';
 
 const num = v => (v === '' || v == null || !isFinite(Number(v)) ? 0 : Number(v));
 const fmtQty = v => (v == null ? '—' : String(Math.round(Number(v) * 1000) / 1000));
@@ -34,14 +34,14 @@ export function setComponentsCard(id, data, reload) {
   const rowFor = it => {
     const q = el('input', { type: 'number', step: 'any', min: '0', value: String(it.quantity == null ? 1 : it.quantity), 'aria-label': 'Ilość w zestawie', title: 'Ile sztuk tego produktu wchodzi do jednego zestawu', class: 'zs-pos' });
     const inc = el('input', { type: 'checkbox', checked: Number(it.allow_increase) ? true : null, 'aria-label': 'Klient może zwiększyć ilość', title: 'Klient może zwiększyć ilość tego składnika przy zamawianiu zestawu' });
-    const btn = el('button', { type: 'button', class: 'secondary', title: 'Zapisuje ilość i ustawienia tego składnika w Selly' }, 'Zapisz');
+    const btn = el('button', { type: 'button', class: 'secondary', write: 'zestawy', title: 'Zapisuje ilość i ustawienia tego składnika w Selly' }, 'Zapisz');
     btn.addEventListener('click', async () => {
       if (!(num(q.value) > 0)) { msg.textContent = 'Ilość musi być większa od zera.'; return; }
       btn.disabled = true;
       try { await api('res:itemSave', { res: 'zestawy', id, itemId: it.id, fields: { quantity: num(q.value), allow_increase: inc.checked ? 1 : 0 } }); flash('', 'Zapisano składnik'); reload(); }
       catch (e) { btn.disabled = false; msg.textContent = 'Błąd: ' + ((e && e.message) || ''); }
     });
-    const del = el('button', { type: 'button', class: 'secondary danger', title: 'Usuwa składnik z zestawu w Selly (sam produkt zostaje w sklepie)' }, 'Usuń');
+    const del = el('button', { type: 'button', class: 'secondary danger', write: 'zestawy', title: 'Usuwa składnik z zestawu w Selly (sam produkt zostaje w sklepie)' }, 'Usuń');
     del.addEventListener('click', async () => {
       if (!confirm('Usunąć „' + (it._name || 'produkt ' + it.product_id) + '” z zestawu? Sam produkt zostanie w sklepie.')) return;
       del.disabled = true;
@@ -66,7 +66,7 @@ export function setComponentsCard(id, data, reload) {
   const qty = el('input', { type: 'number', id: 'zsCompQty', step: 'any', min: '0', value: '1', 'aria-label': 'Ilość', title: 'Ile sztuk w jednym zestawie', class: 'zs-pos' });
   const variant = el('input', { type: 'number', id: 'zsCompVar', min: '0', placeholder: '0', 'aria-label': 'ID wariantu', title: 'Numer wariantu produktu (puste lub 0 = produkt bez wariantu)', class: 'zs-pos' });
   const incAdd = el('input', { type: 'checkbox', id: 'zsCompInc', 'aria-label': 'Klient może zwiększyć ilość', title: 'Klient może zwiększyć ilość tego składnika przy zamawianiu zestawu' });
-  const add = el('button', { type: 'button', class: 'primary', id: 'zsCompAdd', disabled: true, title: 'Dodaje wybrany produkt do zestawu w Selly' }, 'Dodaj składnik');
+  const add = el('button', { type: 'button', class: 'primary', write: 'zestawy', id: 'zsCompAdd', disabled: true, title: 'Dodaje wybrany produkt do zestawu w Selly' }, 'Dodaj składnik');
   let found = [];
   search.addEventListener('input', debounce(async () => {
     const q = search.value.trim();
@@ -111,7 +111,7 @@ export function setComponentsCard(id, data, reload) {
 export function reviewToggle(row, productId, onDone) {
   const on = row.active === true || row.active === 1 || row.active === '1';
   if (!productId) return el('span', { class: 'muted', title: 'Wpisz w filtrze „Produkt (ID)” numer jednego produktu, aby moderować jego opinie' }, on ? 'tak' : 'nie');
-  const b = el('button', { type: 'button', class: 'secondary zs-rev-toggle', title: on ? 'Opinia jest widoczna w sklepie — kliknij, aby ją ukryć' : 'Opinia jest ukryta — kliknij, aby ją pokazać w sklepie' }, on ? 'Ukryj' : 'Pokaż');
+  const b = el('button', { type: 'button', write: 'opinie', class: 'secondary zs-rev-toggle', title: on ? 'Opinia jest widoczna w sklepie — kliknij, aby ją ukryć' : 'Opinia jest ukryta — kliknij, aby ją pokazać w sklepie' }, on ? 'Ukryj' : 'Pokaż');
   b.addEventListener('click', async ev => {
     ev.stopPropagation(); b.disabled = true;
     try { await api('res:save', { res: 'opinie', id: row.review_id, productId, fields: { active: on ? 0 : 1 } }); flash('', on ? 'Opinia ukryta' : 'Opinia jest widoczna'); onDone(on ? 0 : 1); }
@@ -128,7 +128,7 @@ export function marginsCard(id, producerId, canEdit) {
   const inp = el('input', { type: 'text', inputmode: 'decimal', id: 'zsMarginMin', 'aria-label': 'Marża minimalna (%)', disabled: !canEdit, class: 'zs-pos', placeholder: 'np. 15',
     title: 'Najniższa dozwolona marża produktów tego producenta (%). Selly nie pozwala odczytać aktualnej wartości — wpisz nową, aby ją ustawić.' });
   const msg = el('div', { role: 'status' });
-  const save = el('button', { type: 'button', id: 'zsMarginsSave', disabled: !canEdit, title: canEdit ? 'Ustawia marżę minimalną producenta w Selly' : 'Brak uprawnień do edycji' }, 'Ustaw marżę minimalną');
+  const save = el('button', { type: 'button', write: id, id: 'zsMarginsSave', disabled: !canEdit, title: canEdit ? 'Ustawia marżę minimalną producenta w Selly' : 'Brak uprawnień do edycji' }, 'Ustaw marżę minimalną');
   save.addEventListener('click', async () => {
     if (!inp.value.trim()) { msg.replaceChildren(el('div', { class: 'notice warn' }, 'Wpisz wartość marży minimalnej.')); return; }
     save.disabled = true;

@@ -1,10 +1,10 @@
 // Moduł „Dropshipping”: paczki dropshipping i produkty w paczkach (Selly REST API /api/dropshipping/packages…).
 // Lista paczek (filtr dat utworzenia, status, sortowanie, strony) → karta paczki (edycja danych, zmiana statusu, produkty: dodawanie,
 // zmiana ilości i magazynu, usuwanie) → nowa paczka (#/dropshipping/nowa). Backend: dropshipping:* (Worker, token READWRITE do zapisów).
-import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=2851893';
-import { api } from '../core/client.js?v=2851893';
-import { go } from '../core/router.js?v=2851893';
-import { registerListKeys } from '../core/listKeys.js?v=2851893';
+import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=3befa2d';
+import { api } from '../core/client.js?v=3befa2d';
+import { go } from '../core/router.js?v=3befa2d';
+import { registerListKeys } from '../core/listKeys.js?v=3befa2d';
 
 const STATUS = {
   '-1': { label: 'skasowana', tone: 'bad', tip: 'Paczka skasowana / ignorowana — nie jest brana pod uwagę.' },
@@ -95,7 +95,7 @@ function packageForm(pk, isNew) {
       'Wstępna = w przygotowaniu; zatwierdzona / wysłana = gotowa; skasowana = ignorowana'),
     field('Data wysyłki', dateInput({ id: 'dsSent', value: f.sent_date, label: 'Data wysyłki', title: 'Kiedy paczka została lub zostanie wysłana do dostawcy (może być pusta)', onChange: v => { f.sent_date = v; } }), 'Kiedy paczka została lub zostanie wysłana do dostawcy (może być pusta)'),
     field('Opis', el('textarea', { id: 'dsDesc', rows: '3', maxlength: '2000', oninput: ev => { f.package_description = ev.target.value; } }, f.package_description), 'Notatka do paczki — widoczna w Selly (maks. 2000 znaków)'),
-    el('div', { class: 'bm-row' }, el('button', { type: 'button', class: 'primary', id: 'dsSave', onclick: save }, isNew ? 'Utwórz paczkę' : 'Zapisz zmiany'),
+    el('div', { class: 'bm-row' }, el('button', { type: 'button', class: 'primary', write: 'dropshipping', id: 'dsSave', onclick: save }, isNew ? 'Utwórz paczkę' : 'Zapisz zmiany'),
       el('button', { type: 'button', class: 'secondary', id: 'dsCancel', onclick: () => go('dropshipping') }, isNew ? 'Anuluj' : 'Wróć do listy')));
 }
 
@@ -118,9 +118,9 @@ function paintCard() {
   const prodRows = C.products.map(p => {
     const qty = el('input', { type: 'number', min: '1', max: '100000', class: 'ds-qty', value: String(p.quantity_ordered), 'aria-label': 'Ilość zamówiona', title: 'Ilość zamówiona u dostawcy. Po zmianie kliknij „Zapisz” przy wierszu.' });
     const wh = el('select', { class: 'ds-wh', 'aria-label': 'Magazyn', title: 'Magazyn, do którego trafi towar z paczki' }, el('option', { value: '0' }, '— brak —'), (C.warehouses || []).map(w => el('option', { value: String(w.id), selected: String(w.id) === String(p.warehouse_id) }, w.name)));
-    const sv = el('button', { type: 'button', class: 'secondary small-btn', title: 'Zapisz ilość i magazyn tej pozycji', onclick: async () => {
+    const sv = el('button', { type: 'button', class: 'secondary small-btn', write: 'dropshipping', title: 'Zapisz ilość i magazyn tej pozycji', onclick: async () => {
       try { await api('dropshipping:productSave', { packageId: pk.id, id: p.id, fields: { quantity_ordered: Number(qty.value), warehouse_id: Number(wh.value) }, opId: opId() }); flash(null, 'Zapisano pozycję.'); loadCard(pk.id); } catch (e) { fail(e, 'Nie zapisano'); } } }, 'Zapisz');
-    const del = el('button', { type: 'button', class: 'secondary danger small-btn', title: 'Usuń produkt z tej paczki (produkt w sklepie zostaje)', onclick: () => confirmDialog({ id: 'dsDelProd', title: 'Usunąć produkt z paczki?', text: (p.name || 'Produkt ' + p.product_id) + ' zniknie z tej paczki. Sam produkt w sklepie zostaje.', ok: 'Usuń z paczki',
+    const del = el('button', { type: 'button', class: 'secondary danger small-btn', write: 'dropshipping', title: 'Usuń produkt z tej paczki (produkt w sklepie zostaje)', onclick: () => confirmDialog({ id: 'dsDelProd', title: 'Usunąć produkt z paczki?', text: (p.name || 'Produkt ' + p.product_id) + ' zniknie z tej paczki. Sam produkt w sklepie zostaje.', ok: 'Usuń z paczki',
       onOk: async () => { try { await api('dropshipping:productDelete', { packageId: pk.id, id: p.id, opId: opId() }); flash(null, 'Usunięto z paczki.'); loadCard(pk.id); } catch (e) { fail(e, 'Nie usunięto'); } } }) }, 'Usuń');
     return el('tr', { 'data-pid': String(p.id) }, el('td', null, p.name ? el('a', { href: '#/produkty/' + p.product_id, title: 'Otwórz kartę produktu' }, p.name) : el('span', { class: 'muted', title: 'Produkt nie jest w lokalnej bazie panelu (jeszcze się nie zsynchronizował)' }, 'produkt ' + p.product_id)),
       el('td', null, p.code || '—'), el('td', null, qty), el('td', null, wh), el('td', { class: 'ds-act' }, sv, ' ', del));
@@ -131,7 +131,7 @@ function paintCard() {
       packageForm(pk, false),
       el('details', { class: 'bm-opts', id: 'dsDanger' }, el('summary', { title: 'Operacje, których nie da się cofnąć' }, 'Więcej opcji'),
         el('p', { class: 'muted wp-hint' }, 'Usunięcie paczki kasuje ją w Selly razem z listą produktów. Jeśli paczka ma tylko przestać się liczyć, zmień jej status na „skasowana”.'),
-        el('button', { type: 'button', class: 'secondary danger', id: 'dsDelete', title: 'Trwale usuwa paczkę w Selly', onclick: () => confirmDialog({ id: 'dsDelDlg', title: 'Usunąć paczkę?', text: 'Paczka „' + (pk.package_name || pk.id) + '” zostanie trwale usunięta w Selly (razem z ' + cnt(C.total, 'produktem', 'produktami', 'produktami') + '). Tego nie da się cofnąć.', ok: 'Usuń paczkę',
+        el('button', { type: 'button', class: 'secondary danger', write: 'dropshipping', id: 'dsDelete', title: 'Trwale usuwa paczkę w Selly', onclick: () => confirmDialog({ id: 'dsDelDlg', title: 'Usunąć paczkę?', text: 'Paczka „' + (pk.package_name || pk.id) + '” zostanie trwale usunięta w Selly (razem z ' + cnt(C.total, 'produktem', 'produktami', 'produktami') + '). Tego nie da się cofnąć.', ok: 'Usuń paczkę',
           onOk: async () => { try { await api('dropshipping:delete', { id: pk.id, opId: opId() }); flash(null, 'Paczka usunięta.'); go('dropshipping'); } catch (e) { fail(e, 'Nie usunięto'); } } }) }, 'Usuń paczkę'))),
     el('section', { class: 'card', id: 'dsProducts' }, el('h2', null, 'Produkty w paczce ', el('span', { class: 'muted', title: 'Liczba pozycji w tej paczce' }, '(' + C.total + ')')),
       C.truncated ? el('p', { class: 'muted' }, 'Pokazano pierwsze 400 pozycji.') : null,
@@ -165,7 +165,7 @@ function addProducts(pk, C) {
   let t = 0;
   const input = el('input', { type: 'search', id: 'dsSearch', placeholder: 'szukaj produktu: nazwa, kod, EAN', 'aria-label': 'Szukaj produktu do dodania', title: 'Wpisz co najmniej 2 znaki — szukamy w bazie produktów panelu',
     oninput: ev => { clearTimeout(t); t = setTimeout(() => search(ev.target.value), 300); } });
-  const add = el('button', { type: 'button', class: 'primary', id: 'dsAddBtn', disabled: true, onclick: async () => {
+  const add = el('button', { type: 'button', class: 'primary', write: 'dropshipping', id: 'dsAddBtn', disabled: true, onclick: async () => {
     const items = [...picked.values()].map(x => ({ product_id: Number(x.id), quantity_ordered: Number(x.qty), warehouse_id: Number(x.wh) }));
     if (items.some(x => !(x.quantity_ordered >= 1))) { flash(null, 'Ilość musi być co najmniej 1.'); return; }
     add.disabled = true;
@@ -179,7 +179,7 @@ function header() {
   const r = S.route;
   const actions = [];
   if (r) actions.push(el('button', { type: 'button', class: 'secondary', id: 'dsBack', title: 'Wróć do listy paczek', onclick: () => go('dropshipping') }, '← Lista paczek'));
-  if (r !== 'nowa') actions.push(el('button', { type: 'button', class: 'primary', id: 'dsNew', title: 'Utwórz nową paczkę dropshipping w Selly', onclick: () => go('dropshipping/nowa') }, 'Nowa paczka'));
+  if (r !== 'nowa') actions.push(el('button', { type: 'button', class: 'primary', write: 'dropshipping', id: 'dsNew', title: 'Utwórz nową paczkę dropshipping w Selly', onclick: () => go('dropshipping/nowa') }, 'Nowa paczka'));
   return pageToolbar({ title: 'Dropshipping', sub: 'Paczki zamawiane u dostawców i produkty w paczkach — zmiany zapisują się w Selly', actions });
 }
 function mountRoute() {

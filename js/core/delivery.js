@@ -4,11 +4,11 @@
 // Błędy „merytoryczne” (4xx: zła treść, limit) NIE przełączają ścieżki — na B byłyby takie same.
 // Bez zależności od przeglądarki — fetch, token i zegar wstrzykiwane (testy w node).
 
-import { backendList } from './api.js?v=2851893';
+import { backendList, requestFor } from './api.js?v=3befa2d';
 
 export const TIMEOUT_MS = 10000;
 
-// 403: lista dostępu Workera (D1) i whitelista Apps Script bywają rozjechane — druga ścieżka ma własną ocenę
+// 403: uprawnienia Workera i Apps Script mogą się chwilowo różnić (odświeżenie uprawnień) — druga ścieżka ma własną ocenę
 const fallbackWorthy = e => e.network || e.code >= 500 || e.code === 501 || e.code === 403;
 
 async function post(b, action, params, token, { fetchImpl, timeoutMs }) {
@@ -16,8 +16,7 @@ async function post(b, action, params, token, { fetchImpl, timeoutMs }) {
   const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null;
   let res;
   try {
-    // Treść jako tekst — bez nagłówków własnych, więc bez zapytania CORS preflight
-    res = await fetchImpl(b.url, { method: 'POST', body: JSON.stringify({ idToken: token, action, params }), signal: ctl ? ctl.signal : undefined });
+    res = await fetchImpl(b.url, requestFor(b, token, action, params, ctl ? ctl.signal : undefined));
   } catch (e) {
     throw Object.assign(new Error(e && e.name === 'AbortError' ? 'przekroczono czas oczekiwania' : 'brak połączenia'), { network: true });
   } finally {
@@ -32,7 +31,7 @@ async function post(b, action, params, token, { fetchImpl, timeoutMs }) {
 }
 
 /**
- * @param {{ config, getToken: (force:boolean)=>Promise<string>, action: string, params: object, fetchImpl?, timeoutMs?, only?: 'A'|'B' }} o
+ * @param {{ config, getToken: (force:boolean, kind:'cloudflare'|'gas')=>Promise<string>, action: string, params: object, fetchImpl?, timeoutMs?, only?: 'A'|'B' }} o
  * @returns {Promise<{ ok: true, path: 'A'|'B', via: string, data: any, errorA?: string } | { ok: false, errors: { A?: string, B?: string }, fatal?: string }>}
  */
 export async function deliver(o) {
@@ -42,15 +41,15 @@ export async function deliver(o) {
   const paths = [['A', all.find(b => b.kind === 'cloudflare')], ['B', all.find(b => b.kind === 'gas')]].filter(([k, b]) => b && (!o.only || o.only === k));
   const errors = {};
   if (!paths.length) return { ok: false, errors, fatal: 'brak skonfigurowanych serwerów' };
-  let token;
-  try { token = await o.getToken(false); } catch (e) { return { ok: false, errors, fatal: 'nie jesteś zalogowany' }; }
   for (const [key, b] of paths) {
+    let token;
+    try { token = await o.getToken(false, b.kind); } catch (e) { return { ok: false, errors, fatal: 'nie jesteś zalogowany' }; }
     try {
       let data;
       try { data = await post(b, o.action, o.params, token, opts); }
       catch (e) {
         if (e.code !== 401) throw e;
-        token = await o.getToken(true);  // token wygasł — jedno ponowienie z nowym
+        token = await o.getToken(true, b.kind);  // token wygasł — jedno ponowienie z nowym
         data = await post(b, o.action, o.params, token, opts);
       }
       return { ok: true, path: key, via: b.kind === 'cloudflare' ? 'cloudflare' : 'apps script', data, errorA: errors.A };

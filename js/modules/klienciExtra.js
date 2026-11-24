@@ -1,8 +1,8 @@
 // Klienci — sekcje karty ładowane na żądanie (adresy dodatkowe, ceny indywidualne, program partnerski, subkonta, rozwiązania „tylko w Selly”)
 // oraz ekran „Grupy klientów”. Sekcje pobierają dane dopiero po rozwinięciu (oszczędność limitu Selly).
-import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=2851893';
-import { api } from '../core/client.js?v=2851893';
-import { nipError, postcodeError } from './klienciForm.js?v=2851893';
+import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=3befa2d';
+import { api } from '../core/client.js?v=3befa2d';
+import { nipError, postcodeError } from './klienciForm.js?v=3befa2d';
 
 const errBox = (host, e) => host.replaceChildren(el('div', { class: 'notice error' }, (e && e.message) || 'Nie udało się pobrać danych.'));
 
@@ -30,7 +30,7 @@ export function addressesFold(id, sellyUrl) {
       const x = a || { type: 'DELIVERY' }, inp = (k, label, tip) => field(label, el('input', { type: 'text', id: 'cliAd_' + k, value: x[k] || '', maxlength: '200', autocomplete: 'off' }), tip);
       const type = el('select', { id: 'cliAd_type' }, Object.entries(TYPES).map(([v, t]) => el('option', { value: v, selected: v === (x.type || 'DELIVERY') }, 'adres ' + t)));
       const msg = el('div', { role: 'alert' });
-      const save = el('button', { type: 'button', class: 'primary', id: 'cliAdSave', onclick: async () => {
+      const save = el('button', { type: 'button', class: 'primary', write: 'klienci', id: 'cliAdSave', onclick: async () => {
         const g = k => document.getElementById('cliAd_' + k).value.trim();
         const addr = { type: type.value, firstname: g('firstname'), lastname: g('lastname'), company: g('company'), address: g('address'), postcode: g('postcode'), city: g('city'), nip: g('nip') };
         const bad = !addr.firstname ? 'Podaj imię.' : !addr.lastname ? 'Podaj nazwisko.' : !addr.address ? 'Podaj adres.' : !addr.city ? 'Podaj miejscowość.' : postcodeError(addr.postcode || '00-000', '') || (!addr.postcode ? 'Podaj kod pocztowy.' : '') || nipError(addr.nip, '');
@@ -48,13 +48,13 @@ export function addressesFold(id, sellyUrl) {
       el('tbody', null, rows.map(a => el('tr', null, el('td', null, TYPES[a.type] || a.type || ''), el('td', null, a.company || ''), el('td', null, fullName(a.firstname, a.lastname)), el('td', null, a.address || ''),
         el('td', { class: 'nw' }, a.postcode || ''), el('td', null, a.city || ''), el('td', { class: 'nw' }, a.nip || ''),
         el('td', { class: 'nw' }, addrId(a) == null ? el('span', { class: 'muted small', title: 'Selly nie podało numeru adresu — edytuj w panelu Selly' }, '—') : [
-          el('button', { type: 'button', class: 'ghost', title: 'Edytuj ten adres', onclick: () => openForm(a) }, 'Edytuj'), ' ',
-          el('button', { type: 'button', class: 'ghost', title: 'Usuń ten adres z konta klienta', onclick: async () => {
+          el('button', { type: 'button', class: 'ghost', write: 'klienci', title: 'Edytuj ten adres', onclick: () => openForm(a) }, 'Edytuj'), ' ',
+          el('button', { type: 'button', class: 'ghost', write: 'klienci', title: 'Usuń ten adres z konta klienta', onclick: async () => {
             if (!confirm('Usunąć ten adres klienta?')) return;
             try { await api('clients:addressDelete', { id, addressId: addrId(a) }); flash('', 'Adres usunięty'); reload(); } catch (e) { flash('', e.message || 'Nie udało się usunąć'); }
           } }, 'Usuń')]))))))
       : el('div', { class: 'empty' }, 'Klient nie ma dodatkowych adresów.');
-    body.replaceChildren(table, el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', id: 'cliAddrAdd', onclick: () => openForm(null) }, 'Dodaj adres'),
+    body.replaceChildren(table, el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', write: 'klienci', id: 'cliAddrAdd', onclick: () => openForm(null) }, 'Dodaj adres'),
       sellyLink('Adresy w Selly ↗', sellyUrl + '?a=klienci.addresses&id=' + encodeURIComponent(id), 'Otwiera adresy klienta w panelu Selly')), formHost);
   });
 }
@@ -77,8 +77,8 @@ export function pricesFold(id, sellyUrl) {
         const inp = el('input', { type: 'text', class: 'inl', inputmode: 'decimal', value: String(p.price == null ? '' : p.price).replace('.', ','), 'aria-label': 'Cena klienta: ' + (p.name || p.productId), 'data-pid': p.productId });
         return el('tr', null, el('td', null, p.name || ('Produkt ' + p.productId), el('div', { class: 'cell-sub' }, (p.code ? p.code + ' · ' : '') + 'ID ' + p.productId)),
           el('td', { class: 'n nw' }, p.catalogPrice == null ? '—' : money(p.catalogPrice)), el('td', { class: 'n nw' }, inp),
-          el('td', { class: 'nw' }, el('button', { type: 'button', class: 'secondary', title: 'Zapisz zmienioną cenę w Selly', onclick: () => savePrice(p.productId, inp.value, true) }, 'Zapisz'), ' ',
-            el('button', { type: 'button', class: 'ghost', title: 'Usuń cenę indywidualną — klient wróci do ceny katalogowej', onclick: async () => {
+          el('td', { class: 'nw' }, el('button', { type: 'button', class: 'secondary', write: 'klienci', title: 'Zapisz zmienioną cenę w Selly', onclick: () => savePrice(p.productId, inp.value, true) }, 'Zapisz'), ' ',
+            el('button', { type: 'button', class: 'ghost', write: 'klienci', title: 'Usuń cenę indywidualną — klient wróci do ceny katalogowej', onclick: async () => {
               if (!confirm('Usunąć cenę indywidualną tego produktu?')) return;
               try { await api('clients:priceDelete', { id, productId: p.productId }); flash('', 'Cena usunięta'); reload(); } catch (e) { flash('', e.message || 'Nie udało się usunąć'); }
             } }, 'Usuń')));
@@ -91,7 +91,7 @@ export function pricesFold(id, sellyUrl) {
     const price = el('input', { type: 'text', id: 'cliPriceNew', inputmode: 'decimal', placeholder: '0,00', 'aria-label': 'Cena klienta' });
     let chosen = null;
     const chosenBox = el('div', { class: 'muted small', id: 'cliPriceChosen' }, 'Wybierz produkt z listy.');
-    const add = el('button', { type: 'button', class: 'primary', id: 'cliPriceAdd', disabled: true, onclick: async () => {
+    const add = el('button', { type: 'button', class: 'primary', write: 'klienci', id: 'cliPriceAdd', disabled: true, onclick: async () => {
       add.disabled = true; await savePrice(chosen.id, price.value, rows.some(x => String(x.productId) === String(chosen.id))); add.disabled = false;
     } }, 'Dodaj cenę');
     const search = debounce(async () => {
@@ -128,13 +128,13 @@ export function affiliateFold(id) {
         ['Polecone osoby (poziomy 1–5)', [1, 2, 3, 4, 5].map(i => num(a['referrals_count_' + i])).join(' / ')]].flatMap(([k, v]) => [el('dt', null, k), el('dd', null, v == null ? '—' : String(v))])),
       comm.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'cliAffTable' }, el('thead', null, el('tr', null, ['Data', 'Zamówienie (ID)', 'Poziom', 'Prowizja', ''].map(h => el('th', null, h)))),
         el('tbody', null, comm.map(x => el('tr', null, el('td', { class: 'nw' }, String(x.created_at || '').slice(0, 10)), el('td', null, String(x.order_id || '')), el('td', null, String(x.level || '')), el('td', { class: 'n' }, money(x.commission)),
-          el('td', null, x.commission_id == null ? '' : el('button', { type: 'button', class: 'ghost', onclick: async () => {
+          el('td', null, x.commission_id == null ? '' : el('button', { type: 'button', class: 'ghost', write: 'klienci', onclick: async () => {
             if (!confirm('Usunąć tę prowizję?')) return;
             try { await api('clients:affiliateDelete', { id, commissionId: x.commission_id }); flash('', 'Prowizja usunięta'); reload(); } catch (e) { flash('', e.message || 'Nie udało się usunąć'); }
           } }, 'Usuń'))))))) : el('p', { class: 'muted' }, 'Brak prowizji.'),
       el('details', { class: 'fold-inline' }, el('summary', { title: 'Zaawansowane: ręczne dodanie prowizji (doładowanie) klientowi' }, 'Dodaj prowizję ręcznie'),
         el('div', { class: 'kf-grid' }, field('Zamówienie (ID)', order, 'ID zamówienia w Selly, którego dotyczy prowizja'), field('Kwota prowizji', amount, 'Kwota w złotych, większa od zera')), msg,
-        el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', id: 'cliAffAdd', onclick: async () => {
+        el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', write: 'klienci', id: 'cliAffAdd', onclick: async () => {
           try { await api('clients:affiliateAdd', { id, orderId: order.value.trim(), commission: amount.value }); flash('', 'Prowizja dodana'); reload(); }
           catch (e) { msg.replaceChildren(el('div', { class: 'notice error' }, e.message || 'Nie udało się dodać.')); }
         } }, 'Dodaj prowizję'))));
@@ -182,7 +182,7 @@ export async function renderGroups(box, { sellyUrl, back }) {
       el('tbody', null, rows.map(r => {
         const name = el('input', { type: 'text', value: r.name, maxlength: '80', placeholder: 'Grupa nr ' + r.id, 'aria-label': 'Nazwa grupy ' + r.id, 'data-gid': r.id });
         return el('tr', null, el('td', { class: 'nw' }, r.id), el('td', null, name), el('td', { class: 'n' }, String(r.count)),
-          el('td', { class: 'nw' }, el('button', { type: 'button', class: 'secondary', title: 'Zapisz nazwę grupy w panelu OSA', onclick: async () => {
+          el('td', { class: 'nw' }, el('button', { type: 'button', class: 'secondary', write: 'klienci', title: 'Zapisz nazwę grupy w panelu OSA', onclick: async () => {
             try { await api('clients:groupName', { groupId: r.id, name: name.value }); flash('', 'Nazwa grupy zapisana'); } catch (e) { flash('', e.message || 'Nie udało się zapisać'); }
           } }, 'Zapisz nazwę'), ' ', el('a', { class: 'btn-link', href: '#/klienci?group=' + encodeURIComponent(r.id), title: 'Pokaż klientów z tej grupy' }, 'Klienci grupy')));
       }), rows.length ? null : el('tr', null, el('td', { colspan: '4', class: 'empty' }, 'Brak grup (żaden klient nie jest do grupy przypisany).'))))),

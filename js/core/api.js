@@ -1,4 +1,6 @@
-// Klient API panelu OSA: POST { idToken, action, params } → { ok, data } | { ok:false, error, code }.
+// Klient API panelu OSA: POST { action, params } → { ok, data } | { ok:false, error, code }. Uwierzytelnienie (docs/auth.md):
+//   serwer główny (kind 'cloudflare') — nagłówek Authorization: Bearer <token sesji>; Apps Script (kind 'gas') nie obsługuje zapytań
+//   wstępnych CORS, więc dostaje krótkotrwały token zapasowy w treści ({ gasToken }). Token wydaje getToken(force, kind).
 // Lista backendów z zapasowym: akcja idzie do pierwszego zdrowego; błąd sieci, HTTP 5xx albo odpowiedź,
 // której nie da się sparsować, przełącza na następny (a niedziałający jest pomijany przez 5 min).
 // Błędy aplikacyjne (ok:false z kodem, np. 401/403) NIE przełączają backendu.
@@ -9,12 +11,19 @@ export const DOWN_KEY = 'osa-be-down';
 export const DOWN_MS = 5 * 60 * 1000;
 
 export const MSG_NOT_CONFIGURED = 'Strona nie jest skonfigurowana (brak config.js). Administrator: wdróż panel skryptem scripts/deploy-panel.ps1.';
+
+/** Zapytanie do backendu z tokenem w miejscu właściwym dla jego rodzaju (nagłówek / treść). */
+export function requestFor(b, token, action, params, signal) {
+  if (b.kind === 'cloudflare') return { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action, params }), signal };
+  return { method: 'POST', body: JSON.stringify({ gasToken: token, action, params }), signal };   // bez nagłówków własnych — bez zapytania wstępnego CORS
+}
 export const MSG_NETWORK = 'Brak połączenia z serwerem raportu. Sprawdź internet i odśwież stronę.';
 export const MSG_TIMEOUT_WRITE = 'Serwer nie odpowiedział na czas. Zmiana mogła się zapisać — odśwież widok i sprawdź, zanim spróbujesz ponownie.';
 // Limit czasu jednej próby (ms): zawieszony backend nie blokuje strony — odczyty przechodzą na zapasowy
 export const TIMEOUT_MS = { cloudflare: 20000, gas: 60000 };
-// Odczyty (bezpieczne do powtórzenia na innym backendzie po przekroczeniu czasu); reszta to zapisy — bez powtórzenia
-export const READ_ACTION = /^(init|whoami|report|orszaki|changes)$|:(list|get|meta|facets|queue|options|latest|history|init|orders|moves|invoices|addresses|prices|affiliate|extra|groups|dicts)$/;
+// Odczyty (bezpieczne do powtórzenia na innym backendzie po przekroczeniu czasu); reszta to zapisy — bez powtórzenia.
+// Podzbiór READ_ACTIONS z shared/panelAuth.js (test: actionClassification.test.js); mag:moves to ZAPIS (dodaje ruchy) — bez powtórzeń.
+export const READ_ACTION = /^(init|whoami|report|orszaki|changes)$|:(list|get|meta|facets|queue|options|latest|history|init|orders|invoices|addresses|prices|affiliate|extra|groups|dicts)$/;
 // Zapisy, które wolno powtórzyć na innym backendzie po błędzie sieci: ustawiają wartość (PUT w Selly), więc powtórka daje ten sam stan.
 // Reszta (np. dodanie pozycji, tworzenie przesyłki) nie jest powtarzana na drugim backendzie — każdy backend pamięta opId osobno.
 export const WRITE_RETRY_SAFE = /^(orders:(setStatus|update|updateItem)|products:(update|setStock)|clients:update)$/;
@@ -45,7 +54,7 @@ function memoryStorage() {
 }
 
 /**
- * @param {{ config, getToken: (force:boolean)=>Promise<string>, fetchImpl?, storage?, now?: ()=>number, onFailure?: (f:{action,backend,message,code?})=>void }} o
+ * @param {{ config, getToken: (force:boolean, kind:'cloudflare'|'gas')=>Promise<string>, fetchImpl?, storage?, now?: ()=>number, onFailure?: (f:{action,backend,message,code?})=>void }} o
  *   onFailure — raport nieudanego wywołania (sieć, HTTP 5xx, zła odpowiedź, ok:false z kodem ≥ 500 poza 501); błędy 4xx i 501 to nie awarie
  * @returns {{ api: (action, params?, retried?) => Promise<any>, apiInfo: () => object|null, onInfo: (cb) => void }}
  */
@@ -91,14 +100,15 @@ export function createApi(o) {
 
   const failed = (b, action, message, code) => { try { if (o.onFailure) o.onFailure({ action, backend: backendLabel(b), message, code }); } catch (e) { /* raport nie psuje zapytania */ } };
 
+  /** retried: rodzaj backendu, który odrzucił token (401) — tylko jego token jest wymieniany (true = wszystkie). */
   async function api(action, params, retried) {
-    if (!backends.length || !config.clientId) throw new Error(MSG_NOT_CONFIGURED);
-    const idToken = await o.getToken(!!retried);
+    if (!backends.length) throw new Error(MSG_NOT_CONFIGURED);
     const isWrite = !READ_ACTION.test(action);
     if (isWrite && !(params && params.opId)) params = Object.assign({}, params, { opId: newOpId() });
     let lastErr = new Error(MSG_NETWORK), d1Down = false;
     for (const b of candidates()) {
       if (unsupported.has(b.url + '|' + action)) { lastErr = Object.assign(new Error('Akcja niedostępna na żadnym backendzie: ' + action), { code: 501 }); continue; }
+      const token = await o.getToken(retried === true || retried === b.kind, b.kind);
       let res, body, timer = 0, timedOut = false;
       const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
       const limit = (o.timeouts || TIMEOUT_MS)[b.kind] || TIMEOUT_MS.gas;
@@ -107,8 +117,7 @@ export function createApi(o) {
       deadline.catch(() => {});
       const within = p => Promise.race([p, deadline]);
       try {
-        // Treść jako tekst — bez nagłówków własnych, więc bez zapytania CORS preflight
-        res = await within(fetchImpl(b.url, { method: 'POST', body: JSON.stringify({ idToken, action, params }), signal: ctl ? ctl.signal : undefined }));
+        res = await within(fetchImpl(b.url, requestFor(b, token, action, params, ctl ? ctl.signal : undefined)));
       } catch (e) {
         clearTimeout(timer);
         markDown(b.url);
@@ -134,7 +143,7 @@ export function createApi(o) {
         degraded: d1Down || !!(body.ok && body.data && body.data.degraded) };
       listeners.forEach(f => { try { f(info); } catch (e) { /* słuchacz nie psuje zapytania */ } });
       if (!body.ok) {
-        if (body.code === 401 && !retried) return api(action, params, true);
+        if (body.code === 401 && !retried) return api(action, params, b.kind);
         // 501 = ten backend nie zna (jeszcze) tej akcji — moduły przenoszone na Cloudflare pojedynczo;
         // próbujemy następnego backendu, bez oznaczania tego jako niezdrowy
         if (body.code === 501) { unsupported.add(b.url + '|' + action); lastErr = Object.assign(new Error(body.error), { code: 501 }); continue; }

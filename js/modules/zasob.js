@@ -1,11 +1,11 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=2851893';
-import { api, ctx } from '../core/client.js?v=2851893';
-import { go, setLeaveGuard } from '../core/router.js?v=2851893';
-import { RESOURCES } from '../core/resources.js?v=2851893';
-import { registerListKeys } from '../core/listKeys.js?v=2851893';
-import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=2851893';
+import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=3befa2d';
+import { api, ctx } from '../core/client.js?v=3befa2d';
+import { go, setLeaveGuard } from '../core/router.js?v=3befa2d';
+import { RESOURCES } from '../core/resources.js?v=3befa2d';
+import { registerListKeys } from '../core/listKeys.js?v=3befa2d';
+import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=3befa2d';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -110,7 +110,7 @@ export function createResource(id) {
       el('summary', { title: 'Dodatkowe filtry listy' }, 'Filtry'), el('div', { class: 'zs-filter-row' }, def.filters.map(f => filterControl(f)))) : null;
     u.results = el('div', { id: 'zsResults' });
     registerListKeys({ screen: 'zasob', table: 'zsTable', search: 'zsSearch', back: 'zsBack', extra: [{ keys: ['n'], label: 'N', desc: 'Dodaj nowy rekord', id: 'zsAdd' }] });
-    const add = def.canCreate ? el('a', { href: '#/' + id + '/nowy', id: 'zsAdd', class: 'zs-add', title: 'Otwiera pusty formularz — nowy rekord zapisze się w Selly' }, '+ ' + def.addLabel) : null;
+    const add = def.canCreate ? el('a', { href: '#/' + id + '/nowy', write: id, id: 'zsAdd', class: 'zs-add', title: 'Otwiera pusty formularz — nowy rekord zapisze się w Selly' }, '+ ' + def.addLabel) : null;
     box.replaceChildren(el('div', { class: 'card' },
       el('div', { class: 'toolbar head zs-head' }, el('h2', { id: 'zsTitle' }, def.many), add),
       def.readOnlyNote ? el('div', { class: 'sub muted zs-note' }, def.readOnlyNote) : null,
@@ -178,7 +178,7 @@ export function createResource(id) {
     if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(def.columns.length), class: 'empty' },
       Q.q || Object.keys(Q.filters).length ? 'Brak wyników dla wyszukiwania i filtrów. ' : 'Brak pozycji. ',
       Q.q || Object.keys(Q.filters).length ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ q: '', filters: {} }) }, 'Wyczyść filtry')
-        : (def.canCreate ? el('a', { href: '#/' + id + '/nowy' }, def.addLabel) : null))));
+        : (def.canCreate ? el('a', { write: id, href: '#/' + id + '/nowy' }, def.addLabel) : null))));
     const hasPrev = Q.page > 1;
     const hasNext = d.total != null ? Q.page * d.pageSize < d.total : !!d.hasNext;
     const foldAll = treeMode && d.rows.some((r, i) => d.rows[i + 1] && (d.rows[i + 1]._depth || 0) > (r._depth || 0))
@@ -259,7 +259,7 @@ export function createResource(id) {
     const fields = allFields(def);
     const ctls = new Map(), orig = new Map();
     const msg = el('div', { id: 'zsMsg', role: 'status' });
-    const save = el('button', { type: 'button', class: 'primary', id: 'zsSave', title: create ? 'Dodaje rekord w Selly' : 'Zapisuje zmiany w Selly', disabled: true }, create ? 'Dodaj' : 'Zapisz zmiany');
+    const save = el('button', { type: 'button', class: 'primary', write: id, id: 'zsSave', title: create ? 'Dodaje rekord w Selly' : 'Zapisuje zmiany w Selly', disabled: true }, create ? 'Dodaj' : 'Zapisz zmiany');
     const markDirty = () => {
       let any = false;
       for (const f of fields) {
@@ -331,7 +331,7 @@ export function createResource(id) {
     const cancel = el('a', { href: listHref(), id: 'zsCancel', class: 'btn-link zs-cancel', title: 'Wraca do listy bez zapisywania' }, 'Anuluj');
     let del = null;
     if (!create && def.canDelete && meta && meta.canDelete && (!def.parent || pid)) {
-      del = el('button', { type: 'button', class: 'secondary danger', id: 'zsDelete', title: 'Usuwa rekord z Selly — tego nie da się cofnąć',
+      del = el('button', { type: 'button', class: 'secondary danger', write: id, id: 'zsDelete', title: 'Usuwa rekord z Selly — tego nie da się cofnąć',
         onclick: async () => {
           const name = String(item[def.titleField] || item[def.idField]);
           const u = meta && meta.usage ? meta.usage : null;
@@ -357,7 +357,7 @@ export function createResource(id) {
         const nm = el('input', { type: 'text', value: r ? r.name || '' : '', 'aria-label': 'Nazwa wartości', title: 'Nazwa wartości (np. „XL”, „czerwony”)' });
         const pos = el('input', { type: 'number', value: r && r.position != null ? String(r.position) : '', 'aria-label': 'Kolejność', title: 'Pozycja wartości — mniejsza liczba = wyżej', class: 'zs-pos' });
         const rm = el('span', { class: 'zs-item-msg muted', role: 'status' });
-        const btn = el('button', { type: 'button', class: 'secondary', title: r ? 'Zapisuje zmiany tej wartości w Selly' : 'Dodaje wartość do grupy w Selly' }, r ? 'Zapisz' : 'Dodaj');
+        const btn = el('button', { type: 'button', class: 'secondary', write: id, title: r ? 'Zapisuje zmiany tej wartości w Selly' : 'Dodaje wartość do grupy w Selly' }, r ? 'Zapisz' : 'Dodaj');
         btn.addEventListener('click', async () => {
           if (!nm.value.trim()) { rm.textContent = 'Wpisz nazwę.'; return; }
           const fields = { name: nm.value.trim() };
@@ -366,7 +366,7 @@ export function createResource(id) {
           try { await api('res:itemSave', { res: id, id: gid, itemId: r ? r[cfg.idField] : undefined, fields }); flash('', r ? 'Zapisano wartość' : 'Dodano wartość'); reloadItems(); }
           catch (e) { btn.disabled = false; rm.textContent = 'Błąd: ' + ((e && e.message) || ''); }
         });
-        const del = r && meta && meta.canDelete ? el('button', { type: 'button', class: 'secondary danger', title: 'Usuwa wartość z grupy w Selly — tego nie da się cofnąć',
+        const del = r && meta && meta.canDelete ? el('button', { type: 'button', class: 'secondary danger', write: id, title: 'Usuwa wartość z grupy w Selly — tego nie da się cofnąć',
           onclick: async () => {
             if (!confirm('Usunąć wartość „' + (r.name || r[cfg.idField]) + '” z Selly? Tego nie można cofnąć.')) return;
             try { await api('res:itemDelete', { res: id, id: gid, itemId: r[cfg.idField] }); flash('', 'Usunięto wartość'); reloadItems(); }
@@ -393,7 +393,7 @@ export function createResource(id) {
     const parts = [];
     if (u && u.products != null) parts.push(el('span', { id: 'zsUsageProducts', title: 'Tyle produktów jest przypisanych do tej pozycji w Selly' }, 'Produktów: ' + u.products + (u.productsExact ? '' : '+')));
     if (kids != null) parts.push(el('span', { id: 'zsUsageKids', title: 'Liczba bezpośrednich podkategorii' }, 'Podkategorii: ' + kids));
-    const sub = def.addSub ? el('a', { href: '#/' + id + '/nowy?parent=' + encodeURIComponent(item[def.idField]), id: 'zsAddSub', class: 'btn-link', title: 'Otwiera pusty formularz z tą kategorią jako nadrzędną' }, '+ Dodaj podkategorię') : null;
+    const sub = def.addSub ? el('a', { href: '#/' + id + '/nowy?parent=' + encodeURIComponent(item[def.idField]), write: id, id: 'zsAddSub', class: 'btn-link', title: 'Otwiera pusty formularz z tą kategorią jako nadrzędną' }, '+ Dodaj podkategorię') : null;
     if (!parts.length && !sub) return null;
     return el('div', { class: 'zs-usage' }, ...parts, sub);
   }
@@ -411,7 +411,7 @@ export function createResource(id) {
     const acts = (def.quickActions || []).filter(a => !a.when || a.when(item));
     if (!acts.length) return null;
     const msg = el('span', { class: 'zs-item-msg muted', role: 'status' });
-    return el('div', { class: 'zs-links' }, acts.map(a => el('button', { type: 'button', class: 'secondary' + (a.danger ? ' danger' : ''), id: 'zsQuick-' + a.id, title: a.tip, onclick: async ev => {
+    return el('div', { class: 'zs-links' }, acts.map(a => el('button', { type: 'button', class: 'secondary' + (a.danger ? ' danger' : ''), write: id, id: 'zsQuick-' + a.id, title: a.tip, onclick: async ev => {
       if (a.confirm && !confirm(a.confirm)) return;
       const b = ev.currentTarget; b.disabled = true;
       try { await api('res:save', { res: id, id: item[def.idField], fields: a.fields }); flash('', 'Zapisano w Selly'); renderCard(String(item[def.idField])); }

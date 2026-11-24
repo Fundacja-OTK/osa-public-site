@@ -1,7 +1,8 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:get, products:list (wyszukiwarka produktów).
-import { el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=2851893';
-import { api } from '../core/client.js?v=2851893';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=3befa2d';
+import { api } from '../core/client.js?v=3befa2d';
+const gw = e => gateWrite(e, 'zamowienia');   // bez prawa zmian w sekcji: wyszarzone z podpowiedzią (core/ui.js)
 
 const EDIT_KEY = 'osa-ord-edit';
 const r2 = n => Math.round(n * 100) / 100;
@@ -121,14 +122,14 @@ function section(C, cfg) {
     const head = (actions) => el('div', { class: 'card-head ord-sec-head' }, el('div', null, el('h2', null, cfg.title), cfg.sub ? el('div', { class: 'sub' }, cfg.sub) : null), actions);
     if (!editing) {
       ctls = [];
-      host.replaceChildren(head(el('button', { type: 'button', class: 'secondary', id: 'ordEdit-' + cfg.id, title: 'Edytuj: ' + cfg.title.toLowerCase() + ' (zapis do Selly dopiero po kliknięciu „Zapisz”)', onclick: () => setEditing(true) }, 'Edytuj')),
+      host.replaceChildren(head(gw(el('button', { type: 'button', class: 'secondary', id: 'ordEdit-' + cfg.id, title: 'Edytuj: ' + cfg.title.toLowerCase() + ' (zapis do Selly dopiero po kliknięciu „Zapisz”)', onclick: () => setEditing(true) }, 'Edytuj'))),
         cfg.view(o), cfg.extraView ? cfg.extraView(o) : null);
       return;
     }
     ctls = cfg.fields.map(f => buildControl(C, f, o));
     errBox = el('div', { class: 'notice error', role: 'alert', hidden: true });
     flag = el('span', { class: 'ord-dirty tip', hidden: true, title: 'W tej sekcji są niezapisane zmiany' }, '● niezapisane zmiany');
-    saveBtn = el('button', { type: 'button', class: 'primary', id: 'ordSave-' + cfg.id, onclick: save }, 'Zapisz');
+    saveBtn = gw(el('button', { type: 'button', class: 'primary', id: 'ordSave-' + cfg.id, onclick: save }, 'Zapisz'));
     const cancel = el('button', { type: 'button', class: 'secondary', id: 'ordCancel-' + cfg.id, title: 'Odrzuć zmiany w tej sekcji', onclick: () => setEditing(false) }, 'Anuluj');
     const form = el('div', { class: 'ord-form' }, ctls.map(c => {
       c.warn = el('div', { class: 'ord-warn', hidden: true, role: 'status' });
@@ -253,7 +254,7 @@ function itemsCard(C) {
     const vat = el('select', { id: 'ordAddVat', class: 'ord-in vat', 'aria-label': 'Stawka VAT', title: 'Puste = stawka domyślna produktu w Selly' }, el('option', { value: '' }, 'domyślna'), (C.meta.vat || []).map(v => el('option', { value: String(v.id) }, v.name)));
     const cmt = el('input', { type: 'text', id: 'ordAddCmt', class: 'ord-in cmt', placeholder: 'Komentarz (opcjonalnie)', 'aria-label': 'Komentarz do pozycji' });
     const err = el('div', { class: 'notice error', role: 'alert', hidden: true });
-    const submit = el('button', { type: 'button', class: 'primary', id: 'ordAddSubmit', onclick: async () => {
+    const submit = gw(el('button', { type: 'button', class: 'primary', id: 'ordAddSubmit', onclick: async () => {
       const q = parseInt(qty.value, 10);
       if (!(String(q) === qty.value.trim() && q > 0)) { err.textContent = 'Ilość musi być liczbą całkowitą większą od 0.'; err.hidden = false; return; }
       if (price.value.trim() !== '' && !isMoney(price.value)) { err.textContent = 'Cena musi być liczbą nieujemną.'; err.hidden = false; return; }
@@ -264,7 +265,7 @@ function itemsCard(C) {
       submit.disabled = true; err.hidden = true;
       try { await api('orders:addItem', { id: C.id, fields }); flash('', 'Dodano produkt do zamówienia'); addOpen = false; await C.refresh(); render(); }
       catch (e) { err.textContent = 'Nie udało się dodać produktu: ' + (e.message || 'błąd'); err.hidden = false; submit.disabled = false; }
-    } }, 'Dodaj do zamówienia');
+    } }, 'Dodaj do zamówienia'));
     picked.append(title, varNote, el('div', { class: 'ord-add-row' },
       el('label', { class: 'ord-f' }, el('span', { class: 'ord-f-l' }, 'Ilość'), qty), el('label', { class: 'ord-f' }, el('span', { class: 'ord-f-l tip', title: 'Domyślnie cena produktu z katalogu' }, 'Cena brutto (zł)'), price),
       el('label', { class: 'ord-f' }, el('span', { class: 'ord-f-l' }, 'Stawka VAT'), vat), el('label', { class: 'ord-f grow' }, el('span', { class: 'ord-f-l' }, 'Komentarz'), cmt)), err, el('div', { class: 'ord-actions' }, submit));
@@ -275,9 +276,9 @@ function itemsCard(C) {
   function render() {
     const prods = C.o.products || [];
     rows = prods.map(mkRow);
-    const addBtn = el('button', { type: 'button', class: 'secondary', id: 'ordAddToggle', disabled: sec.dirty(), title: 'Wyszukaj produkt i dodaj go jako nową pozycję zamówienia', onclick: () => { addOpen = !addOpen; render(); } }, addOpen ? 'Zwiń dodawanie' : 'Dodaj produkt');
+    const addBtn = gw(el('button', { type: 'button', class: 'secondary', id: 'ordAddToggle', disabled: sec.dirty(), title: 'Wyszukaj produkt i dodaj go jako nową pozycję zamówienia', onclick: () => { addOpen = !addOpen; render(); } }, addOpen ? 'Zwiń dodawanie' : 'Dodaj produkt'));
     const msg = el('div', { class: 'notice warn', id: 'ordItemsMsg', hidden: true });
-    const saveBtn = el('button', { type: 'button', class: 'primary', id: 'ordSave-items', disabled: true, onclick: () => saveAll(saveBtn, msg) }, 'Zapisz zmiany w pozycjach');
+    const saveBtn = gw(el('button', { type: 'button', class: 'primary', id: 'ordSave-items', disabled: true, onclick: () => saveAll(saveBtn, msg) }, 'Zapisz zmiany w pozycjach'));
     const dirtyFlag = el('span', { class: 'ord-dirty tip', hidden: true, title: 'W pozycjach są niezapisane zmiany' }, '● niezapisane zmiany');
     sec.onChange = () => {
       const n = rows.filter(r => r.fields()).length;
@@ -298,7 +299,7 @@ function itemsCard(C) {
     host.replaceChildren(
       el('div', { class: 'card-head ord-sec-head' }, el('div', null, el('h2', null, 'Pozycje (' + prods.length + ')'),
         editing ? el('div', { class: 'sub' }, 'Zmień ilość, rabat, cenę, VAT lub komentarz — wartości przeliczają się na żywo.') : null),
-      el('div', { class: 'ord-head-actions' }, dirtyFlag, addBtn, editing ? null : el('button', { type: 'button', class: 'secondary', id: 'ordEdit-items', title: 'Edytuj pozycje: ilość, cenę, rabat, VAT, komentarz', disabled: !prods.length, onclick: () => sec.setEditing(true) }, 'Edytuj pozycje'))),
+      el('div', { class: 'ord-head-actions' }, dirtyFlag, addBtn, editing ? null : gw(el('button', { type: 'button', class: 'secondary', id: 'ordEdit-items', title: 'Edytuj pozycje: ilość, cenę, rabat, VAT, komentarz', disabled: !prods.length, onclick: () => sec.setEditing(true) }, 'Edytuj pozycje')))),
       addOpen ? addPanel() : null, msg,
       prods.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'ordItems' }, el('thead', null, head), body, el('tfoot', null, foot))) : el('div', { class: 'empty' }, 'Zamówienie nie ma pozycji.'),
       editing && prods.length ? el('div', { class: 'ord-actions' }, saveBtn, el('button', { type: 'button', class: 'secondary', id: 'ordCancel-items', title: 'Odrzuć niezapisane zmiany w pozycjach', onclick: () => sec.setEditing(false) }, 'Anuluj')) : null);
@@ -414,12 +415,12 @@ export function buildOrderCard(deps) {
       view: o => dl([['Dostawa', o.delivery_name], ['Koszt dostawy (zł)', o.delivery_price != null && o.delivery_price !== '' ? money(o.delivery_price) : ''], ['Płatność', o.payment_name],
         ['Zapłacono (zł)', o.paid_price != null && o.paid_price !== '' ? money(o.paid_price) : '', 'Kwota, którą Selly uznaje za zapłaconą'], ['Rabat (zł)', Number(o.discount_price) ? money(o.discount_price) : ''], ['Opis rabatu', o.discount_description],
         ['Nr przesyłki', o.tracking_code], ['Paczkomat', o.inpost_parcel_locker], ['Wymagana data realizacji', dayOf(o.required_completion_date)]]),
-      extraView: o => { const t = orderTotals(o); return Math.abs(t.diff) < 0.005 ? null : el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', id: 'ordMarkPaid',
+      extraView: o => { const t = orderTotals(o); return Math.abs(t.diff) < 0.005 ? null : el('div', { class: 'ord-actions' }, gw(el('button', { type: 'button', class: 'secondary', id: 'ordMarkPaid',
         title: 'Zapisuje w Selly kwotę zapłaconą = wartość zamówienia (' + money(t.total) + ' zł)', onclick: async ev => {
           const b = ev.currentTarget; b.disabled = true;
           try { await api('orders:update', { id: c.id, fields: { paid_price: t.total } }); flash('', 'Oznaczono jako opłacone: ' + money(t.total) + ' zł'); await c.refresh(); s.render(); }
           catch (e) { b.disabled = false; flash('', 'Nie udało się zapisać: ' + (e.message || 'błąd')); }
-        } }, 'Oznacz jako opłacone (' + money(t.total) + ' zł)')); },
+        } }, 'Oznacz jako opłacone (' + money(t.total) + ' zł)'))); },
     });
     return s;
   });

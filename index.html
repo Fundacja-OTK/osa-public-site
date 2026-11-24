@@ -3,30 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- CSP: skrypty tylko z tej strony (bez inline), połączenia tylko do serwera głównego (Cloudflare Workers) i zapasowego (Apps Script) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.workers.dev https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
   <title>Panel OSA</title>
-  <link rel="stylesheet" href="css/base.css?v=2851893">
-  <link rel="stylesheet" href="css/shell.css?v=2851893">
-  <link rel="stylesheet" href="css/pulpit.css?v=2851893">
-  <link rel="stylesheet" href="css/przesylki.css?v=2851893">
-  <link rel="stylesheet" href="css/zasob.css?v=2851893">
-  <link rel="stylesheet" href="css/zasoby.css?v=2851893">
-  <link rel="stylesheet" href="css/klienci.css?v=2851893">
-  <link rel="stylesheet" href="css/produkt.css?v=2851893">
-  <link rel="stylesheet" href="css/raporty.css?v=2851893"><link rel="stylesheet" href="css/raporty-rodziny.css?v=2851893"><link rel="stylesheet" href="css/masowe.css?v=2851893"><link rel="stylesheet" href="css/dropshipping.css?v=2851893"><link rel="stylesheet" href="css/wplaty.css?v=2851893">
-  <link rel="stylesheet" href="css/feedback.css?v=2851893">
-  <link rel="stylesheet" href="css/palette.css?v=2851893">
-  <link rel="stylesheet" href="css/embed.css?v=2851893">
-  <link rel="stylesheet" href="css/natywne.css?v=2851893">
-  <link rel="stylesheet" href="css/mobile.css?v=2851893">
-  <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, clientId, version, backends? } -->
-  <script src="config.js?v=2851893"></script>
-  <script src="https://accounts.google.com/gsi/client" async></script>
-  <script>
-    // Motyw i zwinięte menu ustawiane przed pierwszym malowaniem
-    try { var t = JSON.parse(localStorage.getItem('otk-theme') || 'null'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
-    try { if (JSON.parse(localStorage.getItem('osa-sb-collapsed') || 'false')) document.documentElement.classList.add('sb-collapsed'); } catch (e) {}
-  </script>
-  <script type="module" src="js/main.js?v=2851893"></script>
+  <link rel="stylesheet" href="css/base.css?v=3befa2d">
+  <link rel="stylesheet" href="css/shell.css?v=3befa2d">
+  <link rel="stylesheet" href="css/pulpit.css?v=3befa2d">
+  <link rel="stylesheet" href="css/przesylki.css?v=3befa2d">
+  <link rel="stylesheet" href="css/zasob.css?v=3befa2d">
+  <link rel="stylesheet" href="css/zasoby.css?v=3befa2d">
+  <link rel="stylesheet" href="css/klienci.css?v=3befa2d">
+  <link rel="stylesheet" href="css/produkt.css?v=3befa2d">
+  <link rel="stylesheet" href="css/raporty.css?v=3befa2d"><link rel="stylesheet" href="css/raporty-rodziny.css?v=3befa2d"><link rel="stylesheet" href="css/masowe.css?v=3befa2d"><link rel="stylesheet" href="css/dropshipping.css?v=3befa2d"><link rel="stylesheet" href="css/wplaty.css?v=3befa2d">
+  <link rel="stylesheet" href="css/feedback.css?v=3befa2d">
+  <link rel="stylesheet" href="css/konfsklepu.css?v=3befa2d">
+  <link rel="stylesheet" href="css/palette.css?v=3befa2d">
+  <link rel="stylesheet" href="css/embed.css?v=3befa2d">
+  <link rel="stylesheet" href="css/natywne.css?v=3befa2d">
+  <link rel="stylesheet" href="css/mobile.css?v=3befa2d">
+  <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, version, backends } -->
+  <script src="config.js?v=3befa2d"></script>
+  <script src="js/preboot.js?v=3befa2d"></script>
+  <script type="module" src="js/main.js?v=3befa2d"></script>
 </head>
 <body>
 <div class="app">
@@ -47,7 +45,7 @@
             <button type="button" data-theme-opt="light" aria-pressed="false">Jasny</button>
             <button type="button" data-theme-opt="dark" aria-pressed="false">Ciemny</button>
           </div>
-          <button type="button" class="secondary small" id="signOut" hidden title="Wyloguj z panelu na tym urządzeniu (konto Google pozostaje zalogowane)">Wyloguj</button>
+          <button type="button" class="secondary small" id="signOut" hidden title="Kończy sesję panelu OSA na tym urządzeniu (we wszystkich kartach) i wylogowuje tę sesję z Selly">Wyloguj</button>
         </div>
       </div>
     </div>
@@ -67,12 +65,24 @@
     <div id="modules"></div>
 
     <div class="card" id="cardStart"><div class="loading"><div class="line"><span class="spinner"></span>Otwieram panel…</div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></div>
-    <div class="card" id="cardSignIn" hidden>
-      <div class="signin">
-        <div><strong>Zaloguj się kontem Google</strong></div>
-        <div class="muted small" id="signInMsg">Panel jest dostępny dla osób z listy uprawnionych.</div>
-        <div id="signInBtn"></div>
-      </div>
+    <div class="card login-card" id="cardSignIn" hidden>
+      <form class="login-form" id="loginForm" autocomplete="on" novalidate>
+        <h2>Zaloguj się do panelu OSA</h2>
+        <p class="muted small">Użyj tego samego loginu i hasła, co do panelu administracyjnego Selly. Zobaczysz te części panelu, do których masz dostęp w Selly.</p>
+        <label class="login-field">Login Selly<input type="text" id="loginUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="100"></label>
+        <label class="login-field">Hasło<input type="password" id="loginPass" name="password" autocomplete="current-password" required maxlength="200"></label>
+        <div class="notice error" id="loginErr" role="alert" hidden></div>
+        <button type="submit" class="primary" id="loginBtn">Zaloguj się</button>
+        <p class="muted small login-note tip" title="Hasło jest przekazywane bezpośrednio do Selly i nie jest nigdzie zapisywane. Panel OSA pamięta tylko Twój login i to, które części panelu Selly są dla Ciebie dostępne. Po 12 godzinach bezczynności trzeba zalogować się ponownie.">Hasło trafia tylko do Selly — panel OSA go nie zapisuje.</p>
+      </form>
+      <form class="login-form" id="codeForm" autocomplete="off" novalidate hidden>
+        <h2>Kod weryfikacyjny</h2>
+        <p class="muted small" id="codeHint">Selly prosi o dodatkowy kod weryfikacyjny (logowanie dwuetapowe).</p>
+        <label class="login-field">Kod<input type="text" id="loginCode" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required></label>
+        <div class="notice error" id="codeErr" role="alert" hidden></div>
+        <button type="submit" class="primary" id="codeBtn">Potwierdź kod</button>
+        <button type="button" class="secondary" id="codeBack" title="Wraca do wpisania loginu i hasła (kod trzeba będzie podać od nowa)">Wróć</button>
+      </form>
     </div>
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
     <footer class="app-foot muted small"><span id="appFoot"></span><span id="beSep" hidden> · </span><span id="beInfo" hidden></span> · <a href="privacy.html">Prywatność</a></footer>

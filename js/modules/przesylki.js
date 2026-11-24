@@ -1,10 +1,10 @@
 // Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS), tworzenie listów przewozowych
 // w porcjach, etykiety, zmiana statusu nadanych oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=2851893';
-import { api, ctx } from '../core/client.js?v=2851893';
-import { go } from '../core/router.js?v=2851893';
-import { registerListKeys } from '../core/listKeys.js?v=2851893';
+import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=3befa2d';
+import { api, ctx } from '../core/client.js?v=3befa2d';
+import { go } from '../core/router.js?v=3befa2d';
+import { registerListKeys } from '../core/listKeys.js?v=3befa2d';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -304,7 +304,7 @@ function renderBar() {
   if (!u.bar) return;
   u.bar.replaceChildren(
     el('strong', { id: 'shipSelCount' }, n ? 'Zaznaczono: ' + n : 'Nic nie zaznaczono'),
-    el('button', { type: 'button', class: 'primary', id: 'shipCreate', disabled: !n, title: n ? 'Utworzy listy przewozowe u przewoźnika dla zaznaczonych zamówień (najpierw poprosimy o potwierdzenie)' : 'Najpierw zaznacz zamówienia w tabeli',
+    el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipCreate', disabled: !n, title: n ? 'Utworzy listy przewozowe u przewoźnika dla zaznaczonych zamówień (najpierw poprosimy o potwierdzenie)' : 'Najpierw zaznacz zamówienia w tabeli',
       onclick: startCreate }, 'Utwórz listy przewozowe (' + n + ')'),
     el('button', { type: 'button', class: 'ghost', id: 'shipSelClear', disabled: !n, title: n ? 'Odznacz wszystkie zamówienia' : 'Nic nie jest zaznaczone', onclick: () => { S.sel.clear(); syncSel(); } }, 'Wyczyść zaznaczenie'));
 }
@@ -351,7 +351,7 @@ function startCreate() {
     el('p', { class: 'muted small', id: 'shipParamsText' }, 'Parametry: ' + paramsText(key)),
     el('p', { class: 'muted small' }, 'Listy zostaną utworzone w Selly u przewoźnika (może to naliczyć opłaty). Porcje po ' + maxBatch() + ' zamówień.'),
     el('div', { class: 'ord-actions' },
-      el('button', { type: 'button', class: 'primary', id: 'shipConfirm', onclick: () => run(rows.map(r => String(r.id))) }, 'Utwórz listy przewozowe'),
+      el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipConfirm', onclick: () => run(rows.map(r => String(r.id))) }, 'Utwórz listy przewozowe'),
       el('button', { type: 'button', class: 'secondary', id: 'shipCancel', onclick: close }, 'Anuluj')));
   box.scrollIntoView && box.scrollIntoView({ block: 'nearest' });
 
@@ -396,12 +396,12 @@ function startCreate() {
       failed.length ? el('ul', { class: 'ord-fails', id: 'shipFails' }, failed.slice(0, 20).map(f => el('li', null, el('strong', null, numOf(f.id)), ' — ' + f.error)),
         failed.length > 20 ? el('li', { class: 'muted' }, '… i ' + (failed.length - 20) + ' więcej') : null) : null,
       el('div', { class: 'ord-actions' },
-        failed.length ? el('button', { type: 'button', class: 'primary', id: 'shipRetry', title: 'Spróbuj ponownie tylko dla zamówień, którym nie udało się utworzyć listu', onclick: () => run(failed.map(f => f.id)) }, 'Ponów nieudane (' + failed.length + ')') : null,
+        failed.length ? el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipRetry', title: 'Spróbuj ponownie tylko dla zamówień, którym nie udało się utworzyć listu', onclick: () => run(failed.map(f => f.id)) }, 'Ponów nieudane (' + failed.length + ')') : null,
         done.length ? el('button', { type: 'button', class: failed.length ? 'secondary' : 'primary', id: 'shipLabels', title: 'Pobierz etykiety PDF wszystkich nadanych (jedna etykieta — plik PDF, kilka — archiwum ZIP)', onclick: ev => downloadLabels(done, ev.target) }, 'Pobierz etykiety (' + done.length + ')') : null,
         el('button', { type: 'button', class: 'secondary', id: 'shipClose', onclick: close }, 'Zamknij')),
       done.length && statuses().length ? el('div', { class: 'ship-status-row' },
         el('label', { class: 'field-inline', title: 'Ustaw wybrany status dla zamówień, które właśnie nadano (podpowiadamy status z „Nadane” w nazwie)' }, 'Status nadanych', stSel),
-        el('button', { type: 'button', class: 'secondary', id: 'shipSetStatus', title: 'Zmienia status nadanych zamówień w Selly (może uruchomić powiadomienia dla klientów, jeśli tak skonfigurowano status)',
+        el('button', { type: 'button', class: 'secondary', write: ['przesylki', 'zamowienia'], id: 'shipSetStatus', title: 'Zmienia status nadanych zamówień w Selly (może uruchomić powiadomienia dla klientów, jeśli tak skonfigurowano status)',
           onclick: ev => setStatusDone(box, done.map(d => String(d.id)), stSel.value, ev.target) }, 'Zmień status nadanych')) : null);
   }
 }
@@ -472,7 +472,7 @@ function renderSettings(msg) {
       el('td', { class: 'muted small' }, d.courier ? (d.manual ? el('span', { class: 'tip', title: 'Przypisane przez Ciebie ręcznie' }, 'ręcznie') : el('span', { class: 'tip', title: 'Przewoźnik rozpoznany po nazwie sposobu dostawy' }, 'wg nazwy')) : ''));
   });
   const res = el('span', { class: 'muted small', id: 'shipMapRes', role: 'status' }, msg || '');
-  const save = el('button', { type: 'button', class: 'primary', id: 'shipMapSave', title: 'Zapisuje zmiany przypisań — od razu wpływają na kolejki przewoźników', onclick: async () => {
+  const save = el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipMapSave', title: 'Zapisuje zmiany przypisań — od razu wpływają na kolejki przewoźników', onclick: async () => {
     const map = {};
     for (const [id, sel] of selects) if (sel.value !== orig.get(id)) map[id] = sel.value;
     if (!Object.keys(map).length) { res.textContent = 'Brak zmian do zapisania.'; return; }

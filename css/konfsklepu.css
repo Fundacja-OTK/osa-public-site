@@ -1,0 +1,17 @@
+/* Ekrany „strona ustawień” (konfiguracja sklepu) — paleta z base.css / palette.css (jasny i ciemny motyw), układ responsywny */
+.cfg-intro { margin: 0 0 var(--s3); }
+.cfg-sec { padding: 0; margin-bottom: var(--s3); }
+.cfg-sec > summary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s2) var(--s4); padding: var(--s3) var(--s4); cursor: pointer; }
+.cfg-sec-t { font-weight: 600; }
+.cfg-sec-n { font-size: var(--fs-sm); }
+.cfg-rows { display: grid; gap: 0; border-top: 1px solid var(--edge); }
+.cfg-row { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(0, 2fr); gap: var(--s2) var(--s4); align-items: center; padding: var(--s2) var(--s4); border-bottom: 1px solid var(--edge); }
+.cfg-row:last-child { border-bottom: 0; }
+.cfg-lbl { font-size: var(--fs-sm); color: var(--muted); }
+.cfg-edit .cfg-lbl { color: var(--text); }
+.cfg-val { overflow-wrap: anywhere; }
+.cfg-secret { color: var(--muted); font-style: italic; }
+.cfg-radios { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); }
+.cfg-row input[type=text], .cfg-row select, .cfg-row textarea { width: 100%; max-width: 420px; }
+.cfg-actions { position: sticky; bottom: 0; padding: var(--s3) 0; background: var(--bg); }
+@media (max-width: 640px) { .cfg-row { grid-template-columns: 1fr; } }

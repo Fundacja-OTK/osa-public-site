@@ -1,11 +1,11 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=2851893';
-import { api, ctx } from '../core/client.js?v=2851893';
-import { go } from '../core/router.js?v=2851893';
-import { renderProductCard, closeProductCard } from './produktKarta.js?v=2851893';
-import { noteVisit } from '../core/recents.js?v=2851893';
-import { registerListKeys } from '../core/listKeys.js?v=2851893';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=3befa2d';
+import { api, ctx } from '../core/client.js?v=3befa2d';
+import { go } from '../core/router.js?v=3befa2d';
+import { renderProductCard, closeProductCard } from './produktKarta.js?v=3befa2d';
+import { noteVisit } from '../core/recents.js?v=3befa2d';
+import { registerListKeys } from '../core/listKeys.js?v=3befa2d';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'code', 'price', 'qty', 'id', 'loc', 'ean', 'symbol'];
@@ -152,7 +152,7 @@ function buildList() {
   u.info = el('div', { class: 'muted small ord-info' });
   u.notice = el('div');
   u.results = el('div', { id: 'prodResults' });
-  u.bar = saveBar({ id: 'prodBar', noun: 'produktów', onSave: saveAll, onUndo: undoAll });
+  u.bar = saveBar({ id: 'prodBar', write: 'produkty', noun: 'produktów', onSave: saveAll, onUndo: undoAll });
   const panelNodes = [
     filterSection('Widok', el('div', { class: 'fp-list' },
       el('div', { class: 'muted small' }, 'Podział listy jak „Produkty wg kategorii / producentów / magazynów”. Dostępne tylko podziały, które umiemy zbudować z danych sklepu.'),

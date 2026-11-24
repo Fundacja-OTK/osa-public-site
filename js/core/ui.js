@@ -20,15 +20,58 @@ for (const m of ['replaceChildren', 'append', 'prepend']) {
   Element.prototype[m] = function (...nodes) { return orig.apply(this, nodes.filter(n => n != null && n !== false)); };
 }
 
+// ---- Bramka zapisu: sterowania zmieniające dane są wyłączone, gdy użytkownik nie ma prawa zmian w sekcji (docs/auth.md) ----
+export const WRITE_TIP = 'Zmiany w tej sekcji wymagają zgody administratora panelu (nadaje ją w „Kto się logował”)';
+let bootSource = () => null, grantable = [];
+/** client.js podaje źródło stanu logowania (ctx.boot) i listę sekcji ze zgodami (GRANTABLE) — ui.js niczego nie importuje. */
+export function bindWriteState(fn, grantableSections) { bootSource = fn; grantable = grantableSections || []; }
+/**
+ * Czy wolno zmieniać w sekcji (albo w którejkolwiek z listy — jak reguły serwera). Ta sama lista `write`, której używa serwer;
+ * brak listy (stary backend) = decyduje serwer, więc nie blokujemy. Administrator i sekcje spoza zgód (natywne, tylko odczyty) — zawsze.
+ */
+export function canWrite(section, boot) {
+  const b = boot === undefined ? bootSource() : boot;
+  if (!b || !Array.isArray(b.write) || b.isAdmin) return true;
+  const secs = (Array.isArray(section) ? section : [section]).filter(Boolean).map(String);
+  if (!secs.length) return true;
+  return secs.some(s => !grantable.includes(s) || b.write.includes(s));
+}
+function applyGate(e) {
+  const locked = !canWrite(String(e.dataset.writeSection || '').split(','));
+  const was = e.classList.contains('write-locked');
+  if (locked === was) return;
+  e.classList.toggle('write-locked', locked);
+  if (locked) { e.dataset.writeTitle = e.getAttribute('title') || ''; e.setAttribute('aria-disabled', 'true'); e.title = WRITE_TIP; }
+  else {
+    e.removeAttribute('aria-disabled');
+    if (e.dataset.writeTitle) e.title = e.dataset.writeTitle; else e.removeAttribute('title');
+    delete e.dataset.writeTitle;
+  }
+}
+/**
+ * Oznacza sterowanie zapisu: bez prawa zmian jest wyszarzone (aria-disabled — zostaje fokusowalne, więc podpowiedź działa z klawiatury),
+ * kliknięcie / Enter nic nie robi. Serwer i tak sprawdza uprawnienia. Zwraca element (można owijać el(...)).
+ */
+export function gateWrite(e, section) {
+  e.dataset.writeSection = (Array.isArray(section) ? section : [section]).join(',');
+  e.addEventListener('click', ev => { if (e.classList.contains('write-locked')) { ev.preventDefault(); ev.stopImmediatePropagation(); } }, true);
+  applyGate(e);
+  return e;
+}
+/** Po zmianie uprawnień w trakcie sesji (odświeżenie startu): ponownie ocenia wszystkie oznaczone sterowania. */
+export function refreshWriteGates(root) { for (const e of (root || document).querySelectorAll('[data-write-section]')) applyGate(e); }
+
 export function el(tag, attrs, ...children) {
   const e = document.createElement(tag);
   if (attrs) for (const k in attrs) {
     if (attrs[k] == null || attrs[k] === false) continue;
+    if (k === 'write') continue;   // sekcja zapisu — niżej (po title, który bramka podmienia)
     if (k === 'class') e.className = attrs[k];
     else if (k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]);
     else e.setAttribute(k, attrs[k] === true ? '' : attrs[k]);
   }
   for (const c of children.flat(Infinity)) if (c != null && c !== false) e.append(c);
+  if (attrs && attrs.write) gateWrite(e, attrs.write);   // el('button', { write: 'produkty', … }) = sterowanie zapisu (bramka uprawnień)
   return e;
 }
 
@@ -104,9 +147,10 @@ export function flash(_id, text) {
  * items() jest wywoływane przy każdym otwarciu (liczniki zawsze aktualne): [{ label, count, title, run }].
  * Zwraca element z metodą setDisabled(bool).
  */
-export function menuButton({ id, label, cls, title, items, disabled }) {
+export function menuButton({ id, label, cls, title, items, disabled, write }) {
   const btn = el('button', { type: 'button', class: cls, id, title, 'aria-haspopup': 'menu', 'aria-expanded': 'false', disabled: !!disabled },
     label, el('span', { class: 'caret', 'aria-hidden': 'true' }, '▾'));
+  if (write) gateWrite(btn, write);   // menu zmieniające dane: bez prawa zapisu nie otwiera się
   const pop = el('div', { class: 'menu-pop', role: 'menu', 'aria-label': label, hidden: true });
   const wrap = el('span', { class: 'menu' }, btn, pop);
   const enabled = () => [...pop.querySelectorAll('.menu-item:not(:disabled)')];
@@ -121,7 +165,7 @@ export function menuButton({ id, label, cls, title, items, disabled }) {
     if (refocus) btn.focus();
   }
   function open() {
-    if (btn.disabled) return;
+    if (btn.disabled || btn.classList.contains('write-locked')) return;
     pop.replaceChildren(...items().map(it => it.heading ? el('div', { class: 'menu-head', role: 'presentation' }, it.heading) : el('button', {
       type: 'button', role: 'menuitem', class: 'menu-item', tabindex: '-1', title: it.title, disabled: it.count === 0 || !!it.disabled,
       'data-active': it.active ? '1' : null, id: it.id || null,
@@ -614,7 +658,7 @@ export function inlineInput(o) {
 export function saveBar(o) {
   const count = el('strong', { id: o.id + 'Count' });
   const msg = el('span', { class: 'muted small', id: o.id + 'Msg', role: 'status' });
-  const save = el('button', { type: 'button', class: 'primary', id: o.id + 'Save', title: 'Zapisuje wszystkie zmienione pola naraz (w Selly)', onclick: () => o.onSave() }, 'Zapisz zmiany');
+  const save = el('button', { type: 'button', class: 'primary', write: o.write, id: o.id + 'Save', title: 'Zapisuje wszystkie zmienione pola naraz (w Selly)', onclick: () => o.onSave() }, 'Zapisz zmiany');
   const undo = el('button', { type: 'button', class: 'secondary', id: o.id + 'Undo', title: 'Przywraca wszystkie pola do wartości sprzed edycji', onclick: () => o.onUndo() }, 'Cofnij');
   const node = el('div', { class: 'save-bar', id: o.id, hidden: true }, el('span', null, 'Niezapisane zmiany: ', count, o.noun ? ' ' + o.noun : ''), msg, el('span', { class: 'spacer' }), undo, save);
   return {
@@ -651,4 +695,4 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=2851893';   // pole daty i zakres dat
+export * from './datepicker.js?v=3befa2d';   // pole daty i zakres dat

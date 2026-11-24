@@ -1,22 +1,23 @@
 // Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu sekcji z wysuwanymi listami
 // (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K), okruszki i tytuł strony, logowanie/start, stopka.
-import { $, el, store, pageError } from './ui.js?v=2851893';
-import { api, ctx, ENV, apiInfo, onApiInfo } from './client.js?v=2851893';
-import { signOut, freshToken, hasToken, tokenEmail } from './auth.js?v=2851893';
-import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=2851893';
-import { initErrorReporting } from './errors.js?v=2851893';
-import { setReporter } from './errorHook.js?v=2851893';
-import { initFeedback } from './feedback.js?v=2851893';
-import { watchVersion, showNewVersion } from './update.js?v=2851893';
-import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=2851893';
-import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=2851893';
-import { initPalette, openPalette } from './palette.js?v=2851893';
-import { installShortcuts, shortcuts } from './shortcuts.js?v=2851893';
-import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=2851893';
+import { $, el, store, pageError, refreshWriteGates } from './ui.js?v=3befa2d';
+import { api, ctx, ENV, apiInfo, onApiInfo, canWriteSection, READONLY_TIP } from './client.js?v=3befa2d';
+import { signOut, freshToken, hasToken, sessionLogin, adoptBoot, completePerms } from './auth.js?v=3befa2d';
+import { canSee } from '../lib/panelAuth.js?v=3befa2d';
+import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=3befa2d';
+import { initErrorReporting } from './errors.js?v=3befa2d';
+import { setReporter } from './errorHook.js?v=3befa2d';
+import { initFeedback } from './feedback.js?v=3befa2d';
+import { watchVersion, showNewVersion } from './update.js?v=3befa2d';
+import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=3befa2d';
+import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=3befa2d';
+import { initPalette, openPalette } from './palette.js?v=3befa2d';
+import { installShortcuts, shortcuts } from './shortcuts.js?v=3befa2d';
+import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=3befa2d';
 
 const ROUTE_KEY = 'osa-route';
 const RECORD_MODS = new Set(['zamowienia', 'klienci', 'produkty']);   // karta rekordu zapisuje się sama (z nazwą)
-const BOOT_KEY = 'osa-boot';   // ostatni start: tylko e-mail, rola, adres Selly i rok — do natychmiastowego otwarcia panelu
+const BOOT_KEY = 'osa-boot';   // ostatni start: login Selly, rola, sekcje, adres Selly i rok — do natychmiastowego otwarcia panelu
 const COLLAPSE_KEY = 'osa-sb-collapsed';
 
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_ADMIN;
@@ -24,15 +25,28 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
 
 /** Moduły ładowane przy pierwszym wejściu (nowe ekrany; brak pliku → strona „w planie”). */
 const LAZY = {
-  pulpit: () => import('../modules/pulpit.js?v=2851893'),
-  przesylki: () => import('../modules/przesylki.js?v=2851893'),
-  dropshipping: () => import('../modules/dropshipping.js?v=2851893'),
-  wplaty: () => import('../modules/wplaty.js?v=2851893'),
-  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=2851893'),
-  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=2851893'),
-  raporty: () => import('../modules/raporty.js?v=2851893'),
-  reklamacje: () => import('../modules/reklamacje.js?v=2851893'), oferty: () => import('../modules/oferty.js?v=2851893'),
-  'zmiana-cen': () => import('../modules/masowe.js?v=2851893'), 'zmiana-danych': () => import('../modules/masowe.js?v=2851893').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=2851893').then(m => ({ default: m.modes.kat })),
+  pulpit: () => import('../modules/pulpit.js?v=3befa2d'),
+  przesylki: () => import('../modules/przesylki.js?v=3befa2d'),
+  dropshipping: () => import('../modules/dropshipping.js?v=3befa2d'),
+  wplaty: () => import('../modules/wplaty.js?v=3befa2d'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=3befa2d'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=3befa2d'),
+  raporty: () => import('../modules/raporty.js?v=3befa2d'),
+  // konfiguracja sklepu — natywne ekrany „strona ustawień” (modules/konfSklepu.js)
+  konf: () => import('../modules/konfSklepu.js?v=3befa2d').then(m => ({ default: m.konf })), 'panel-konf': () => import('../modules/konfSklepu.js?v=3befa2d').then(m => ({ default: m.panelKonf })),
+  'wyglad-konf': () => import('../modules/konfSklepu.js?v=3befa2d').then(m => ({ default: m.wygladKonf })), znaki: () => import('../modules/konfSklepu.js?v=3befa2d').then(m => ({ default: m.znaki })),
+  jezyki: () => import('../modules/konfSklepu.js?v=3befa2d').then(m => ({ default: m.jezyki })), dostepnosc: () => import('../modules/konfSklepu.js?v=3befa2d').then(m => ({ default: m.dostepnosc })),
+  // marketplace, integracje, treści, konfiguracja zamówień — natywne ekrany „strona ustawień” (modules/konfSklepu.js)
+  ...Object.fromEntries(['allegro', 'allegro-aukcje', 'empik', 'int-porownywarki', 'int-przesylki', 'int-fk', 'int-dodatkowe', 'ai', 'slajdy', 'ksztalty', 'dostawy-konf', 'statusy-konf']
+    .map(id => [id, () => import('../modules/konfSklepu.js?v=3befa2d').then(m => ({ default: m.extra[id] }))])),
+  reklamacje: () => import('../modules/reklamacje.js?v=3befa2d'), oferty: () => import('../modules/oferty.js?v=3befa2d'),
+  // === administracja i system (podgląd): ekrany tylko do odczytu, jeden moduł (modules/adminNative.js) ===
+  ...Object.fromEntries(['admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki', 'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus'].map(id => [id, () => import('../modules/adminNative.js?v=3befa2d').then(m => ({ default: m.views[id] }))])),
+  // treści (CMS): natywne ekrany z jednego pliku
+  ...Object.fromEntries(['cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy'].map(id => [id, () => import('../modules/tresci.js?v=3befa2d').then(m => ({ default: m.screens[id] }))])),
+  // === sprzedaż (kupony, koszyki) ===
+  kupony: () => import('../modules/kupony.js?v=3befa2d'), koszyki: () => import('../modules/koszyki.js?v=3befa2d'),
+  'zmiana-cen': () => import('../modules/masowe.js?v=3befa2d'), 'zmiana-danych': () => import('../modules/masowe.js?v=3befa2d').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=3befa2d').then(m => ({ default: m.modes.kat })),
 };
 
 // ─── Błędy strony ───────────────────────────────────────────────────────────
@@ -71,15 +85,18 @@ function popup(btn, menu) {
 function setupTopbar(data) {
   $('tbUser').hidden = false;
   $('tbFeedback').hidden = false;
-  $('who').textContent = data.email ? 'Zalogowano: ' + data.email : '';
-  $('avatar').textContent = (data.email || '?').slice(0, 1).toUpperCase();
+  const login = data.login || data.email || '';
+  $('who').textContent = login ? 'Zalogowano do Selly jako: ' + login : '';
+  $('who').title = 'Panel pokazuje sekcje, do których to konto ma dostęp w Selly (' + (data.perms || []).length + '). Uprawnienia zmienia administrator sklepu w Selly; po zmianie wyloguj się i zaloguj ponownie.';
+  $('avatar').textContent = (login || '?').slice(0, 1).toUpperCase();
   popup($('userBtn'), $('userMenu'));
   $('tbSearch').hidden = false;
 }
 
 // ─── Boczne menu: sekcje + wysuwane listy pozycji ───────────────────────────
 
-const visible = (i, isAdmin) => i !== '-' && (!i.admin || isAdmin);
+/** Pozycja widoczna: sekcje OSA wg uprawnień z Selly (shared/panelAuth.js), administracyjne tylko dla administratora; linki do Selly zawsze. */
+const visible = i => i !== '-' && canSee({ perms: (ctx.boot && ctx.boot.perms) || [], admin: !!(ctx.boot && ctx.boot.isAdmin) }, i.id);
 
 const KIND_TIP = {
   soon: 'W planie w panelu OSA — na razie strona z linkiem do panelu Selly',
@@ -118,7 +135,7 @@ function renderNav(isAdmin) {
   const recent = el('div', { class: 'sb-group sb-recent', id: 'sbRecent' }, rcBtn, rcList);
 
   const secs = SECTIONS.map(s => {
-    const items = s.items.filter((i, k, arr) => i === '-' ? k > 0 && arr[k - 1] !== '-' : visible(i, isAdmin));
+    const items = s.items.filter(i => i === '-' || visible(i)).filter((i, k, arr) => i === '-' ? k > 0 && arr[k - 1] !== '-' && k < arr.length - 1 : true);
     const ours = items.filter(i => i !== '-' && i.kind !== 'selly').length;
     const btn = el('button', { type: 'button', class: 'sb-sec', 'data-sec': s.id, 'aria-expanded': 'false',
       title: s.title + ' — ' + ours + ' z ' + items.filter(i => i !== '-').length + ' pozycji w panelu OSA, reszta otwiera panel Selly' },
@@ -176,6 +193,11 @@ function markNav(modId) {
   $('pageHead').hidden = !item && !mod;
   $('modSub').textContent = sec ? sec.title + ' ›' : '';
   $('pageTitle').textContent = item ? item.title : mod ? mod.title || '' : '';
+  // sekcja bez prawa zmian: znacznik „tylko podgląd” w nagłówku strony (zapisy i tak zablokuje serwer; client.api odpowiada od razu)
+  let ro = $('roNotice');
+  if (!ro) { ro = document.createElement('span'); ro.id = 'roNotice'; ro.className = 'tag tip ro-tag'; ro.textContent = 'tylko podgląd'; ro.title = READONLY_TIP; $('pageTitle').after(ro); }
+  ro.hidden = !item || canWriteSection(item.id);
+  document.documentElement.classList.toggle('osa-readonly', !!item && !canWriteSection(item.id));
   const sl = $('tbSelly');
   sl.hidden = !(item && item.a);
   if (item && item.a) { sl.href = sellyHref(item.a); sl.title = 'Otwiera „' + item.title + '” w panelu Selly (nowa karta)'; }
@@ -240,7 +262,7 @@ export function startShell(modules) {
   setupErrors();
   setupTheme();
   setupSidebar();
-  initPalette({ sellyHref, isAdmin: () => !!(ctx.boot && ctx.boot.isAdmin) });
+  initPalette({ sellyHref, isAdmin: () => !!(ctx.boot && ctx.boot.isAdmin), canSee: id => visible({ id }) });
   installShortcuts();
   window.addEventListener('osa-recents', renderRecents);
   $('tbSearch').addEventListener('click', () => openPalette());
@@ -249,7 +271,7 @@ export function startShell(modules) {
   for (const m of modules) register(m);
   for (const [id, load] of Object.entries(LAZY)) if (!getModule(id)) register({ id, title: (itemById(id) || {}).title || '', load: () => load().then(m => m.default) });
   // Ekrany uniwersalne (lista → karta → formularz ze specyfikacji API): kind 'resource'
-  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=2851893').then(m => m.createResource(i.id)) });
+  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=3befa2d').then(m => m.createResource(i.id)) });
   // Pozycje bez własnego ekranu: strona „w planie / tylko w Selly” z linkiem
   for (const i of ITEMS) if (!getModule(i.id)) register(createPlaceholder({ id: i.id, title: i.title, sellyQuery: i.a ? '?a=' + i.a : '', adminUrl, kind: i.kind, tip: i.tip }));
   $('signOut').addEventListener('click', signOut);
@@ -259,21 +281,24 @@ export function startShell(modules) {
 
 // ─── Start: whoami (Worker) → natychmiast z zapamiętanego startu, sprawdzenie w tle ───────────────────────
 
-const slimBoot = d => ({ email: d.email || '', role: d.role || (d.isAdmin ? 'admin' : 'user'), isAdmin: !!d.isAdmin, adminUrl: d.adminUrl || '', year: d.year || null });
+const slimBoot = d => ({ login: d.login || d.email || '', email: d.login || d.email || '', role: d.role || (d.isAdmin ? 'admin' : 'user'), isAdmin: !!d.isAdmin, perms: Array.isArray(d.perms) ? d.perms : [], ...(Array.isArray(d.write) ? { write: d.write } : {}), adminUrl: d.adminUrl || '', year: d.year || null });
 const defer = fn => { if (window.requestIdleCallback) requestIdleCallback(fn, { timeout: 1500 }); else setTimeout(fn, 300); };
 let reportingOn = false;
 const ensureReporting = () => { if (!reportingOn) { reportingOn = true; setupReporting(); } };
 
-/** Dane startowe: „whoami” z Workera (szybkie); gdy go nie ma (501 / brak sieci) — „init” z Apps Script. 403 = brak dostępu. */
+/** Dane startowe: „whoami” z Workera (szybkie, odświeża też token serwera zapasowego); gdy go nie ma (501 / brak sieci) — „init” z Apps Script. */
 const fetchBoot = () => api('whoami')
-  .then(w => { if (!w || !w.email) throw Object.assign(new Error('whoami bez e-maila'), { code: 501 }); return w; })
+  .then(w => { if (!w || !(w.login || w.email)) throw Object.assign(new Error('whoami bez loginu'), { code: 501 }); return w; })
+  // przeładowanie w trakcie sprawdzania uprawnień po logowaniu — dokończ je (do tego czasu sesja nie ma żadnych sekcji)
+  .then(w => (w.permsComplete === false ? completePerms(w) : w))
+  .then(w => { adoptBoot(w); return w; })
   .catch(e => (e && e.code === 403 ? Promise.reject(e) : api('init')))
   .then(slimBoot);
 
 function cachedBoot() {
   if (!hasToken()) return null;
   const c = store(BOOT_KEY);
-  return c && c.email && String(c.email).toLowerCase() === tokenEmail() ? c : null;
+  return c && c.login && String(c.login).toLowerCase() === sessionLogin().toLowerCase() ? c : null;
 }
 
 function showStartError(err) {
@@ -282,9 +307,9 @@ function showStartError(err) {
   if (err.code === 403) store(BOOT_KEY, null);
   ensureReporting();
   $('tbFeedback').hidden = false;  // także przy błędzie startu — zgłoszenie albo „Kopiuj treść” zawsze dostępne
-  if (err.code === 403) { $('signOut').hidden = false; $('tbUser').hidden = false; popup($('userBtn'), $('userMenu')); }  // inne konto Google
+  if (err.code === 403) { $('signOut').hidden = false; $('tbUser').hidden = false; popup($('userBtn'), $('userMenu')); }  // konto Selly bez dostępu
   $('cardStart').replaceChildren(el('div', { class: 'empty' + (err.code !== 403 ? ' error' : '') },
-    err.code === 403 ? err.message + ' Możesz wylogować się i wybrać inne konto.' : 'Nie udało się otworzyć panelu: ' + err.message));
+    err.code === 403 ? err.message + ' Możesz wylogować się i zalogować innym kontem Selly.' : 'Nie udało się otworzyć panelu: ' + err.message));
 }
 
 function begin(data) {
@@ -306,12 +331,13 @@ function begin(data) {
   defer(ensureReporting);   // błędy, uwagi, kontrola wersji — po pierwszym malowaniu
 }
 
-/** Zmiana roli albo adresu Selly po sprawdzeniu w tle. */
+/** Zmiana roli, uprawnień albo adresu Selly po sprawdzeniu w tle. */
 function applyFresh(f) {
   store(BOOT_KEY, f);
-  const was = !!ctx.boot.isAdmin;
+  const was = JSON.stringify([!!ctx.boot.isAdmin, ctx.boot.perms || []]);
   ctx.boot = { ...ctx.boot, ...f, adminUrl: f.adminUrl || ctx.boot.adminUrl };
-  if (was !== !!f.isAdmin) {
+  refreshWriteGates(); if (navId) markNav(navId);
+  if (was !== JSON.stringify([!!f.isAdmin, f.perms || []])) {
     renderNav(!!f.isAdmin); if (navId) markNav(navId);
     if (navId === 'uzytkownicy') window.dispatchEvent(new HashChangeEvent('hashchange'));
   }

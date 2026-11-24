@@ -1,14 +1,14 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=2851893';
-import { api, ctx } from '../core/client.js?v=2851893';
-import { go, setLeaveGuard } from '../core/router.js?v=2851893';
-import { noteVisit } from '../core/recents.js?v=2851893';
-import { registerListKeys } from '../core/listKeys.js?v=2851893';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=2851893';
-import { createFilterUi } from './zamowieniaFiltry.js?v=2851893';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=2851893';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=2851893';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=3befa2d';
+import { api, ctx } from '../core/client.js?v=3befa2d';
+import { go, setLeaveGuard } from '../core/router.js?v=3befa2d';
+import { noteVisit } from '../core/recents.js?v=3befa2d';
+import { registerListKeys } from '../core/listKeys.js?v=3befa2d';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=3befa2d';
+import { createFilterUi } from './zamowieniaFiltry.js?v=3befa2d';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=3befa2d';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=3befa2d';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -371,7 +371,7 @@ function renderBulk() {
   const rows = [...S.sel.values()];
   u.bulk.replaceChildren(
     el('strong', { id: 'ordSelCount' }, 'Zaznaczono: ' + n),
-    menuButton({ id: 'ordStatusMenu', label: 'Zmień status', cls: 'primary', title: 'Ustaw wybrany status dla wszystkich zaznaczonych zamówień (przed zmianą pokażemy podsumowanie do potwierdzenia)',
+    menuButton({ id: 'ordStatusMenu', label: 'Zmień status', cls: 'primary', write: ['zamowienia', 'przesylki'], title: 'Ustaw wybrany status dla wszystkich zaznaczonych zamówień (przed zmianą pokażemy podsumowanie do potwierdzenia)',
       items: () => S.meta.statuses.map(s => ({ label: s.name, title: 'Ustaw status „' + s.name + '” dla zaznaczonych zamówień', run: () => startStatusChange(u.dlg, rows, String(s.id), onStatusDone) })) }),
     el('button', { type: 'button', class: 'secondary', id: 'ordCopyNums', title: 'Kopiuje numery zaznaczonych zamówień, po jednym w wierszu',
       onclick: () => copyToClipboard(rows.map(r => r.number).join('\n'), null, 'Skopiowano ' + cnt(n, 'numer', 'numery', 'numerów'), '') }, 'Kopiuj numery'),
@@ -407,7 +407,7 @@ function startStatusChange(host, orders, targetId, onDone) {
     skipped ? el('p', { class: 'muted small' }, skipped + ' ' + plural(skipped, 'zamówienie ma', 'zamówienia mają', 'zamówień ma') + ' już ten status — pominięto.') : null,
     el('p', { class: 'muted small' }, 'Zmiana zostanie zapisana w Selly (może uruchomić powiadomienia dla klientów, jeśli tak skonfigurowano status).'),
     el('div', { class: 'ord-actions' },
-      el('button', { type: 'button', class: 'primary', id: 'ordConfirm', onclick: () => run(todo.map(o => String(o.id))) }, 'Zmień status'),
+      gateWrite(el('button', { type: 'button', class: 'primary', id: 'ordConfirm', onclick: () => run(todo.map(o => String(o.id))) }, 'Zmień status'), ['zamowienia', 'przesylki']),
       el('button', { type: 'button', class: 'secondary', id: 'ordCancel', onclick: close }, 'Anuluj')));
 
   async function run(ids) {

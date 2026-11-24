@@ -3,11 +3,11 @@
 // 2) panel dopasowuje wpłaty do nieopłaconych zamówień (numer w tytule, kwota, nazwisko/e-mail; punktacja i powody),
 // 3) przeglądasz tabelę (pewne / prawdopodobne / brak) i zaznaczasz, co oznaczyć jako opłacone,
 // 4) zapis przez Worker (payments:apply — do serwera idą wyłącznie numery zamówień i kwoty „zapłacono”), podsumowanie i „Cofnij”.
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=2851893';
-import { api } from '../core/client.js?v=2851893';
-import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=2851893';
-import { loadMapping, saveMapping } from './wplatyCsv.js?v=2851893';
-import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=2851893';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=3befa2d';
+import { api } from '../core/client.js?v=3befa2d';
+import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=3befa2d';
+import { loadMapping, saveMapping } from './wplatyCsv.js?v=3befa2d';
+import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=3befa2d';
 
 const zl = v => money(v) + ' zł';
 const SKEY = 'osa-wplaty-rules', DKEY = 'osa-wplaty-days';
@@ -197,7 +197,7 @@ function paintReview() {
     el('div', { class: 'table-wrap bm-wrap' }, el('table', { id: 'wpTable' }, el('thead', null, head), tbody)),
     el('p', { class: 'bm-count', id: 'wpCount', title: 'Liczba zaznaczonych wpłat i ich suma' }, `Zaznaczono ${c.checked} z ${S.rows.length}`, c.checked ? ' · razem ' + zl(c.sum) : '', c.done ? ' · już oznaczono ' + c.done : ''),
     el('div', { class: 'bm-row bm-apply' },
-      el('button', { type: 'button', class: 'primary', id: 'wpApply', disabled: !c.checked || S.running, title: c.checked ? 'Pokaże podsumowanie do potwierdzenia — nic nie jest zapisywane od razu' : 'Zaznacz co najmniej jedną wpłatę z dopasowanym zamówieniem', onclick: confirmApply },
+      el('button', { type: 'button', class: 'primary', write: 'wplaty', id: 'wpApply', disabled: !c.checked || S.running, title: c.checked ? 'Pokaże podsumowanie do potwierdzenia — nic nie jest zapisywane od razu' : 'Zaznacz co najmniej jedną wpłatę z dopasowanym zamówieniem', onclick: confirmApply },
         c.checked ? 'Oznacz jako opłacone (' + c.checked + ')' : 'Oznacz jako opłacone'))));
   paintResult();
 }
@@ -303,7 +303,7 @@ function paintResult() {
     lines.length ? el('div', { class: 'table-wrap bm-wrap' }, el('table', { id: 'wpProblems' }, el('thead', null, el('tr', null, el('th', null, 'Zamówienie'), el('th', null, 'Co się stało'))),
       el('tbody', null, ...lines.map(([a, b]) => el('tr', null, el('td', null, a), el('td', null, b)))))) : null,
     r.undone && (r.undone.skipped.length || r.undone.failed.length) ? el('p', { class: 'bm-warn', id: 'wpUndoWarn' }, `Nie cofnięto ${r.undone.skipped.length + r.undone.failed.length} (kwota zmieniona w międzyczasie albo błąd) — sprawdź w Selly.`) : null,
-    r.done.length && !r.undone ? el('div', { class: 'bm-row' }, el('button', { type: 'button', class: 'secondary danger', id: 'wpUndo', title: 'Przywraca poprzednią kwotę zapłaconą w tych zamówieniach (jeśli ktoś jej w międzyczasie nie zmienił). Status zamówienia sprawdź w Selly.', onclick: confirmUndo }, 'Cofnij oznaczenie')) : null));
+    r.done.length && !r.undone ? el('div', { class: 'bm-row' }, el('button', { type: 'button', class: 'secondary danger', write: 'wplaty', id: 'wpUndo', title: 'Przywraca poprzednią kwotę zapłaconą w tych zamówieniach (jeśli ktoś jej w międzyczasie nie zmienił). Status zamówienia sprawdź w Selly.', onclick: confirmUndo }, 'Cofnij oznaczenie')) : null));
 }
 function confirmUndo() {
   const r = S.result, n = r.done.length;

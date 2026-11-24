@@ -1,9 +1,9 @@
 // Moduł „Magazyny”: stany, wysyłka SpeedMail, do rozliczenia, nowy ruch, inwentaryzacja, historia.
 // Trasy: #/magazyny/stany, #/magazyny/speedmail, #/magazyny/rozliczenie, #/magazyny/ruch, #/magazyny/inwentaryzacja, #/magazyny/historia.
 // Dane i zapisy: backend Warehouses.gs (akcje mag:init, mag:moves).
-import { $, el, plural, debounce, store, flash, norm, tableTsv, tableHtml, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, today, htmlEsc, dateInput } from '../core/ui.js?v=2851893';
-import { api } from '../core/client.js?v=2851893';
-import { go } from '../core/router.js?v=2851893';
+import { $, el, plural, debounce, store, flash, norm, tableTsv, tableHtml, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, today, htmlEsc, dateInput } from '../core/ui.js?v=3befa2d';
+import { api } from '../core/client.js?v=3befa2d';
+import { go } from '../core/router.js?v=3befa2d';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 
@@ -190,7 +190,7 @@ function magRozliczenie() {
   const groups = new Map();
   for (const it of d.pending) { if (!groups.has(it.orderId)) groups.set(it.orderId, []); groups.get(it.orderId).push(it); }
   const checks = [];
-  const ok = el('button', { type: 'button', title: 'Zapisuje wydanie towaru z wybranych magazynów dla zaznaczonych pozycji' }, 'Zatwierdź zaznaczone');
+  const ok = el('button', { type: 'button', write: 'magazyny',  title: 'Zapisuje wydanie towaru z wybranych magazynów dla zaznaczonych pozycji' }, 'Zatwierdź zaznaczone');
   const all = el('button', { type: 'button', class: 'secondary', title: 'Zaznacza (albo odznacza, gdy wszystkie są już zaznaczone) wszystkie pozycje na liście' }, 'Zaznacz wszystkie');
   const updBtn = () => { const n = d.pending.filter(it => selFor(it).on).length; ok.textContent = 'Zatwierdź zaznaczone' + (n ? ' (' + n + ')' : ''); ok.disabled = !n; };
   all.addEventListener('click', () => {
@@ -363,7 +363,7 @@ function magWysylka() {
     el('div', { style: 'margin-top:var(--s3)' }, smListCard('Zmień w Selly status na „Złożone OTK”', 'Numery zamówień, które realizujesz na miejscu', res.local.map(r => r.o.orderNumber), 'Brak.'))));
 
   const cols = [
-    { key: 'name', label: 'Produkt', tip: 'Nazwa produktu i jego kod', val: p => p.name, cell: p => [prodCell(p), el('button', { type: 'button', class: 'secondary', style: 'margin-top:4px', title: 'Edytuj przelicznik: ile sztuk jest w komplecie i jak produkt nazywa się w pliku dla SpeedMail', onclick: () => { sm.editPid = sm.editPid === p.id ? '' : p.id; magRender(); } }, '✎ komplet: ' + smPack(p.id).size + ' szt.')] },
+    { key: 'name', label: 'Produkt', tip: 'Nazwa produktu i jego kod', val: p => p.name, cell: p => [prodCell(p), el('button', { type: 'button', write: 'magazyny', class: 'secondary', style: 'margin-top:4px', title: 'Edytuj przelicznik: ile sztuk jest w komplecie i jak produkt nazywa się w pliku dla SpeedMail', onclick: () => { sm.editPid = sm.editPid === p.id ? '' : p.id; magRender(); } }, '✎ komplet: ' + smPack(p.id).size + ' szt.')] },
     { key: 'need', label: 'Potrzeba (szt.)', num: true, tip: 'Ile sztuk tego produktu jest w zamówieniach z grupy „Wyślij do SpeedMail”', val: p => res.use[p.id] || 0, cell: p => nf(res.use[p.id] || 0) },
     { key: 'needK', label: 'Potrzeba (komplety)', num: true, tip: 'Sztuki ÷ sztuk w komplecie — tyle kompletów trafia do pliku dla SpeedMail. Wyróżnione, gdy zamówienie nie jest wielokrotnością kompletu', val: p => (res.use[p.id] || 0) / smPack(p.id).size,
       cell: p => { const k = (res.use[p.id] || 0) / smPack(p.id).size; return Number.isInteger(k) ? nf(k) : el('span', { class: 'diffbad', title: 'Zamówienie nie jest wielokrotnością kompletu (' + smPack(p.id).size + ' szt.) — sprawdź przelicznik' }, nf(k)); } },
@@ -379,7 +379,7 @@ function magWysylka() {
     const pk = smPack(ep.id);
     const size = el('input', { type: 'number', min: '1', step: '1', value: String(pk.size), 'aria-label': 'Sztuk w komplecie' }), nm = el('input', { type: 'text', value: pk.smName, placeholder: ep.name, 'aria-label': 'Nazwa w pliku dla SpeedMail' });
     const pmsg = el('div');
-    const save = el('button', { type: 'button', id: 'smPackSave', onclick: async () => {
+    const save = el('button', { type: 'button', write: 'magazyny',  id: 'smPackSave', onclick: async () => {
       const n = Number(size.value);
       if (!Number.isInteger(n) || n < 1) { pmsg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Liczba sztuk w komplecie musi być całkowita, co najmniej 1.')); return; }
       save.disabled = true;
@@ -396,7 +396,7 @@ function magWysylka() {
   const ref = el('input', { type: 'text', id: 'smRef', placeholder: 'SM-' + today().replace(/-/g, '') + '-1', value: sm.ref, 'aria-label': 'Numer referencyjny wysyłki', title: 'Unikalny numer, który nadajesz wysyłce — po nim zidentyfikujesz paczki w raporcie SpeedMail' });
   ref.addEventListener('input', () => { sm.ref = ref.value; });
   const msg = el('div');
-  const go = el('button', { type: 'button', id: 'smConfirm', disabled: !res.send.length, title: 'Zapisuje wydanie towaru z magazynu SpeedMail dla wszystkich zamówień z grupy „Wyślij do SpeedMail”' }, 'Zatwierdź wysyłkę do SM');
+  const go = el('button', { type: 'button', write: 'magazyny',  id: 'smConfirm', disabled: !res.send.length, title: 'Zapisuje wydanie towaru z magazynu SpeedMail dla wszystkich zamówień z grupy „Wyślij do SpeedMail”' }, 'Zatwierdź wysyłkę do SM');
   go.addEventListener('click', async () => {
     const r = sm.ref.trim();
     if (!r) { msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Wpisz numer referencyjny wysyłki.')); return; }
@@ -458,7 +458,7 @@ function magRuch() {
       field(f.type === 'korekta' ? 'Magazyn' : 'Do magazynu', null, whSelect(f.to, v => { f.to = v; }, 'Magazyn docelowy')),
       field('Notatka', null, note));
   };
-  const go = el('button', { type: 'button' }, 'Zapisz ruch');
+  const go = el('button', { type: 'button', write: 'magazyny' }, 'Zapisz ruch');
   go.addEventListener('click', async () => {
     const err = t => msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, t));
     const p = findProduct(f.product), q = parseFloat(String(f.qty).replace(',', '.'));
@@ -487,7 +487,7 @@ function magInwent() {
   const cor = p => { const c = cnt(p); return c == null ? null : c - now(p); };
   const corNode = p => { const x = cor(p); return x == null ? '—' : el('span', { class: x !== 0 ? 'diffbad' : 'muted' }, (x > 0 ? '+' : '') + nf(x)); };
   const diffs = () => d.products.map(p => ({ p, d: cor(p) })).filter(x => x.d != null && x.d !== 0);
-  const save = el('button', { type: 'button' }, 'Zapisz inwentaryzację');
+  const save = el('button', { type: 'button', write: 'magazyny' }, 'Zapisz inwentaryzację');
   const upd = () => { const n = diffs().length; save.disabled = (!n && !first) || !iv.wh; info.textContent = n ? 'Do zapisania: ' + n + ' ' + plural(n, 'korekta', 'korekty', 'korekt') + '.' : 'Wpisz ilości w kolumnie „Policzono” — zapisane zostaną tylko produkty, w których różnią się od „Teraz”.'; };
   const draw = () => {
     const qn = norm(iv.q);

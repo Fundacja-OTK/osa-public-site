@@ -12,15 +12,17 @@
 </head>
 <body>
   <h1>Panel OSA — polityka prywatności</h1>
-  <p>Panel OSA to wewnętrzne narzędzie do obsługi sklepu internetowego, dostępne wyłącznie dla osób
-    z listy uprawnionych prowadzonej przez administratora.</p>
-  <h2>Jakie dane z konta Google</h2>
-  <p>Przy logowaniu panel otrzymuje od Google wyłącznie <strong>adres e-mail</strong> i podstawowy
-    identyfikator konta. Służą one tylko do sprawdzenia, czy dana osoba ma dostęp do panelu.
-    Panel nie ma dostępu do Dysku, Gmaila, kontaktów ani innych danych konta Google.</p>
+  <p>Panel OSA to wewnętrzne narzędzie do obsługi sklepu internetowego, dostępne dla osób z kontem
+    w panelu administracyjnym Selly tego sklepu.</p>
+  <h2>Logowanie</h2>
+  <p>Logujesz się tym samym loginem i hasłem co do panelu Selly (oraz kodem 2FA, jeśli Selly go wymaga).
+    Hasło i kod są przekazywane bezpośrednio do Selly i <strong>nie są nigdzie zapisywane</strong>.
+    Panel sprawdza w Selly, do których części masz dostęp, i pokazuje tylko je.</p>
   <h2>Przechowywanie</h2>
-  <p>Token logowania jest przechowywany tylko w bieżącej karcie przeglądarki i wygasa po około godzinie.
-    Serwer panelu może zapisać w dzienniku adres e-mail i czas korzystania (dziennik dostępu).
+  <p>Przeglądarka przechowuje losowy identyfikator sesji (wspólny dla kart tej przeglądarki) do wylogowania,
+    12 godzin bezczynności albo 7 dni. Serwer panelu przechowuje: Twój login Selly, czas logowania i ostatniej
+    aktywności, listę dostępnych części panelu oraz zaszyfrowaną sesję Selly (potrzebną, by działać w Selly w Twoim imieniu
+    — np. zmiana statusu reklamacji). Dziennik zmian zawiera login i rodzaj operacji.
     Dane nie są sprzedawane ani przekazywane podmiotom trzecim.</p>
   <h2>Kontakt</h2>
   <p>W sprawach danych i dostępu skontaktuj się z administratorem panelu, który przyznał Ci dostęp.</p>

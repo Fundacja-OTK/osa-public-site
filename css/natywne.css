@@ -16,3 +16,8 @@
 .nat-dialog { max-width: 560px; width: 100%; margin: 0; box-shadow: var(--shadow-pop); }
 .nat-dlg-actions { justify-content: flex-end; }
 .th-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; font-weight: inherit; }
+.nat-ro { margin-left: var(--s2); vertical-align: middle; color: var(--muted); border: 1px solid var(--border-strong); font-weight: 500; }
+.nat-extra { margin-top: var(--s3); }
+/* Podgląd treści HTML z Selly (L3): zamknięty w ramce — żaden element nie wyjdzie poza nią ani nie nakryje panelu */
+.nat-html { position: relative; overflow: hidden; contain: paint; max-height: 480px; overflow-y: auto; }
+.nat-html * { position: static !important; max-width: 100%; }

@@ -1,11 +1,11 @@
 // Karta produktu (#/produkty/<id>) i dodawanie produktu (#/produkty/nowy): zakładki, pasek zapisu ze strażnikiem wyjścia, walidacja pól.
 // Zapis: products:update (pola) + products:setMeta / setFeatures / setCategories; zdjęcia, warianty i stany magazynowe zapisują się od razu (osobne przyciski).
-import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=2851893';
-import { api, ctx } from '../core/client.js?v=2851893';
-import { go, addLeaveGuard } from '../core/router.js?v=2851893';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=2851893';
-import { noteVisit } from '../core/recents.js?v=2851893';
-import { isTyping, addKeyTip } from '../core/shortcuts.js?v=2851893';
+import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=3befa2d';
+import { api, ctx } from '../core/client.js?v=3befa2d';
+import { go, addLeaveGuard } from '../core/router.js?v=3befa2d';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=3befa2d';
+import { noteVisit } from '../core/recents.js?v=3befa2d';
+import { isTyping, addKeyTip } from '../core/shortcuts.js?v=3befa2d';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
@@ -89,7 +89,7 @@ export async function renderProductCard(box, id, o) {
 
   // ── Rejestr pól: każde ma isDirty / reset / validate / tab ────────────────────────────
   const reg = new Map();
-  const bar = saveBar({ id: 'prodCardBar', noun: 'pól', onSave: () => save(), onUndo: () => undo() });
+  const bar = saveBar({ id: 'prodCardBar', write: 'produkty', noun: 'pól', onSave: () => save(), onUndo: () => undo() });
   addKeyTip(bar.node.querySelector('#prodCardBarSave'), 'S');
   const tabBtns = new Map();
   const dirtyKeys = () => [...reg.values()].filter(e => e.isDirty()).map(e => e.key);
@@ -214,7 +214,7 @@ export async function renderProductCard(box, id, o) {
       el('p', null, 'Z ', el('strong', null, String(from)), ' na ', el('strong', null, String(to)), ' szt.'),
       el('p', { class: 'muted small' }, 'Zmiana zostanie zapisana w Selly. Nie tworzy ruchu w module Magazyny.'),
       el('div', { class: 'ord-actions' },
-        el('button', { type: 'button', class: 'primary', id: 'prodStockConfirm', onclick: async () => {
+        el('button', { type: 'button', class: 'primary', write: 'produkty', id: 'prodStockConfirm', onclick: async () => {
           try { await api('products:setStock', { id, whId: wid, qty: to }); flash('', 'Stan zapisany w Selly'); reload(); } catch (e) { close(); flash('', 'Nie udało się zapisać stanu: ' + (e.message || 'błąd')); }
         } }, 'Zmień stan'),
         el('button', { type: 'button', class: 'secondary', id: 'prodStockCancel', onclick: close }, 'Anuluj'))));
@@ -222,7 +222,7 @@ export async function renderProductCard(box, id, o) {
   const stockRows = stockList.map(s => {
     const wid = String(s.warehouse_id != null ? s.warehouse_id : s.id), name = s.name || whName(wid);
     const i = el('input', { type: 'number', min: '0', step: '1', value: String(s.quantity == null ? 0 : s.quantity), 'aria-label': 'Nowy stan w magazynie ' + name, 'data-wh': wid, class: 'qty-in' });
-    const b = el('button', { type: 'button', class: 'secondary', 'data-wh': wid, title: 'Ustaw ' + name + ' na wpisaną liczbę (zapytamy o potwierdzenie). ' + stockTip, onclick: () => {
+    const b = el('button', { type: 'button', class: 'secondary', write: 'produkty', 'data-wh': wid, title: 'Ustaw ' + name + ' na wpisaną liczbę (zapytamy o potwierdzenie). ' + stockTip, onclick: () => {
       const q = Number(i.value);
       if (i.value === '' || !isFinite(q) || q < 0) { flash('', 'Ilość musi być liczbą nie mniejszą niż 0'); return; }
       confirmStock(wid, name, Number(s.quantity) || 0, q);
@@ -331,22 +331,22 @@ export async function renderProductCard(box, id, o) {
     });
     const cards = list.map((ph, i) => {
       const dsc = el('input', { type: 'text', value: str(ph.description), maxlength: '255', 'aria-label': 'Opis zdjęcia ' + (i + 1), placeholder: 'Opis (tekst alternatywny)', title: 'Opis zdjęcia — tekst alternatywny dla wyszukiwarek i czytników ekranu' });
-      const saveDsc = el('button', { type: 'button', class: 'secondary small', hidden: true, title: 'Zapisuje opis tego zdjęcia w Selly', onclick: () => act(() => api('products:photoUpdate', { id, photoId: ph.photo_id, fields: { description: dsc.value } }), 'Opis zapisany') }, 'Zapisz opis');
+      const saveDsc = el('button', { type: 'button', class: 'secondary small', write: 'produkty', hidden: true, title: 'Zapisuje opis tego zdjęcia w Selly', onclick: () => act(() => api('products:photoUpdate', { id, photoId: ph.photo_id, fields: { description: dsc.value } }), 'Opis zapisany') }, 'Zapisz opis');
       dsc.addEventListener('input', () => { saveDsc.hidden = dsc.value === str(ph.description); });
       return el('li', { class: 'pk-photo' + (i === mainIdx ? ' main' : ''), 'data-photo': String(ph.photo_id) },
         isUrl(ph.image_url) ? el('img', { src: ph.image_url, alt: ph.description || 'Zdjęcie ' + (i + 1), loading: 'lazy' }) : el('div', { class: 'pk-noimg' }, 'brak podglądu'),
         i === mainIdx ? el('span', { class: 'pk-badge', title: 'To zdjęcie jest główne — pokazuje się na listach produktów' }, 'Główne') : null,
         dsc, saveDsc,
         el('div', { class: 'pk-photo-act' },
-          el('button', { type: 'button', class: 'secondary small', disabled: i === 0, title: i === 0 ? 'To zdjęcie jest już pierwsze' : 'Przesuń zdjęcie wcześniej w galerii', 'aria-label': 'Przesuń zdjęcie ' + (i + 1) + ' wcześniej', onclick: () => move(i, -1) }, '◀'),
-          el('button', { type: 'button', class: 'secondary small', disabled: i === list.length - 1, title: i === list.length - 1 ? 'To zdjęcie jest ostatnie' : 'Przesuń zdjęcie później w galerii', 'aria-label': 'Przesuń zdjęcie ' + (i + 1) + ' później', onclick: () => move(i, 1) }, '▶'),
-          el('button', { type: 'button', class: 'secondary small', disabled: i === mainIdx, title: i === mainIdx ? 'To zdjęcie jest już główne' : 'Ustaw jako zdjęcie główne produktu', onclick: () => act(async () => { await api('products:update', { id, fields: { photo_nr: i + 1 } }); p.photo_nr = i + 1; }, 'Zdjęcie główne zmienione') }, '★ Główne'),
-          el('button', { type: 'button', class: 'secondary small danger', title: 'Usuwa to zdjęcie z produktu w Selly (zapytamy o potwierdzenie)', onclick: () => { if (confirm('Usunąć to zdjęcie z produktu w Selly?')) act(() => api('products:photoDelete', { id, photoId: ph.photo_id }), 'Zdjęcie usunięte'); } }, 'Usuń')));
+          el('button', { type: 'button', class: 'secondary small', write: 'produkty', disabled: i === 0, title: i === 0 ? 'To zdjęcie jest już pierwsze' : 'Przesuń zdjęcie wcześniej w galerii', 'aria-label': 'Przesuń zdjęcie ' + (i + 1) + ' wcześniej', onclick: () => move(i, -1) }, '◀'),
+          el('button', { type: 'button', class: 'secondary small', write: 'produkty', disabled: i === list.length - 1, title: i === list.length - 1 ? 'To zdjęcie jest ostatnie' : 'Przesuń zdjęcie później w galerii', 'aria-label': 'Przesuń zdjęcie ' + (i + 1) + ' później', onclick: () => move(i, 1) }, '▶'),
+          el('button', { type: 'button', class: 'secondary small', write: 'produkty', disabled: i === mainIdx, title: i === mainIdx ? 'To zdjęcie jest już główne' : 'Ustaw jako zdjęcie główne produktu', onclick: () => act(async () => { await api('products:update', { id, fields: { photo_nr: i + 1 } }); p.photo_nr = i + 1; }, 'Zdjęcie główne zmienione') }, '★ Główne'),
+          el('button', { type: 'button', class: 'secondary small danger', write: 'produkty', title: 'Usuwa to zdjęcie z produktu w Selly (zapytamy o potwierdzenie)', onclick: () => { if (confirm('Usunąć to zdjęcie z produktu w Selly?')) act(() => api('products:photoDelete', { id, photoId: ph.photo_id }), 'Zdjęcie usunięte'); } }, 'Usuń')));
     });
     const fileIn = el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp,image/gif', multiple: true, id: 'prodPhotoFile', 'aria-label': 'Wybierz zdjęcia z dysku' });
     const urlIn = el('input', { type: 'url', id: 'prodPhotoUrl', placeholder: 'https://… adres zdjęcia', 'aria-label': 'Adres zdjęcia w internecie', title: 'Selly pobierze zdjęcie z podanego adresu' });
     const msg = el('div', { class: 'muted small', role: 'status', id: 'prodPhotoMsg' });
-    const upBtn = el('button', { type: 'button', class: 'primary', id: 'prodPhotoUp', title: 'Wysyła wybrane pliki do Selly (JPG, PNG, WebP lub GIF, do 6 MB każdy)', onclick: async () => {
+    const upBtn = el('button', { type: 'button', class: 'primary', write: 'produkty', id: 'prodPhotoUp', title: 'Wysyła wybrane pliki do Selly (JPG, PNG, WebP lub GIF, do 6 MB każdy)', onclick: async () => {
       const files = [...fileIn.files];
       if (!files.length) { msg.textContent = 'Najpierw wybierz plik.'; return; }
       upBtn.disabled = true;
@@ -358,7 +358,7 @@ export async function renderProductCard(box, id, o) {
       upBtn.disabled = false; fileIn.value = '';
       if (okN) { flash('', 'Dodano zdjęć: ' + okN); await loadExtra(true); }
     } }, 'Wyślij zdjęcia');
-    const urlBtn = el('button', { type: 'button', class: 'secondary', id: 'prodPhotoUrlBtn', title: 'Dodaje zdjęcie z podanego adresu', onclick: async () => {
+    const urlBtn = el('button', { type: 'button', class: 'secondary', write: 'produkty', id: 'prodPhotoUrlBtn', title: 'Dodaje zdjęcie z podanego adresu', onclick: async () => {
       if (!/^https?:\/\//i.test(urlIn.value.trim())) { msg.textContent = 'Podaj adres zaczynający się od http:// lub https://'; return; }
       urlBtn.disabled = true;
       try { await api('products:photoAdd', { id, url: urlIn.value.trim() }); urlIn.value = ''; flash('', 'Zdjęcie dodane'); await loadExtra(true); } catch (e) { msg.textContent = e.message || 'błąd'; }
@@ -467,7 +467,7 @@ export async function renderProductCard(box, id, o) {
       const mkIn = (k, t, w, lab) => el('input', { type: t, value: orig[k], 'aria-label': lab + ' — wariant ' + vid, class: 'pk-vin ' + (w || ''), min: t === 'number' ? '0' : null, step: k === 'price' ? '0.01' : t === 'number' ? '1' : null, 'data-k': k });
       const ins = { code: mkIn('code', 'text', 'w', 'Kod'), ean: mkIn('ean', 'text', 'w', 'EAN'), price: mkIn('price', 'number', 'n', 'Cena'), quantity: mkIn('quantity', 'number', 'n', 'Stan'), position: mkIn('position', 'number', 'n', 'Pozycja') };
       const def = el('input', { type: 'checkbox', checked: orig.default, 'aria-label': 'Wariant domyślny ' + vid, 'data-k': 'default' }), promo = el('input', { type: 'checkbox', checked: orig.is_promotion, 'aria-label': 'Promocja ' + vid, 'data-k': 'is_promotion' });
-      const save = el('button', { type: 'button', class: 'secondary small', 'data-variant': vid, disabled: true, title: 'Zapisuje zmiany tego wariantu w Selly', onclick: async () => {
+      const save = el('button', { type: 'button', class: 'secondary small', write: 'produkty', 'data-variant': vid, disabled: true, title: 'Zapisuje zmiany tego wariantu w Selly', onclick: async () => {
         const f = {};
         for (const k of Object.keys(ins)) if (ins[k].value !== orig[k]) { if (['price', 'quantity', 'position'].includes(k) && (ins[k].value === '' || !(Number(ins[k].value) >= 0))) { flash('', 'Wariant ' + vid + ': pole „' + k + '” musi być liczbą nie mniejszą niż 0'); return; } f[k] = ins[k].value; }
         if (def.checked !== orig.default) f.default = def.checked; if (promo.checked !== orig.is_promotion) f.is_promotion = promo.checked;
@@ -565,7 +565,7 @@ export async function renderProductCard(box, id, o) {
   const dupHost = el('div', { id: 'prodDupHost' });
   function duplicateDialog() {
     const nm = el('input', { type: 'text', id: 'prodDupName', value: (p.name || '') + ' (kopia)', maxlength: '500', 'aria-label': 'Nazwa kopii' });
-    const go2 = el('button', { type: 'button', class: 'primary', id: 'prodDupGo', onclick: async () => {
+    const go2 = el('button', { type: 'button', class: 'primary', write: 'produkty', id: 'prodDupGo', onclick: async () => {
       if (!nm.value.trim()) { flash('', 'Podaj nazwę kopii'); return; }
       go2.disabled = true;
       try { const res = await api('products:duplicate', { id, name: nm.value.trim() }); flash('', 'Utworzono kopię (ukrytą)' + (res && res.notCopied && res.notCopied.length ? ' — nie skopiowano: ' + res.notCopied.join(', ') : '')); cur = null; go('/produkty/' + encodeURIComponent(res.id)); }
@@ -586,7 +586,7 @@ export async function renderProductCard(box, id, o) {
       el('a', { href: o.listHash, class: 'btn-link', id: 'prodBack', title: 'Wróć do listy z zachowanymi filtrami, wyszukiwaniem i stroną' }, '← Wróć do listy'), el('span', { class: 'spacer' }),
       creating ? null : el('span', { class: 'muted small tip', title: 'Dane z kopii produktów synchronizowanej z Selly w tle' }, 'dane z: ' + syncedLabel(r.syncedMs)),
       creating ? sellyLink('Pełny formularz w Selly ↗', sellyRoute('produkty.nowyProdukt', ''), 'Otwiera dodawanie produktu w Selly (np. dla opcji, których tu nie ma)')
-        : el('span', { class: 'pk-actions' }, el('button', { type: 'button', class: 'secondary', id: 'prodDup', title: 'Tworzy ukrytą kopię tego produktu (bez zdjęć, wariantów i stanów)', onclick: duplicateDialog }, 'Duplikuj'),
+        : el('span', { class: 'pk-actions' }, el('button', { type: 'button', class: 'secondary', write: 'produkty', id: 'prodDup', title: 'Tworzy ukrytą kopię tego produktu (bez zdjęć, wariantów i stanów)', onclick: duplicateDialog }, 'Duplikuj'),
           isUrl(p.uri) ? sellyLink('Zobacz w sklepie ↗', p.uri, 'Otwiera stronę produktu w sklepie') : null, sellyMenu)),
     dupHost,
     el('div', { class: 'card-head' }, el('h2', { id: 'prodTitle' }, creating ? 'Nowy produkt' : (p.name || 'Produkt ' + id)), el('div', { class: 'sub' }, creating ? 'Uzupełnij dane i zapisz. Produkt powstanie jako ukryty; zdjęcia, warianty i stany dodasz w jego karcie.' : 'ID ' + id + (isOn(p.visible) ? '' : ' · ukryty w sklepie') + (isOn(p.has_variants) ? ' · z wariantami' : '') + (isOn(p.kit) ? ' · zestaw' : ''))),
@@ -594,7 +594,7 @@ export async function renderProductCard(box, id, o) {
       dl([['Stan łącznie (Selly)', p.quantity != null ? num(p.quantity) : '', 'Suma stanów ze wszystkich magazynów wg Selly'], ['Dostępność', p.availability], ['Kod producenta', p.product_code], ['Symbol', p.product_symbol]])));
 
   const body = el('div', { class: 'card pk-card' }, tabList, msgBox, tabPanels,
-    creating ? el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'primary', id: 'prodCreate', title: 'Tworzy produkt w Selly (ukryty w sklepie, dopóki go nie włączysz)', onclick: () => save() }, 'Dodaj produkt'), el('a', { href: o.listHash, class: 'btn-link' }, 'Anuluj')) : null);
+    creating ? el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'primary', write: 'produkty', id: 'prodCreate', title: 'Tworzy produkt w Selly (ukryty w sklepie, dopóki go nie włączysz)', onclick: () => save() }, 'Dodaj produkt'), el('a', { href: o.listHash, class: 'btn-link' }, 'Anuluj')) : null);
   box.replaceChildren(head, body, bar.node);
   const startTab = lastTab.id === id && tabs.some(t => t[0] === lastTab.tab) ? lastTab.tab : 'podstawowe';
   upSerp(); updNet(); panels.seo.dispatchEvent(new Event('input'));

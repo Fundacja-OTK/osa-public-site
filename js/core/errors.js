@@ -1,7 +1,7 @@
 // Zbieranie błędów przeglądarki (window error / unhandledrejection / nieudane wywołania API) i wysyłka do backendu:
 // deduplikacja po sygnaturze (komunikat + szczyt stosu), limit zdarzeń na minutę, paczki co najmniej minutę od siebie.
 // Rdzeń bez zależności od przeglądarki (zegar, timery i wysyłka wstrzykiwane — testy w node); okablowanie: initErrorReporting.
-import { deliver } from './delivery.js?v=2851893';
+import { deliver } from './delivery.js?v=3befa2d';
 
 export const MAX_EVENTS_PER_MIN = 30;     // więcej zdarzeń w minucie jest tylko liczone (dropped)
 export const FLUSH_DELAY_MS = 15000;      // zbieranie zdarzeń przed wysyłką
@@ -108,7 +108,7 @@ export function initErrorReporting({ config, getToken, hasToken, getRoute }) {
     flushDelayMs: config.errFlushMs,  // tylko testy (e2e)
     getRoute,
     send: async payload => {
-      const res = await deliver({ config, getToken: f => (hasToken() ? getToken(f) : Promise.reject(new Error('niezalogowany'))), action: 'client:errors', params: payload });
+      const res = await deliver({ config, getToken: (f, k) => (hasToken() ? getToken(f, k) : Promise.reject(new Error('niezalogowany'))), action: 'client:errors', params: payload });
       return !!res.ok;
     },
   });

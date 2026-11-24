@@ -1,13 +1,14 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
-import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=2851893';
-import { api, ctx } from '../core/client.js?v=2851893';
-import { go, setLeaveGuard } from '../core/router.js?v=2851893';
-import { noteVisit } from '../core/recents.js?v=2851893';
-import { registerListKeys } from '../core/listKeys.js?v=2851893';
-import { clientForm } from './klienciForm.js?v=2851893';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=2851893';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=2851893';
+import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=3befa2d';
+import { api, ctx } from '../core/client.js?v=3befa2d';
+import { go, setLeaveGuard } from '../core/router.js?v=3befa2d';
+import { noteVisit } from '../core/recents.js?v=3befa2d';
+import { registerListKeys } from '../core/listKeys.js?v=3befa2d';
+import { clientForm } from './klienciForm.js?v=3befa2d';
+import { mountBlockToggle } from './klienciBlokada.js?v=3befa2d';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=3befa2d';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=3befa2d';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'email', 'created', 'modified', 'orders', 'id', 'login', 'city'];
@@ -101,7 +102,7 @@ function buildList() {
     { label: 'Grupy klientów', title: 'Lista grup z liczbą klientów i nazwami własnymi', run: () => go('/klienci/grupy') },
     { label: 'Importuj klientów z pliku CSV w Selly ↗', title: 'Import klientów z pliku jest dostępny tylko w panelu Selly', run: () => window.open(adminUrl() + '?a=klienci', '_blank', 'noopener') },
     { label: 'Eksport CSV w Selly ↗', title: 'Oryginalny eksport Selly (z polami, których panel nie pokazuje)', run: () => window.open(adminUrl() + '?a=klienci', '_blank', 'noopener') }] });
-  u.addBtn = el('a', { href: '#/klienci/nowy', class: 'btn primary', id: 'cliAdd', title: 'Dodaj nowego klienta (konto w sklepie)' }, '+ Dodaj klienta');
+  u.addBtn = el('a', { write: 'klienci', href: '#/klienci/nowy', class: 'btn primary', id: 'cliAdd', title: 'Dodaj nowego klienta (konto w sklepie)' }, '+ Dodaj klienta');
   u.osa = osaBar({ prefix: 'cliOsa', withLicense: false, getQ: () => S.Q, apply: patch => setQ(patch), facets: () => S.facets });
   u.info = el('div', { class: 'muted small ord-info' });
   u.notice = el('div');
@@ -263,12 +264,12 @@ async function renderDetail(id) {
   const noteHost = el('div', { id: 'cliNoteBox' });
   const showNote = () => noteHost.replaceChildren(
     c.notes ? el('p', { class: 'cli-note-text', id: 'cliNoteText' }, c.notes) : el('p', { class: 'muted', id: 'cliNoteText' }, 'Brak notatki.'),
-    el('button', { type: 'button', class: 'secondary', id: 'cliNoteEdit', title: 'Edytuj notatkę klienta (zapisze się w Selly)', onclick: editNote }, 'Edytuj notatkę'));
+    el('button', { type: 'button', class: 'secondary', write: 'klienci', id: 'cliNoteEdit', title: 'Edytuj notatkę klienta (zapisze się w Selly)', onclick: editNote }, 'Edytuj notatkę'));
   function editNote() {
     const ta = el('textarea', { id: 'cliNoteInput', rows: '5', maxlength: '5000', 'aria-label': 'Notatka klienta' });
     ta.value = c.notes || '';
     const msg = el('div', { role: 'status' });
-    const save = el('button', { type: 'button', class: 'primary', id: 'cliNoteSave', title: 'Zapisuje notatkę w Selly', onclick: async () => {
+    const save = el('button', { type: 'button', class: 'primary', write: 'klienci', id: 'cliNoteSave', title: 'Zapisuje notatkę w Selly', onclick: async () => {
       save.disabled = true;
       try { await api('clients:update', { id, notes: ta.value }); flash('', 'Notatka zapisana w Selly'); S.data = null; renderDetail(id); }
       catch (e) { save.disabled = false; msg.replaceChildren(el('div', { class: 'notice error' }, 'Nie udało się zapisać: ' + (e.message || 'błąd'))); }
@@ -287,16 +288,17 @@ async function renderDetail(id) {
         el('td', null, stName(o.statusId)), el('td', { class: 'n nw' }, o.paid != null && o.paid !== '' && !isNaN(Number(o.paid)) ? Number(o.paid).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'))))))
       : el('div', { class: 'empty' }, 'Klient nie ma zamówień.'));
 
-  const osaCard = el('div', { id: 'cliOsaCard' }), relHost = el('div');
+  const osaCard = el('div', { id: 'cliOsaCard' }), relHost = el('div'), blockHost = el('span', { id: 'cliBlockHost' });
+  mountBlockToggle(blockHost, id, () => sellyLink('Blokada zamówień w Selly ↗', sellyClientUrl(id), 'Otwiera kartę klienta w Selly — tam ustawisz blokadę składania zamówień'));
   fillOsa(osaCard, id, my);
   box.replaceChildren(
     el('div', { class: 'card' },
       el('div', { class: 'ord-detail-top' },
         el('a', { href: S.listHash, class: 'btn-link', id: 'cliBack', title: 'Wróć do listy z zachowanym wyszukiwaniem i stroną' }, '← Wróć do listy'), el('span', { class: 'spacer' }),
         el('span', { class: 'muted small tip', title: 'Dane z kopii klientów synchronizowanej z Selly w tle' }, 'dane z: ' + syncedLabel(r.syncedMs)),
-        el('a', { href: '#/klienci/' + encodeURIComponent(id) + '/edytuj', class: 'btn primary', id: 'cliEdit', title: 'Edytuj dane klienta (zapis do Selly)' }, 'Edytuj dane'),
+        el('a', { write: 'klienci', href: '#/klienci/' + encodeURIComponent(id) + '/edytuj', class: 'btn primary', id: 'cliEdit', title: 'Edytuj dane klienta (zapis do Selly)' }, 'Edytuj dane'),
         sellyLink('Otwórz w panelu Selly ↗', sellyClientUrl(id), 'Otwiera kartę klienta w panelu administracyjnym Selly'),
-        sellyLink('Blokada zamówień w Selly ↗', sellyClientUrl(id), 'Blokadę składania zamówień ustawia się w karcie klienta w Selly (pole niedostępne w API)')),
+        blockHost),
       el('div', { class: 'card-head' }, el('h2', { id: 'cliTitle' }, name), el('div', { class: 'sub' }, 'ID ' + id)),),
     el('div', { class: 'ord-grid' },
       el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Dane kontaktowe')),
@@ -383,7 +385,7 @@ async function renderForm(id) {
     }
   };
   const actions = n => el('div', { class: 'ord-actions kf-actions' },
-    el('button', { type: 'button', class: 'primary kf-save', id: 'cliFormSave' + n, title: creating ? 'Tworzy konto klienta w Selly' : 'Zapisuje tylko zmienione pola w Selly', onclick: save }, creating ? 'Dodaj klienta' : 'Zapisz zmiany'),
+    el('button', { type: 'button', class: 'primary kf-save', write: 'klienci', id: 'cliFormSave' + n, title: creating ? 'Tworzy konto klienta w Selly' : 'Zapisuje tylko zmienione pola w Selly', onclick: save }, creating ? 'Dodaj klienta' : 'Zapisz zmiany'),
     el('a', { href: back, class: 'btn secondary', id: 'cliFormCancel' + n, title: 'Wróć bez zapisywania', onclick: () => dropGuard() }, 'Anuluj'));
   setLeaveGuard(h => (form.dirty() && !/^#\/klienci\/(nowy|\d+\/edytuj)/.test(h) ? 'Masz niezapisane zmiany klienta. Opuścić stronę bez zapisywania?' : null));
   S.guard = true;

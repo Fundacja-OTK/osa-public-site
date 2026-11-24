@@ -1,16 +1,16 @@
 // Szybkie wyszukiwanie (Ctrl+K): okno w środku ekranu — ekrany panelu, ostatnio otwarte miejsca i rekordy na żywo
 // (zamówienia, klienci, produkty z istniejących akcji API), prefiksy zam: kli: prod: ekran:. Oraz okno pomocy „?” ze skrótami.
-import { el } from './ui.js?v=2851893';
-import { api } from './client.js?v=2851893';
-import { go } from './router.js?v=2851893';
-import { ITEMS, SECTIONS, itemById, icon } from './nav.js?v=2851893';
-import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=2851893';
-import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=2851893';
-import { shortcuts, GOTO } from './shortcuts.js?v=2851893';
+import { el } from './ui.js?v=3befa2d';
+import { api } from './client.js?v=3befa2d';
+import { go } from './router.js?v=3befa2d';
+import { ITEMS, SECTIONS, itemById, icon } from './nav.js?v=3befa2d';
+import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=3befa2d';
+import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=3befa2d';
+import { shortcuts, GOTO } from './shortcuts.js?v=3befa2d';
 
 const MIN_Q = 2, DEBOUNCE = 250, TOP = 5;
 const GOTO_KEY = Object.fromEntries(Object.entries(GOTO).map(([k, id]) => [id, 'G ' + k.toUpperCase()]));
-let cfg = { sellyHref: () => '#', isAdmin: () => false };
+let cfg = { sellyHref: () => '#', isAdmin: () => false, canSee: () => true };
 let open = null;   // { close } — bieżące okno (paleta albo pomoc)
 
 const hl = (text, q) => highlightParts(text, q).map(p => (p.hit ? el('mark', null, p.t) : p.t));
@@ -36,7 +36,7 @@ const REC = {
 };
 
 function screenRows(q, limit) {
-  const vis = ITEMS.filter(i => !i.admin || cfg.isAdmin());
+  const vis = ITEMS.filter(i => (!i.admin || cfg.isAdmin()) && cfg.canSee(i.id));
   const sec = i => (SECTIONS.find(s => s.id === i.section) || {}).title || '';
   const list = q ? matchScreens(vis, q, sec, limit) : vis.slice(0, limit);
   return list.map(i => ({ type: 'screen', label: i.title, sub: sec(i), icon: i.kind === 'selly' ? 'external' : 'sliders', ext: i.kind === 'selly',

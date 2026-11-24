@@ -2,10 +2,11 @@
 // Przebieg: 1) wybór produktów (filtry albo zaznaczenie) → 2) co zmienić → 3) OBOWIĄZKOWY podgląd „przed → po” → potwierdzenie z liczbą →
 // 4) wykonanie partiami z paskiem postępu (wstrzymaj / zatrzymaj, błędy per produkt) → 5) podsumowanie i „Cofnij” (do 7 dni).
 // Backend: akcje bulk:* (Worker, token READWRITE, tempo ≤ 120 zapisów/min do Selly).
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=2851893';
-import { api, ctx } from '../core/client.js?v=2851893';
-import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=2851893';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=3befa2d';
+import { api, ctx } from '../core/client.js?v=3befa2d';
+import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=3befa2d';
 
+const BULK_W = ['zmiana-cen', 'zmiana-danych', 'zmiana-kategorii'];   // jak reguła serwera (bulk:*): dowolna z trzech sekcji
 const zl = v => money(v) + ' zł';
 const STEP = 4;   // produktów na jedno wywołanie (każdy = 2 zapytania do Selly)
 const PAGE = 100;
@@ -202,7 +203,7 @@ export function createMode(modeKey) {
         : el('div', { class: 'empty' }, 'Brak pozycji w tym widoku.'),
       S.pvShown < list.length ? el('button', { type: 'button', class: 'secondary', onclick: () => { S.pvShown += PAGE; paintPreview(); } }, 'Pokaż więcej (' + Math.min(PAGE, list.length - S.pvShown) + ')') : null,
       tooMany ? el('p', { class: 'bm-warn', id: 'bmTooMany' }, 'Za dużo zmian naraz (maks. ' + p.maxItems + ' w jednej partii) — zawęź wybór.') : null,
-      el('div', { class: 'bm-row bm-apply' }, el('button', { type: 'button', class: 'primary', id: 'bmApply', disabled: !c.changed || tooMany, onclick: confirmApply, title: c.changed ? 'Zapisz zmiany w Selly (poprosimy jeszcze o potwierdzenie)' : 'Nie ma żadnych zmian do zapisania' },
+      el('div', { class: 'bm-row bm-apply' }, el('button', { type: 'button', class: 'primary', write: BULK_W, id: 'bmApply', disabled: !c.changed || tooMany, onclick: confirmApply, title: c.changed ? 'Zapisz zmiany w Selly (poprosimy jeszcze o potwierdzenie)' : 'Nie ma żadnych zmian do zapisania' },
         'Zapisz zmiany (' + c.changed + ')'), el('span', { class: 'muted' }, 'Zmiany trafią do Selly w tempie ok. ' + perMinItems() + ' produktów na minutę; przez ' + S.meta.undoDays + ' dni możesz je cofnąć.')));
   }
 
@@ -281,10 +282,10 @@ export function createMode(modeKey) {
         b.errors ? el('span', { class: 'bm-warn' }, ' · błędy: ' + b.errors) : '', b.pending ? ' · zostało ' + b.pending + ' (' + etaText(b.pending) + ')' : ''),
       b.note ? el('p', { class: 'bm-warn', id: 'bmNote' }, b.note) : null, S.err ? el('p', { class: 'bm-warn', id: 'bmErr' }, S.err) : null,
       el('div', { class: 'bm-row' },
-        active && S.running ? el('button', { type: 'button', class: 'secondary', id: 'bmPause', onclick: () => ctl('bulk:pause'), title: 'Wstrzymaj zapisywanie — dotychczasowe zmiany zostają, możesz wznowić' }, 'Wstrzymaj') : null,
-        (b.status === 'paused' || (active && !S.running)) ? el('button', { type: 'button', class: 'primary', id: 'bmResume', onclick: () => (active ? run(b.id) : ctl('bulk:resume')), title: 'Kontynuuj zapisywanie od miejsca, w którym przerwano' }, 'Wznów') : null,
-        active || b.status === 'paused' ? el('button', { type: 'button', class: 'secondary', id: 'bmStop', onclick: () => ctl('bulk:stop'), title: 'Przerwij całkiem — niezapisane produkty zostają bez zmian, zapisane możesz cofnąć' }, 'Zatrzymaj') : null,
-        finished && b.ok > 0 && b.mode === 'apply' ? el('button', { type: 'button', class: 'secondary', id: 'bmUndo', onclick: () => confirmUndo(b), title: 'Przywróć wartości sprzed zmiany (dla produktów zapisanych w tej partii)' }, 'Cofnij zmiany') : null,
+        active && S.running ? el('button', { type: 'button', class: 'secondary', write: BULK_W, id: 'bmPause', onclick: () => ctl('bulk:pause'), title: 'Wstrzymaj zapisywanie — dotychczasowe zmiany zostają, możesz wznowić' }, 'Wstrzymaj') : null,
+        (b.status === 'paused' || (active && !S.running)) ? el('button', { type: 'button', class: 'primary', write: BULK_W, id: 'bmResume', onclick: () => (active ? run(b.id) : ctl('bulk:resume')), title: 'Kontynuuj zapisywanie od miejsca, w którym przerwano' }, 'Wznów') : null,
+        active || b.status === 'paused' ? el('button', { type: 'button', class: 'secondary', write: BULK_W, id: 'bmStop', onclick: () => ctl('bulk:stop'), title: 'Przerwij całkiem — niezapisane produkty zostają bez zmian, zapisane możesz cofnąć' }, 'Zatrzymaj') : null,
+        finished && b.ok > 0 && b.mode === 'apply' ? el('button', { type: 'button', class: 'secondary', write: BULK_W, id: 'bmUndo', onclick: () => confirmUndo(b), title: 'Przywróć wartości sprzed zmiany (dla produktów zapisanych w tej partii)' }, 'Cofnij zmiany') : null,
         finished ? el('button', { type: 'button', class: 'secondary', id: 'bmNew', onclick: reset, title: 'Zacznij od nowa — wybierz inne produkty' }, 'Nowa zmiana') : null),
       finished ? summaryBox(b, undo) : null);
   }
@@ -325,7 +326,7 @@ export function createMode(modeKey) {
         el('tbody', null, list.map(b => el('tr', { 'data-id': b.id },
           el('td', null, dateStr(new Date(b.ms).toISOString())), el('td', null, b.email), el('td', null, b.label || (b.op && b.op.kind) || ''), el('td', { class: 'n' }, String(b.total)),
           el('td', null, (STATUS_TXT[b.status] || b.status) + (b.errors ? ' · błędy: ' + b.errors : '') + (b.undone ? ' · cofnięto: ' + b.undone : '')),
-          el('td', null, b.canUndo ? el('button', { type: 'button', class: 'secondary small', 'data-undo': b.id, onclick: () => { S.batch = b; confirmUndo(b); }, title: 'Cofnij tę zmianę (do ' + dateStr(new Date(b.undoUntilMs).toISOString()) + ')' }, 'Cofnij') : '')))))) : el('p', { class: 'muted' }, 'Brak zmian masowych.'));
+          el('td', null, b.canUndo ? el('button', { type: 'button', class: 'secondary small', write: BULK_W, 'data-undo': b.id, onclick: () => { S.batch = b; confirmUndo(b); }, title: 'Cofnij tę zmianę (do ' + dateStr(new Date(b.undoUntilMs).toISOString()) + ')' }, 'Cofnij') : '')))))) : el('p', { class: 'muted' }, 'Brak zmian masowych.'));
   }
 
   // ─── Moduł ───────────────────────────────────────────────────────────────
