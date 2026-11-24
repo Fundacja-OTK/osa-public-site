@@ -636,9 +636,13 @@ export const statusPill = (text, tone, tip) => el('span', { class: 'ord-st ' + (
 
 /** Miniatura (domyślnie 56 px) albo pusty kwadrat z literą, gdy brak zdjęcia. */
 export function thumb(url, name, size = 56) {
+  const ph = () => el('span', { class: 'thumb-l ph', 'aria-hidden': 'true' }, String(name || '?').trim().charAt(0).toUpperCase());
   const ok = typeof url === 'string' && /^https?:\/\//i.test(url);
-  return ok ? el('img', { class: 'thumb-l', src: url, alt: '', loading: 'lazy', width: String(size), height: String(size) })
-    : el('span', { class: 'thumb-l ph', 'aria-hidden': 'true' }, String(name || '?').trim().charAt(0).toUpperCase());
+  if (!ok) return ph();
+  const img = el('img', { class: 'thumb-l', src: url, alt: '', loading: 'lazy', width: String(size), height: String(size) });
+  // Zdjęcie się nie wczytało — zamień na literę (ten sam rozmiar, bez skoku układu)
+  img.addEventListener('error', () => { const p = ph(); p.className = img.className.replace('thumb-l', 'thumb-l ph'); img.replaceWith(p); }, { once: true });
+  return img;
 }
 
 /**
@@ -695,4 +699,4 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=3befa2d';   // pole daty i zakres dat
+export * from './datepicker.js?v=7fa4a02';   // pole daty i zakres dat

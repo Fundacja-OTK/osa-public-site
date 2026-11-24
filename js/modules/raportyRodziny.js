@@ -1,9 +1,9 @@
 // Widok „Rodziny” raportów sprzedaży: ten sam produkt „kanoniczny” w kolejnych latach (np. „Śpiewnik OTK 2021 … 2026” to osobne produkty w Selly).
 // Lista rodzin (grupowanie automatyczne po nazwie bez roku — Worker, lib/families.js) → wybór rodziny → porównanie rok do roku: wykres, tabela, produkty-członkowie.
 // Zaawansowane (ukryte, tylko administrator): scalanie, podział, dodawanie / usuwanie produktów, zmiana nazwy rodziny — zapis w D1, wspólny dla wszystkich.
-import { el, loadingBox, sortTh, downloadMenuButton, debounce, flash } from '../core/ui.js?v=3befa2d';
-import { svg, zl, zl0, int, qty, pctText, pctFmt, deltaEl, niceMax, tile } from './raportyKit.js?v=3befa2d';
-import { lineChart, sortState, sortRows, slotLabels, periodReq } from './raportyLata.js?v=3befa2d';
+import { el, loadingBox, sortTh, downloadMenuButton, debounce, flash } from '../core/ui.js?v=7fa4a02';
+import { svg, zl, zl0, int, qty, pctText, pctFmt, deltaEl, niceMax, tile } from './raportyKit.js?v=7fa4a02';
+import { lineChart, sortState, sortRows, slotLabels, periodReq } from './raportyLata.js?v=7fa4a02';
 
 const MEAS = {
   qty: { label: 'Sprzedane sztuki', short: 'Sztuki', i: 0, fmt: qty, tip: 'Suma sztuk wszystkich produktów rodziny w liczonych zamówieniach' },

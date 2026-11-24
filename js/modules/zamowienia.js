@@ -1,14 +1,15 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=3befa2d';
-import { api, ctx } from '../core/client.js?v=3befa2d';
-import { go, setLeaveGuard } from '../core/router.js?v=3befa2d';
-import { noteVisit } from '../core/recents.js?v=3befa2d';
-import { registerListKeys } from '../core/listKeys.js?v=3befa2d';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=3befa2d';
-import { createFilterUi } from './zamowieniaFiltry.js?v=3befa2d';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=3befa2d';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=3befa2d';
+import { photoSrc } from '../core/photo.js?v=7fa4a02';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=7fa4a02';
+import { api, ctx } from '../core/client.js?v=7fa4a02';
+import { go, setLeaveGuard } from '../core/router.js?v=7fa4a02';
+import { noteVisit } from '../core/recents.js?v=7fa4a02';
+import { registerListKeys } from '../core/listKeys.js?v=7fa4a02';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=7fa4a02';
+import { createFilterUi } from './zamowieniaFiltry.js?v=7fa4a02';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=7fa4a02';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=7fa4a02';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -264,7 +265,7 @@ const parseItems = r => {
   return String(r.productsText || '').split(' • ').filter(Boolean).map(t => { const m = t.match(/^(.*) × (\d+)$/); return m ? { n: m[1], q: Number(m[2]) } : { n: t, q: null }; });
 };
 const thumbsOn = () => store('osa-ord-thumbs') !== 0;
-const thumbS = x => { const t = thumb(x.ph, x.n, 32); t.classList.add('thumb-s'); return t; };
+const thumbS = x => { const t = thumb(photoSrc(x.ph, adminUrl()), x.n, 32); t.classList.add('thumb-s'); return t; };
 function itemsCell(r) {
   const items = parseItems(r), total = Number(r.itemCount) || items.length;
   const li = x => el('li', null, thumbsOn() ? thumbS(x) : null, el('span', { class: 'nm' }, x.n), ' ', x.q != null ? el('span', { class: 'q' }, '× ' + x.q) : null);

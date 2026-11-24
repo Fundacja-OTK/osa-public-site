@@ -1,8 +1,8 @@
 // Zamówienia — interfejs filtrów złożonych: szybkie widoki, zdanie z usuwalnymi plakietkami, grupy statusów, płatność, przesyłka,
 // wartość, zapisane widoki. Logika (bez DOM) jest w zamFiltry.js. Moduł dostaje od zamowienia.js uchwyty `h` (stan, setQ, adres).
-import { el, store, flash, menuButton, copyToClipboard } from '../core/ui.js?v=3befa2d';
+import { el, store, flash, menuButton, copyToClipboard } from '../core/ui.js?v=7fa4a02';
 import { PAY_STATES, TRACK_STATES, OLDER_OPTIONS, STATUS_GROUPS, groupStatuses, toggleOption, toggleMany, csvHas, csvList, clausesOf, sentenceOf, anyFilter,
-  presetsOf, presetActive, olderToDate, cleanViews, addView, renameView, removeView, viewQs, FKEYS, EMPTY_F } from './zamFiltry.js?v=3befa2d';
+  presetsOf, presetActive, olderToDate, cleanViews, addView, renameView, removeView, viewQs, FKEYS, EMPTY_F } from './zamFiltry.js?v=7fa4a02';
 
 const VIEWS_KEY = 'osa-ord-views', GROUPS_KEY = 'osa-ord-sgroups';
 const loadViews = () => cleanViews(store(VIEWS_KEY));
@@ -100,7 +100,7 @@ export function createFilterUi(h) {
   }
 
   // ─── Panel filtrów ─────────────────────────────────────────────────────────
-  // Sekcje panelu zwijane: domyślnie otwarte tylko najczęściej używane; sekcja z aktywnym filtrem otwiera się sama
+  // Sekcje panelu zwijane: domyślnie otwarta tylko pierwsza („Klient i produkt”); sekcja z aktywnym filtrem otwiera się sama
   const secs = [];
   const sec = (title, tip, { key, open, active }, ...body) => {
     const dot = el('span', { class: 'fx-dot', hidden: true, title: 'W tej grupie jest aktywny filtr' }, '●');
@@ -144,15 +144,15 @@ export function createFilterUi(h) {
 
   U.panelNodes = (extra) => [
     U.modeNote,
+    ...extra.more.map(m => sec(extra.moreTitle, extra.moreTip, { key: 'cli', open: true, active: extra.moreActive }, m)),
     sec('Status zamówienia', 'Statusy z Selly pogrupowane tematycznie. Kliknij nazwę grupy, aby wybrać wszystkie jej statusy naraz. Zaznaczone opcje w jednej grupie łączą się słowem LUB, a różne grupy — ORAZ.',
-      { key: 'status', open: true, active: () => !!(Q().status || Q().xstatus) }, U.statusBox),
+      { key: 'status', active: () => !!(Q().status || Q().xstatus) }, U.statusBox),
     sec('Płatność', 'Czy zamówienie jest opłacone — wyliczane z kwoty wpłaconej w Selly, niezależnie od statusu. Można łączyć np. „opłacone” ze statusem „Złożone”.',
-      { key: 'pay', open: true, active: () => !!(Q().pay || Q().xpay || Q().payment) }, U.payBox, extra.payMethod),
+      { key: 'pay', active: () => !!(Q().pay || Q().xpay || Q().payment) }, U.payBox, extra.payMethod),
     sec('Dostawa i przesyłka', 'Sposób dostawy oraz to, czy zamówienie ma już numer przesyłki.', { key: 'ship', active: () => !!(Q().trk || Q().delivery) }, extra.delivery, U.trkBox),
     sec('Wartość i data', 'Wartość zamówienia z dostawą oraz zakres dat złożenia.', { key: 'val', active: () => !!(Q().min || Q().max || Q().older || Q().from || Q().to) }, el('div', { class: 'fx-row' },
       el('label', { class: 'field-inline' }, 'Wartość od (zł)', U.min), el('label', { class: 'field-inline' }, 'do (zł)', U.max)),
       el('div', { class: 'fx-row' }, extra.range, el('label', { class: 'field-inline' }, 'Wiek zamówienia', U.older), U.olderNote)),
-    ...extra.more.map(m => sec(extra.moreTitle, extra.moreTip, { key: 'cli', active: extra.moreActive }, m)),
     U.adv,
   ];
 
