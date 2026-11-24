@@ -48,4 +48,19 @@
 .pk-actions { display: inline-flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .pk-actions .btn-link { margin-top: 0; }
 button.danger { color: var(--no); }
-@media (max-width: 640px) { .pk-feat { grid-template-columns: 1fr; } .pk-tab { padding: 8px 10px; } }
+/* Podgląd zmian przed zapisem (js/modules/produktPodglad.js), warianty i magazyny (produktWarianty.js, produktMagazyny.js) */
+.pk-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: var(--scrim); padding: var(--s4); }
+.pk-dialog { max-width: 640px; width: 100%; margin: 0; max-height: calc(100vh - 32px); overflow: auto; box-shadow: var(--shadow-pop); border-color: var(--accent); }
+.pk-dialog h3 { margin-top: 0; }
+.pk-dlg-actions { justify-content: flex-end; }
+.pk-diff { width: 100%; }
+.pk-diff td { vertical-align: top; overflow-wrap: anywhere; }
+.pk-before { color: var(--muted); text-decoration: line-through; }
+button.primary.danger-fill { background: var(--no); border-color: var(--no); color: var(--surface); }
+.pk-vact { display: flex; flex-wrap: wrap; gap: 4px; }
+.pk-vmore > td { background: var(--accent-soft); }
+.pk-vadd { margin: var(--s3) 0; }
+.pk-vpairs { display: grid; gap: var(--s2); margin: var(--s2) 0; }
+.pk-vpair { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) auto; gap: var(--s2); align-items: center; }
+#whTable .ord-st { font-size: var(--fs-xs); }
+@media (max-width: 640px) { .pk-feat { grid-template-columns: 1fr; } .pk-tab { padding: 8px 10px; } .pk-vpair { grid-template-columns: 1fr 1fr auto; } .pk-vpair select { min-width: 0; } .pk-dlg-actions { justify-content: stretch; } .pk-dlg-actions button { flex: 1 1 auto; } }

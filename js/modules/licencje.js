@@ -1,9 +1,9 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=0b00058';
-import { api, ctx } from '../core/client.js?v=0b00058';
-import { go } from '../core/router.js?v=0b00058';
-import { loadingBox } from '../core/ui.js?v=0b00058';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=ff05c52';
+import { api, ctx } from '../core/client.js?v=ff05c52';
+import { go } from '../core/router.js?v=ff05c52';
+import { loadingBox } from '../core/ui.js?v=ff05c52';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
@@ -396,7 +396,9 @@ function run() {
   const id = ++state.requestId;
   showLoading(view);
   const req = view === 'list'
-    ? api('report', Object.assign({ year: year(), mode: 'all' }, params))
+    // catalog / packDefs: konfiguracja z arkusza (init) — Worker liczy raport z D1 tym samym kodem, ale lata produktów i pakiety zna tylko arkusz
+    ? api('report', Object.assign({ year: year(), mode: 'all', catalog: BOOT.products.map(p => ({ code: p.code, name: p.name, year: p.year, counted: p.counted })),
+      packDefs: BOOT.packs || [] }, params))
     : api('orszaki', params);
   req.then(r => {
     if (id !== state.requestId) return;

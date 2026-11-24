@@ -1,11 +1,14 @@
 // Karta produktu (#/produkty/<id>) i dodawanie produktu (#/produkty/nowy): zakładki, pasek zapisu ze strażnikiem wyjścia, walidacja pól.
 // Zapis: products:update (pola) + products:setMeta / setFeatures / setCategories; zdjęcia, warianty i stany magazynowe zapisują się od razu (osobne przyciski).
-import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=0b00058';
-import { api, ctx } from '../core/client.js?v=0b00058';
-import { go, addLeaveGuard } from '../core/router.js?v=0b00058';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=0b00058';
-import { noteVisit } from '../core/recents.js?v=0b00058';
-import { isTyping, addKeyTip } from '../core/shortcuts.js?v=0b00058';
+import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=ff05c52';
+import { api, ctx } from '../core/client.js?v=ff05c52';
+import { go, addLeaveGuard } from '../core/router.js?v=ff05c52';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=ff05c52';
+import { noteVisit } from '../core/recents.js?v=ff05c52';
+import { isTyping, addKeyTip } from '../core/shortcuts.js?v=ff05c52';
+import { previewModal, shownValue } from './produktPodglad.js?v=ff05c52';
+import { variantsPanel } from './produktWarianty.js?v=ff05c52';
+import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=ff05c52';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
@@ -33,7 +36,7 @@ addLeaveGuard(() => (cur && cur.dirty() ? 'W karcie produktu są niezapisane zmi
 if (typeof window !== 'undefined') window.addEventListener('beforeunload', ev => { if (cur && cur.dirty()) { ev.preventDefault(); ev.returnValue = ''; } });
 // Skrót S (albo Ctrl+S) zapisuje kartę — poza polami tekstowymi; Esc wraca do listy (skróty listy: core/listKeys.js, przycisk #prodBack)
 if (typeof document !== 'undefined') document.addEventListener('keydown', ev => {
-  if (!cur || !cur.save || ev.defaultPrevented || ev.altKey) return;
+  if (!cur || !cur.save || ev.defaultPrevented || ev.altKey || document.querySelector('.pk-modal')) return;
   const k = String(ev.key).toLowerCase();
   const ctrl = (ev.ctrlKey || ev.metaKey) && k === 's';
   const plain = k === 's' && !ev.ctrlKey && !ev.metaKey && !isTyping(ev.target) && !document.querySelector('.pal-overlay');
@@ -105,6 +108,7 @@ export async function renderProductCard(box, id, o) {
   cur = { dirty: () => !creating && dirtyKeys().length > 0, save: () => save() };
   if (!creating) noteVisit({ t: 'product', id, label: p.name || ('Produkt ' + id) });
   const wrapField = (e, label, control, tip, hint) => {
+    e.label = e.label || label;
     e.err = el('div', { class: 'pk-err', role: 'alert', hidden: true });
     e.wrap = el('label', { class: 'pk-f', title: tip || null }, el('span', { class: tip ? 'pk-l tip' : 'pk-l' }, label), control, hint ? el('span', { class: 'pk-hint' }, hint) : null, e.err);
     return e.wrap;
@@ -129,7 +133,7 @@ export async function renderProductCard(box, id, o) {
   const chk = (key, tab, label, tip, init) => {
     const initial = init != null ? !!init : isOn(p[key]);
     const c = el('input', { type: 'checkbox', id: fid(key), checked: initial, 'aria-label': label });
-    const e = add(key, tab, { kind: 'check', input: c, initial, isDirty: () => c.checked !== initial, reset: () => { c.checked = initial; }, value: () => c.checked, validate: () => '' });
+    const e = add(key, tab, { kind: 'check', label, input: c, initial, isDirty: () => c.checked !== initial, reset: () => { c.checked = initial; }, value: () => c.checked, validate: () => '' });
     c.addEventListener('change', refresh);
     e.wrap = el('label', { class: 'pk-chk', title: tip || null }, c, el('span', { class: tip ? 'tip' : null }, label));
     return e.wrap;
@@ -205,35 +209,7 @@ export async function renderProductCard(box, id, o) {
   panels.ceny.addEventListener('input', updNet);
 
   // ── Magazyn ────────────────────────────────────────────────────────────────────────────────────
-  const stockHost = el('div', { id: 'prodStockDlg' });
-  const stockTip = 'Stan magazynowy zapisany w Selly dla tego produktu. Uwaga: stan fizyczny prowadzi moduł Magazyny (ruchy: przyjęcia, wydania, inwentaryzacja) — tutaj poprawiasz tylko liczbę widoczną w Selly, bez zapisu ruchu.';
-  function confirmStock(wid, name, from, to) {
-    const close = () => stockHost.replaceChildren();
-    stockHost.replaceChildren(el('div', { class: 'card ord-dialog', role: 'dialog', 'aria-label': 'Zmiana stanu w magazynie' },
-      el('h3', null, 'Zmienić stan w magazynie „' + name + '”?'),
-      el('p', null, 'Z ', el('strong', null, String(from)), ' na ', el('strong', null, String(to)), ' szt.'),
-      el('p', { class: 'muted small' }, 'Zmiana zostanie zapisana w Selly. Nie tworzy ruchu w module Magazyny.'),
-      el('div', { class: 'ord-actions' },
-        el('button', { type: 'button', class: 'primary', write: 'produkty', id: 'prodStockConfirm', onclick: async () => {
-          try { await api('products:setStock', { id, whId: wid, qty: to }); flash('', 'Stan zapisany w Selly'); reload(); } catch (e) { close(); flash('', 'Nie udało się zapisać stanu: ' + (e.message || 'błąd')); }
-        } }, 'Zmień stan'),
-        el('button', { type: 'button', class: 'secondary', id: 'prodStockCancel', onclick: close }, 'Anuluj'))));
-  }
-  const stockRows = stockList.map(s => {
-    const wid = String(s.warehouse_id != null ? s.warehouse_id : s.id), name = s.name || whName(wid);
-    const i = el('input', { type: 'number', min: '0', step: '1', value: String(s.quantity == null ? 0 : s.quantity), 'aria-label': 'Nowy stan w magazynie ' + name, 'data-wh': wid, class: 'qty-in' });
-    const b = el('button', { type: 'button', class: 'secondary', write: 'produkty', 'data-wh': wid, title: 'Ustaw ' + name + ' na wpisaną liczbę (zapytamy o potwierdzenie). ' + stockTip, onclick: () => {
-      const q = Number(i.value);
-      if (i.value === '' || !isFinite(q) || q < 0) { flash('', 'Ilość musi być liczbą nie mniejszą niż 0'); return; }
-      confirmStock(wid, name, Number(s.quantity) || 0, q);
-    } }, 'Ustaw');
-    return el('tr', null, el('td', null, name), el('td', { class: 'n' }, num(s.quantity)), el('td', { class: 'n nw' }, s.purchase_price != null && s.purchase_price !== '' ? money(s.purchase_price) : ''), el('td', { class: 'nw' }, i, ' ', b));
-  });
-  const stockCard = el('div', { class: 'pk-sec' }, el('h3', null, 'Stany w magazynach ', el('span', { class: 'sub tip', title: stockTip }, '(na żywo z Selly)')),
-    r.stockError || !Array.isArray(r.stock) ? el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać stanów z Selly' + (r.stockError ? ' (' + textVal(r.stockError) + ')' : '') + '. Reszta danych jest aktualna.')
-      : stockRows.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'prodStock' }, el('thead', null, el('tr', null, th('Magazyn', 'Magazyn w Selly'), th('Stan', 'Stan w Selly (szt.)', 'n'), th('Cena zakupu (zł)', 'Cena zakupu przypisana do tego magazynu w Selly', 'n'), th('Ustaw stan', stockTip))), el('tbody', null, stockRows)))
-        : el('div', { class: 'empty' }, 'Produkt nie ma przypisanych magazynów.'),
-    stockHost);
+  const stockCard = creating ? null : stockPanel({ id, stock: r.stock, stockError: r.stockError, warehouses: r.warehouses, whName, reload, textVal });
   const sales = r.sales || {}, moves = r.moves || [];
   panels.magazyn = el('div', null, stockCard,
     el('div', { class: 'pk-sec' }, el('h3', null, 'Lokalizacja i jednostki'), el('div', { class: 'pk-grid' },
@@ -264,7 +240,7 @@ export async function renderProductCard(box, id, o) {
     const bar2 = el('div', { class: 'pk-tb', role: 'toolbar', 'aria-label': 'Formatowanie: ' + label },
       tb('B', 'Pogrubienie zaznaczonego tekstu', '<strong>', '</strong>'), tb('I', 'Kursywa', '<em>', '</em>'), tb('Nagłówek', 'Nagłówek (h3)', '<h3>', '</h3>'), tb('Akapit', 'Akapit', '<p>', '</p>'),
       tb('• Lista', 'Lista punktowana — każdy punkt w osobnym <li>', '<ul>\n<li>', '</li>\n</ul>'), tb('Link', 'Odnośnik: wstawia adres https://', '<a href="https://">', '</a>'), tb('↵', 'Nowa linia', '', '<br>'));
-    const e = add(key, 'opisy', { kind: 'html', input: ta, initial, isDirty: () => ta.value !== initial, reset: () => { ta.value = initial; render(); e.show(''); }, value: () => ta.value,
+    const e = add(key, 'opisy', { kind: 'html', label, input: ta, initial, isDirty: () => ta.value !== initial, reset: () => { ta.value = initial; render(); e.show(''); }, value: () => ta.value,
       validate: () => (ta.value.length > (key === 'content_html' ? 200000 : 20000) ? label + ': za długi tekst.' : ''), show: m => { e.err.textContent = m; e.err.hidden = !m; } });
     ta.addEventListener('input', () => { render(); refresh(); });
     render();
@@ -414,7 +390,7 @@ export async function renderProductCard(box, id, o) {
     const m = metaInit();
     const mk = (key, mkey, label, tip, initial, host, tab) => {
       const c = el('input', { type: 'checkbox', id: fid(key), checked: initial, 'aria-label': label });
-      const e = add(key, tab, { kind: 'meta', input: c, initial, meta: mkey, isDirty: () => c.checked !== initial, reset: () => { c.checked = initial; }, value: () => c.checked, validate: () => '' });
+      const e = add(key, tab, { kind: 'meta', label, shown: 'check', input: c, initial, meta: mkey, isDirty: () => c.checked !== initial, reset: () => { c.checked = initial; }, value: () => c.checked, validate: () => '' });
       c.addEventListener('change', refresh);
       e.wrap = el('label', { class: 'pk-chk', title: tip }, c, el('span', { class: 'tip' }, label));
       host.replaceChildren(e.wrap);
@@ -431,12 +407,14 @@ export async function renderProductCard(box, id, o) {
     const d = extraState.data || {};
     feats = (d.features || []).map(f => ({ name: str(f.name), values: (Array.isArray(f.values) ? f.values : [f.values]).filter(v => v != null).map(String).join(', ') }));
     const fInit = JSON.stringify(feats);
-    add('features', 'atrybuty', { kind: 'custom', isDirty: () => JSON.stringify(feats) !== fInit, reset: () => { feats = JSON.parse(fInit); featuresView(); }, validate: () => (feats.some(f => !f.name.trim() && f.values.trim()) ? 'Atrybut z wartościami musi mieć nazwę.' : '') });
+    const featText = list => list.filter(f => f.name.trim()).map(f => f.name + ': ' + f.values).join('; ') || '(brak)';
+    add('features', 'atrybuty', { kind: 'custom', label: 'Atrybuty', describe: () => ({ before: featText(JSON.parse(fInit)), after: featText(feats) }), isDirty: () => JSON.stringify(feats) !== fInit, reset: () => { feats = JSON.parse(fInit); featuresView(); }, validate: () => (feats.some(f => !f.name.trim() && f.values.trim()) ? 'Atrybut z wartościami musi mieć nazwę.' : '') });
     cats = (d.multiCat || []).map(c => ({ id: String(c.id), name: c.name || '' }));
     const named = c => { const it = (dicts.categories || []).find(x => String(x.id) === String(c.id)); return { id: c.id, name: it ? it.name : c.name }; };
     cats = cats.map(named);
     catsInitial = cats.map(c => c.id).sort();
-    add('multicat', 'powiazane', { kind: 'custom', isDirty: () => JSON.stringify(cats.map(c => c.id).sort()) !== JSON.stringify(catsInitial), reset: () => { cats = catsInitial.map(i => named({ id: i, name: '' })); relatedView(); }, validate: () => '' });
+    const catText = ids => ids.map(i => named({ id: i, name: '#' + i }).name).join(', ') || '(brak)';
+    add('multicat', 'powiazane', { kind: 'custom', label: 'Kategorie dodatkowe', describe: () => ({ before: catText(catsInitial), after: catText(cats.map(c => c.id)) }), isDirty: () => JSON.stringify(cats.map(c => c.id).sort()) !== JSON.stringify(catsInitial), reset: () => { cats = catsInitial.map(i => named({ id: i, name: '' })); relatedView(); }, validate: () => '' });
     photos = d.photos || [];
     photosView(); featuresView(); relatedView(); refresh();
   }
@@ -456,35 +434,8 @@ export async function renderProductCard(box, id, o) {
   }
   for (const h of [photosHost, featHost, relHost]) h.replaceChildren(loadingBox('Pobieram dane z Selly…'));
 
-  // ── Warianty (edycja w wierszu, zapis od razu) ─────────────────────────────────────────────────
-  const vs = Array.isArray(r.variants) ? r.variants : [];
-  if (r.variantsError) panels.warianty.append(el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać wariantów z Selly (' + textVal(r.variantsError) + ').'));
-  else if (!vs.length) panels.warianty.append(el('div', { class: 'empty' }, 'Produkt nie ma wariantów.'));
-  else {
-    const rowsV = vs.map(v => {
-      const vid = String(v.variant_id != null ? v.variant_id : v.id);
-      const orig = { code: str(v.code), ean: str(v.ean), price: str(v.price), quantity: str(v.quantity), position: str(v.position), default: isOn(v.default), is_promotion: isOn(v.is_promotion) };
-      const mkIn = (k, t, w, lab) => el('input', { type: t, value: orig[k], 'aria-label': lab + ' — wariant ' + vid, class: 'pk-vin ' + (w || ''), min: t === 'number' ? '0' : null, step: k === 'price' ? '0.01' : t === 'number' ? '1' : null, 'data-k': k });
-      const ins = { code: mkIn('code', 'text', 'w', 'Kod'), ean: mkIn('ean', 'text', 'w', 'EAN'), price: mkIn('price', 'number', 'n', 'Cena'), quantity: mkIn('quantity', 'number', 'n', 'Stan'), position: mkIn('position', 'number', 'n', 'Pozycja') };
-      const def = el('input', { type: 'checkbox', checked: orig.default, 'aria-label': 'Wariant domyślny ' + vid, 'data-k': 'default' }), promo = el('input', { type: 'checkbox', checked: orig.is_promotion, 'aria-label': 'Promocja ' + vid, 'data-k': 'is_promotion' });
-      const save = el('button', { type: 'button', class: 'secondary small', write: 'produkty', 'data-variant': vid, disabled: true, title: 'Zapisuje zmiany tego wariantu w Selly', onclick: async () => {
-        const f = {};
-        for (const k of Object.keys(ins)) if (ins[k].value !== orig[k]) { if (['price', 'quantity', 'position'].includes(k) && (ins[k].value === '' || !(Number(ins[k].value) >= 0))) { flash('', 'Wariant ' + vid + ': pole „' + k + '” musi być liczbą nie mniejszą niż 0'); return; } f[k] = ins[k].value; }
-        if (def.checked !== orig.default) f.default = def.checked; if (promo.checked !== orig.is_promotion) f.is_promotion = promo.checked;
-        save.disabled = true;
-        try { await api('products:variantUpdate', { id, variantId: vid, fields: f }); flash('', 'Wariant zapisany w Selly'); reload(); } catch (e) { save.disabled = false; flash('', 'Nie udało się zapisać wariantu: ' + (e.message || 'błąd')); }
-      } }, 'Zapisz');
-      const chg = () => { const d = Object.keys(ins).some(k => ins[k].value !== orig[k]) || def.checked !== orig.default || promo.checked !== orig.is_promotion; save.disabled = !d; tr.classList.toggle('dirty-row', d); };
-      const tr = el('tr', { 'data-variant': vid }, el('td', null, textVal(v.features || v.name || v.variant_name) || 'Wariant ' + vid), el('td', null, ins.code), el('td', null, ins.ean), el('td', { class: 'n' }, ins.price), el('td', { class: 'n' }, ins.quantity), el('td', { class: 'n' }, ins.position), el('td', null, def), el('td', null, promo), el('td', null, save));
-      tr.addEventListener('input', chg); tr.addEventListener('change', chg);
-      return tr;
-    });
-    panels.warianty.append(el('div', { class: 'table-wrap' }, el('table', { id: 'prodVariants' }, el('thead', null, el('tr', null,
-      th('Wariant', 'Cechy wariantu (np. kolor, rozmiar)'), th('Kod', 'Kod producenta wariantu'), th('EAN', 'Kod EAN wariantu'), th('Cena (zł)', 'Cena brutto wariantu', 'n'), th('Stan', 'Stan wariantu w Selly (szt.) — ustawia przyjęcia/wydania, tu tylko korekta', 'n'),
-      th('Poz.', 'Pozycja na liście wariantów', 'n'), th('Domyślny', 'Wariant wybrany domyślnie w sklepie'), th('Promocja', 'Wariant oznaczony jako promowany'), th('', 'Zapis wiersza'))), el('tbody', null, rowsV))));
-  }
-  if (!creating) panels.warianty.append(el('div', { class: 'pk-note' }, 'Zmiany w wierszu zapisujesz przyciskiem „Zapisz” (od razu w Selly). Dodawanie i usuwanie wariantów oraz grupy cech — w Selly: ',
-    sellyLink('Warianty w Selly ↗', sellyRoute('produkty.produktWarianty', id), 'Otwiera warianty tego produktu w Selly (dodawanie, usuwanie, kolejność)')));
+  // ── Warianty: edycja w wierszu, dodawanie, usuwanie (js/modules/produktWarianty.js) ─────────────
+  if (!creating) variantsPanel(panels.warianty, { id, product: p, variants: r.variants, variantsError: r.variantsError, reload, sellyRoute, textVal });
 
   // ── Zapis ──────────────────────────────────────────────────────────────────────────────────────
   const msgBox = el('div', { id: 'prodSaveMsg', role: 'status' });
@@ -512,11 +463,29 @@ export async function renderProductCard(box, id, o) {
     if (pc.isDirty() || (!onlyDirty && pc.value())) out.promotion_category = pc.value() ? (Number(p.promotion_category) > 0 ? Number(p.promotion_category) : 1) : 0;
     return out;
   }
+  /** Lista zmian do podglądu: pole, było, będzie (opisy HTML — długość; atrybuty i kategorie — lista). */
+  function changeRows() {
+    const rows = [];
+    for (const e of reg.values()) {
+      if (!e.isDirty()) continue;
+      if (e.describe) { rows.push({ label: e.label || e.key, ...e.describe() }); continue; }
+      const kind = e.shown || e.kind;
+      rows.push({ label: e.label || e.key, before: shownValue(kind, e.initial, e.input), after: shownValue(kind, e.value(), e.input) });
+    }
+    return rows;
+  }
   async function save() {
     const errs = validate();
     if (errs.length) { goTab(errs[0].tab); msgBox.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, errs[0].msg + (errs.length > 1 ? ' (i ' + (errs.length - 1) + ' inne)' : ''))); bar.say(errs[0].msg); return; }
     const dirty = new Set(dirtyKeys());
     if (!creating && !dirty.size) { msgBox.replaceChildren(el('div', { class: 'muted small' }, 'Nic nie zmieniono.')); return; }
+    if (creating) { await doSave(dirty); return; }
+    const rows = changeRows();
+    previewModal({ id: 'prodPreview', title: 'Zapisać zmiany w Selly?', intro: 'Sprawdź, co się zmieni w produkcie „' + (p.name || id) + '”:', rows, write: 'produkty',
+      note: rows.some(r => /URL/.test(r.label)) ? 'Uwaga: zmiana adresu produktu zmienia link do jego strony w sklepie.' : 'Zmiany trafią od razu do sklepu.', okLabel: 'Zapisz w Selly (' + rows.length + ')',
+      onOk: async close => { close(); await doSave(dirty); } });
+  }
+  async function doSave(dirty) {
     bar.busy(true); msgBox.replaceChildren(el('div', { class: 'muted small' }, 'Zapisuję…'));
     const failed = []; let done = 0;
     try {
@@ -587,7 +556,9 @@ export async function renderProductCard(box, id, o) {
       creating ? null : el('span', { class: 'muted small tip', title: 'Dane z kopii produktów synchronizowanej z Selly w tle' }, 'dane z: ' + syncedLabel(r.syncedMs)),
       creating ? sellyLink('Pełny formularz w Selly ↗', sellyRoute('produkty.nowyProdukt', ''), 'Otwiera dodawanie produktu w Selly (np. dla opcji, których tu nie ma)')
         : el('span', { class: 'pk-actions' }, el('button', { type: 'button', class: 'secondary', write: 'produkty', id: 'prodDup', title: 'Tworzy ukrytą kopię tego produktu (bez zdjęć, wariantów i stanów)', onclick: duplicateDialog }, 'Duplikuj'),
-          isUrl(p.uri) ? sellyLink('Zobacz w sklepie ↗', p.uri, 'Otwiera stronę produktu w sklepie') : null, sellyMenu)),
+          isUrl(p.uri) ? sellyLink('Zobacz w sklepie ↗', p.uri, 'Otwiera stronę produktu w sklepie') : null, sellyMenu,
+          ctx.boot && ctx.boot.isAdmin ? el('button', { type: 'button', class: 'secondary danger', write: 'produkty', id: 'prodDelete', title: 'Usuwa produkt z Selly na stałe (zapytamy o potwierdzenie). Zamiast usuwać możesz go ukryć — odznacz „Widoczny w sklepie”.',
+            onclick: () => deleteProductDialog({ id, name: p.name, onDone: () => { cur = null; go(o.listHash.replace(/^#/, '') || '/produkty'); } }) }, 'Usuń') : null)),
     dupHost,
     el('div', { class: 'card-head' }, el('h2', { id: 'prodTitle' }, creating ? 'Nowy produkt' : (p.name || 'Produkt ' + id)), el('div', { class: 'sub' }, creating ? 'Uzupełnij dane i zapisz. Produkt powstanie jako ukryty; zdjęcia, warianty i stany dodasz w jego karcie.' : 'ID ' + id + (isOn(p.visible) ? '' : ' · ukryty w sklepie') + (isOn(p.has_variants) ? ' · z wariantami' : '') + (isOn(p.kit) ? ' · zestaw' : ''))),
     creating ? null : el('div', { class: 'prod-top' }, isUrl(p.main_photo) ? el('img', { class: 'photo', src: p.main_photo, alt: '' }) : null,

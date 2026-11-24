@@ -1,11 +1,12 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=0b00058';
-import { api, ctx } from '../core/client.js?v=0b00058';
-import { go } from '../core/router.js?v=0b00058';
-import { renderProductCard, closeProductCard } from './produktKarta.js?v=0b00058';
-import { noteVisit } from '../core/recents.js?v=0b00058';
-import { registerListKeys } from '../core/listKeys.js?v=0b00058';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=ff05c52';
+import { api, ctx } from '../core/client.js?v=ff05c52';
+import { go } from '../core/router.js?v=ff05c52';
+import { renderProductCard, closeProductCard } from './produktKarta.js?v=ff05c52';
+import { warehousesScreen } from './produktMagazyny.js?v=ff05c52';
+import { noteVisit } from '../core/recents.js?v=ff05c52';
+import { registerListKeys } from '../core/listKeys.js?v=ff05c52';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'code', 'price', 'qty', 'id', 'loc', 'ean', 'symbol'];
@@ -172,7 +173,8 @@ function buildList() {
   u.filters = L.panel;
   S.listBox = el('div', { class: 'ord-list' }, el('div', { class: 'card' },
     pageToolbar({ title: 'Produkty', sub: 'Lista produktów ze sklepu (kopia odświeżana w tle). Ceny i widoczność poprawisz bezpośrednio w tabeli i zapiszesz wszystko naraz.',
-      actions: [u.filtersBtn, el('a', { class: 'btn-primary', id: 'prodAdd', href: '#/produkty/nowy',
+      actions: [u.filtersBtn, el('a', { class: 'btn-link', id: 'prodWhSettings', href: '#/produkty/magazyny', title: 'Magazyny Selly z ustawieniami: domyślny, sprzedaż mimo braku, ukrywanie przy braku, czas dostawy' }, 'Ustawienia magazynów'),
+        el('a', { class: 'btn-primary', id: 'prodAdd', href: '#/produkty/nowy',
         title: 'Otwiera formularz nowego produktu (powstaje jako ukryty, dopóki go nie włączysz). Pełny formularz Selly jest dostępny z jego poziomu.' }, '+ Dodaj produkt')] }),
     L.node));
   S.root.append(S.listBox);
@@ -341,7 +343,9 @@ async function exportAll(kind) {
 
 
 // Karta produktu i dodawanie (#/produkty/<id>, #/produkty/nowy): panel/app/js/modules/produktKarta.js
+// Ustawienia magazynów Selly (#/produkty/magazyny): panel/app/js/modules/produktMagazyny.js
 function renderDetail(id) {
+  if (id === 'magazyny') { closeProductCard(); return warehousesScreen(S.detailBox, { listHash: S.listHash, unavailable: unavailableBox }); }
   return renderProductCard(S.detailBox, id, { listHash: S.listHash, unavailable: unavailableBox });
 }
 
