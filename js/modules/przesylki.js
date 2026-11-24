@@ -1,10 +1,10 @@
 // Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS), tworzenie listów przewozowych
 // w porcjach, etykiety, zmiana statusu nadanych oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=dc14c8f';
-import { api, ctx } from '../core/client.js?v=dc14c8f';
-import { go } from '../core/router.js?v=dc14c8f';
-import { registerListKeys } from '../core/listKeys.js?v=dc14c8f';
+import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=d317124';
+import { api, ctx } from '../core/client.js?v=d317124';
+import { go } from '../core/router.js?v=d317124';
+import { registerListKeys } from '../core/listKeys.js?v=d317124';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -18,23 +18,32 @@ const OTHER = {
 
 // ─── Parametry listu wg przewoźnika ─────────────────────────────────────────
 // type: select | checks | flag | text | date; adv — schowane w „Więcej opcji”. Wartości: select/text/date → tekst, checks → tablica, flag → bool.
+// Domyślnie NIC nie wysyłamy (wartość '' = „wg ustawień integracji w Selly”): Selly bierze wtedy usługę, gabaryt, sposób nadania itd.
+// z konfiguracji integracji przewoźnika (Konfiguracja → Integracje). Nazwy parametrów są ze specyfikacji Selly API 1.10;
+// NIEZWERYFIKOWANE na żywym API (utworzenie listu kosztuje): dokładne WARTOŚCI opcji poniżej — przyjęte za API przewoźników
+// (InPost ShipX: inpost_locker_standard, small/medium/large, parcel_locker/pok/pop/branch/dispatch_order; DHL24: kody produktów,
+// ENVELOPE/PACKAGE/PALLET; DPD: TIME0930…), a formularze integracji w Selly (docs/selly-screens/configuration.integracja*.md)
+// pokazują tylko etykiety, np. „Kurier doręczenie 10:00 (courier_express_1000)”, „[AM] przesyłka krajowa” (DHL24: AH).
+// Potwierdzone etykietami Selly: DHL selectedDropOffType (REQUEST_COURIER / REGULAR_PICKUP), gabaryty A/B/C i skrytki S/M/L.
 const o3 = (v, l, t) => [v, l, t];
+const BY_SELLY = o3('', 'wg ustawień integracji w Selly', 'Bez wskazania — obowiązuje ustawienie zapisane w konfiguracji integracji przewoźnika w Selly');
 const PARAMS = {
   inpost: [
-    { key: 'service', label: 'Usługa', type: 'select', def: 'inpost_locker_standard', tip: 'Rodzaj przesyłki InPost: do paczkomatu albo kurierska',
-      options: [o3('inpost_locker_standard', 'Paczkomat (standard)', 'Paczka odbierana przez klienta w paczkomacie'), o3('inpost_courier_standard', 'Kurier (standard)', 'Paczka doręczana kurierem pod adres')] },
-    { key: 'parcel_template', label: 'Gabaryt paczki', type: 'select', def: 'small', tip: 'Rozmiar skrytki w paczkomacie (A, B lub C)',
-      options: [o3('small', 'A — mała', 'Skrytka A: najmniejsza (8 × 38 × 64 cm)'), o3('medium', 'B — średnia', 'Skrytka B: średnia (19 × 38 × 64 cm)'), o3('large', 'C — duża', 'Skrytka C: największa (41 × 38 × 64 cm)')] },
-    { key: 'sending_method', label: 'Jak nadasz paczkę', type: 'select', def: '', tip: 'Gdzie fizycznie oddasz paczki InPost (zostaw „wg ustawień konta”, jeśli nie wiesz)',
-      options: [o3('', 'wg ustawień konta w InPost', 'Bez wskazania — obowiązuje domyślna metoda z konta InPost'), o3('parcel_locker', 'nadam w paczkomacie', 'Zaniesiesz paczki do dowolnego paczkomatu'), o3('pok', 'nadam w punkcie obsługi (POK)', 'Punkt Obsługi Klienta InPost'),
+    { key: 'service', label: 'Usługa', type: 'select', def: '', tip: 'Rodzaj przesyłki InPost: do paczkomatu albo kurierska. „Wg ustawień integracji” = usługa z konfiguracji InPost w Selly.',
+      options: [BY_SELLY, o3('inpost_locker_standard', 'Paczkomat (standard)', 'Paczka odbierana przez klienta w paczkomacie'), o3('inpost_courier_standard', 'Kurier (standard)', 'Paczka doręczana kurierem pod adres')] },
+    { key: 'parcel_template', label: 'Gabaryt paczki', type: 'select', def: '', tip: 'Rozmiar skrytki w paczkomacie (A, B lub C). „Wg ustawień integracji” = gabaryt z konfiguracji InPost w Selly.',
+      options: [BY_SELLY, o3('small', 'A — mała', 'Skrytka A: najmniejsza (8 × 38 × 64 cm)'), o3('medium', 'B — średnia', 'Skrytka B: średnia (19 × 38 × 64 cm)'), o3('large', 'C — duża', 'Skrytka C: największa (41 × 38 × 64 cm)')] },
+    { key: 'sending_method', label: 'Jak nadasz paczkę', type: 'select', def: '', tip: 'Gdzie fizycznie oddasz paczki InPost (zostaw „wg ustawień integracji”, jeśli nie wiesz)',
+      options: [BY_SELLY, o3('parcel_locker', 'nadam w paczkomacie', 'Zaniesiesz paczki do dowolnego paczkomatu'), o3('pok', 'nadam w punkcie obsługi (POK)', 'Punkt Obsługi Klienta InPost'),
         o3('pop', 'nadam w punkcie partnerskim (POP)', 'Punkt Obsługi Paczek — sklep lub punkt partnera'), o3('branch', 'nadam w oddziale', 'Oddział InPost'), o3('dispatch_order', 'odbiór przez kuriera', 'Kurier InPost odbierze paczki z Twojego adresu (wymaga zamówienia odbioru)')] },
     { key: 'additional_service', label: 'Usługi dodatkowe', type: 'checks', tip: 'Dodatkowe usługi InPost (płatne według cennika)',
       options: [o3('insurance', 'ubezpieczenie', 'Ubezpieczenie przesyłki'), o3('cod', 'pobranie', 'Płatność za pobraniem przy odbiorze'), o3('end_of_week_collection', 'paczka w weekend', 'Nadanie z odbiorem w weekend (Paczka w Weekend)')] },
+    { key: 'sending_point', label: 'Punkt nadania', type: 'text', adv: true, tip: 'Kod paczkomatu lub punktu, w którym NADASZ paczki (np. przy „nadam w paczkomacie”). To nie jest paczkomat odbiorcy — ten jest w kolumnie „Paczkomat”.', ph: 'np. WAW01M' },
     { key: 'service_custom', label: 'Własny kod usługi', type: 'text', adv: true, tip: 'Jeśli wpiszesz tu kod usługi InPost (np. inpost_locker_pass_thru), zastąpi wybór „Usługa” powyżej', ph: 'np. inpost_locker_pass_thru' },
   ],
   dpd: [
     { key: 'guarantee_type', label: 'Gwarancja doręczenia', type: 'select', def: '', tip: 'Gwarantowana godzina lub dzień doręczenia (usługa płatna)',
-      options: [o3('', 'brak (standard)', 'Zwykłe doręczenie bez gwarancji'), o3('TIME0930', 'do 9:30', 'Doręczenie do godz. 9:30'), o3('TIME1200', 'do 12:00', 'Doręczenie do godz. 12:00'), o3('TIMEFIXED', 'w ustalonej godzinie', 'Doręczenie o wskazanej godzinie'),
+      options: [o3('', 'brak / wg ustawień integracji', 'Zwykłe doręczenie bez gwarancji (albo ustawienie z integracji DPD w Selly)'), o3('TIME0930', 'do 9:30', 'Doręczenie do godz. 9:30'), o3('TIME1200', 'do 12:00', 'Doręczenie do godz. 12:00'), o3('TIMEFIXED', 'w ustalonej godzinie', 'Doręczenie o wskazanej godzinie'),
         o3('SATURDAY', 'w sobotę', 'Doręczenie w sobotę'), o3('INTER', 'międzynarodowa', 'Gwarancja dla przesyłek zagranicznych')] },
     { key: 'package_services', label: 'Usługi dodatkowe', type: 'checks', adv: true, tip: 'Dodatkowe usługi DPD wg specyfikacji (kody usług)',
       options: [o3('CarryIn', 'wniesienie (CarryIn)', 'Wniesienie przesyłki do wnętrza budynku'), o3('CUD', 'potwierdzenie doręczenia (CUD)', 'Kod usługi DPD CUD'), o3('DOX', 'dokumenty (DOX)', 'Przesyłka dokumentowa'), o3('Duty', 'cło / opłaty (Duty)', 'Obsługa opłat celnych'),
@@ -43,20 +52,20 @@ const PARAMS = {
   ],
   dhl: [
     { key: 'incomingDate', label: 'Data nadania', type: 'date', def: '', tip: 'Dzień, w którym DHL odbierze lub przyjmie paczki (domyślnie dziś)' },
-    { key: 'selectedDropOffType', label: 'Sposób przekazania', type: 'select', def: 'REQUEST_COURIER', tip: 'Jak przekażesz paczki DHL',
-      options: [o3('REQUEST_COURIER', 'zamów kuriera', 'Kurier DHL odbierze paczki w dniu nadania'), o3('REGULAR_PICKUP', 'stały odbiór', 'Masz stałą umowę na regularny odbiór')] },
-    { key: 'selectedPackage', label: 'Rodzaj paczki', type: 'select', def: 'PACKAGE', tip: 'Typ przesyłki',
-      options: [o3('PACKAGE', 'paczka', 'Standardowa paczka'), o3('ENVELOPE', 'koperta', 'Przesyłka płaska/dokumenty'), o3('PALLET', 'paleta', 'Przesyłka paletowa')] },
-    { key: 'shipTypes', label: 'Produkt DHL', type: 'select', def: 'AH', tip: 'Kod produktu DHL wg specyfikacji',
-      options: [o3('AH', 'AH — krajowa standard', 'Kod produktu DHL: AH'), o3('09', '09 — do 9:00', 'Doręczenie do 9:00'), o3('12', '12 — do 12:00', 'Doręczenie do 12:00'), o3('EK', 'EK', 'Kod produktu DHL: EK'),
+    { key: 'selectedDropOffType', label: 'Sposób przekazania', type: 'select', def: '', tip: 'Jak przekażesz paczki DHL',
+      options: [BY_SELLY, o3('REQUEST_COURIER', 'zamów kuriera', 'Kurier DHL odbierze paczki w dniu nadania'), o3('REGULAR_PICKUP', 'stały odbiór', 'Masz stałą umowę na regularny odbiór')] },
+    { key: 'selectedPackage', label: 'Rodzaj paczki', type: 'select', def: '', tip: 'Typ przesyłki',
+      options: [BY_SELLY, o3('PACKAGE', 'paczka', 'Standardowa paczka'), o3('ENVELOPE', 'koperta', 'Przesyłka płaska/dokumenty'), o3('PALLET', 'paleta', 'Przesyłka paletowa')] },
+    { key: 'shipTypes', label: 'Produkt DHL', type: 'select', def: '', adv: true, tip: 'Kod produktu DHL wg specyfikacji',
+      options: [BY_SELLY, o3('AH', 'AH — krajowa standard', 'Kod produktu DHL: AH'), o3('09', '09 — do 9:00', 'Doręczenie do 9:00'), o3('12', '12 — do 12:00', 'Doręczenie do 12:00'), o3('EK', 'EK', 'Kod produktu DHL: EK'),
         o3('PI', 'PI', 'Kod produktu DHL: PI'), o3('PR', 'PR', 'Kod produktu DHL: PR'), o3('CP', 'CP', 'Kod produktu DHL: CP'), o3('CM', 'CM', 'Kod produktu DHL: CM')] },
     { key: 'services', label: 'Usługi dodatkowe', type: 'checks', adv: true, tip: 'Dodatkowe usługi DHL (płatne według cennika)',
       options: [o3('PDI', 'PDI', 'Kod usługi DHL: PDI'), o3('POD', 'potwierdzenie doręczenia (POD)', 'Potwierdzenie doręczenia'), o3('deliveryEvening', 'doręczenie wieczorem', 'Doręczenie w godzinach wieczornych'),
         o3('deliveryOnSaturday', 'doręczenie w sobotę', 'Doręczenie w sobotę'), o3('pickupOnSaturday', 'odbiór w sobotę', 'Odbiór paczki w sobotę'), o3('receiverPreaviso', 'powiadomienie odbiorcy', 'Awizo (preaviso) dla odbiorcy')] },
   ],
   orlenpaczka: [
-    { key: 'box_size', label: 'Rozmiar paczki', type: 'select', def: 'S', tip: 'Rozmiar skrytki w punkcie Orlen Paczka',
-      options: [o3('S', 'S — mała', 'Skrytka S'), o3('M', 'M — średnia', 'Skrytka M'), o3('L', 'L — duża', 'Skrytka L')] },
+    { key: 'box_size', label: 'Rozmiar paczki', type: 'select', def: '', tip: 'Rozmiar skrytki w punkcie Orlen Paczka',
+      options: [BY_SELLY, o3('S', 'S — mała', 'Skrytka S'), o3('M', 'M — średnia', 'Skrytka M'), o3('L', 'L — duża', 'Skrytka L')] },
     { key: 'insurance', label: 'Ubezpieczenie', type: 'flag', def: false, tip: 'Dodaje ubezpieczenie paczki' },
     { key: 'transfer_description', label: 'Opis przesyłki', type: 'text', adv: true, tip: 'Krótki opis zawartości widoczny na przesyłce', ph: 'np. materiały orszakowe' },
   ],
@@ -67,6 +76,8 @@ const PARAMS = {
   ],
 };
 
+// v2: wcześniejsze wersje zapamiętywały zgadnięte wartości domyślne (np. usługa, gabaryt) — teraz domyślnie „wg ustawień integracji”
+const PARAMS_KEY = 'osa-ship-params2-';
 const S = {
   root: null, ui: {}, meta: null, metaErr: null, metaLoading: false, ordMeta: null,
   view: 'inpost', route: null,
@@ -83,6 +94,10 @@ const statusName = id => { const s = statuses().find(x => String(x.id) === Strin
 const lockerOf = r => (S.lockers.has(r.id) ? S.lockers.get(r.id) : (r.locker || ''));
 const safeFile = s => String(s).replace(/[\\/:*?"<>|\s]+/g, '-');
 const isCourier = k => !!k && couriers().some(c => c.key === k);
+const LOCKER_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/i;   // jak w Workerze (shipping.js)
+/** Paczkomat zmieniony w kolejce względem zamówienia (pusty / taki sam → null). */
+const lockerChange = r => { const v = S.lockers.has(r.id) ? S.lockers.get(r.id).toUpperCase() : ''; return v && v !== String(r.locker || '').toUpperCase() ? v : null; };
+const isCourierService = key => key === 'inpost' && /courier/.test(buildParams('inpost').service || '');
 
 function unavailableBox(extra) {
   return el('div', { class: 'card' }, el('div', { class: 'empty error' },
@@ -107,7 +122,7 @@ async function ensureMeta() {
 
 function loadParams(key) {
   if (S.params[key]) return S.params[key];
-  const saved = store('osa-ship-params-' + key) || {}, v = {};
+  const saved = store(PARAMS_KEY + key) || {}, v = {};
   for (const d of PARAMS[key] || []) {
     const s = saved[d.key];
     v[d.key] = d.type === 'checks' ? (Array.isArray(s) ? s : []) : d.type === 'flag' ? (s == null ? !!d.def : !!s) : (s == null ? (d.def || '') : String(s));
@@ -116,7 +131,7 @@ function loadParams(key) {
 }
 function saveParams(key) {
   const v = Object.assign({}, S.params[key]); delete v.incomingDate;
-  store('osa-ship-params-' + key, v);
+  store(PARAMS_KEY + key, v);
 }
 function buildParams(key) {
   const v = loadParams(key), out = {};
@@ -140,7 +155,7 @@ function paramsText(key) {
     else if (d.type === 'date') parts.push(d.label + ': ' + (x || today()));
     else if (x) parts.push(d.label + ': ' + x);
   }
-  return parts.join(' · ') || 'domyślne';
+  return parts.join(' · ') || 'wg ustawień integracji w Selly';
 }
 
 function paramField(key, d) {
@@ -209,7 +224,7 @@ async function loadQueue() {
     if (my !== S.seq) return;
     S.rows = r.rows || []; S.note = r.note || ''; S.counts[key] = S.rows.length;
     for (const x of S.rows) S.numOf.set(String(x.id), x.number || x.id);
-    for (const id of [...S.sel.keys()]) if (!S.rows.some(x => String(x.id) === String(id))) S.sel.delete(id);
+    for (const id of [...S.sel.keys()]) { const fresh = S.rows.find(x => String(x.id) === String(id)); if (fresh) S.sel.set(id, fresh); else S.sel.delete(id); }
   } catch (e) {
     if (my !== S.seq) return;
     S.rows = []; S.err = isUnavailable(e) ? MSG_UNAVAILABLE : (e.message || 'Nie udało się pobrać kolejki.');
@@ -237,7 +252,7 @@ function columns(key) {
     { label: 'Klient (wysyłka)', sort: 'client', tip: 'Odbiorca przesyłki — dane z adresu wysyłki zamówienia' },
     { label: 'Miasto, kod', sort: 'city', tip: 'Miejscowość i kod pocztowy z adresu wysyłki' },
   ];
-  if (key === 'inpost') cols.push({ label: 'Paczkomat', sort: 'locker', tip: 'Paczkomat docelowy wybrany w zamówieniu. Możesz go poprawić — zmiana dotyczy tylko tej przesyłki i nie zmienia zamówienia w Selly.', tipHeader: true });
+  if (key === 'inpost') cols.push({ label: 'Paczkomat', sort: 'locker', tip: 'Paczkomat odbiorcy wybrany w zamówieniu. Możesz go poprawić — przy tworzeniu listu nowy kod zapiszemy w zamówieniu w Selly (stamtąd czyta go integracja InPost).', tipHeader: true });
   cols.push(
     { label: 'Produkty', tip: 'Zamówione produkty z ilościami. Najedź na tekst, aby zobaczyć pełną listę.', tipHeader: true },
     { label: 'Wartość', sort: 'total', num: true, tip: 'Wartość zamówienia (zł) i informacja, czy jest opłacone', tipHeader: true },
@@ -268,8 +283,9 @@ function renderQueue() {
       el('td', { class: 'nw' }, el('a', { href: '#/zamowienia/' + encodeURIComponent(r.id), class: 'cell-name', title: 'Otwórz zamówienie ' + r.number }, r.number || r.id), el('div', { class: 'cell-sub' }, dateStr(r.date))),
       el('td', null, el('div', { class: 'cell-name' }, name), r.company && fullName(r.firstName, r.lastName) ? el('div', { class: 'cell-sub' }, r.company) : null),
       el('td', null, [r.postcode, r.city].filter(Boolean).join(' ')),
-      isIn ? el('td', null, el('input', { type: 'text', class: 'ship-locker', 'data-id': r.id, value: lockerOf(r), placeholder: 'brak', 'aria-label': 'Paczkomat dla zamówienia ' + r.number,
-        title: 'Paczkomat docelowy (np. WAW01M). Zmiana dotyczy tylko tworzonej przesyłki. Przy usłudze kurierskiej pole jest pomijane.', oninput: ev => { S.lockers.set(r.id, ev.target.value.trim()); } })) : null,
+      isIn ? el('td', null, el('input', { type: 'text', class: 'ship-locker' + (lockerOf(r) && !LOCKER_RE.test(lockerOf(r)) ? ' bad' : ''), 'data-id': r.id, value: lockerOf(r), placeholder: 'brak', 'aria-label': 'Paczkomat dla zamówienia ' + r.number,
+        title: 'Paczkomat odbiorcy (np. WAW01M), wybrany przez klienta w zamówieniu. Jeśli go poprawisz, przy tworzeniu listu zapiszemy nowy kod w zamówieniu w Selly.',
+        oninput: ev => { const v = ev.target.value.trim(); S.lockers.set(r.id, v); ev.target.classList.toggle('bad', !!v && !LOCKER_RE.test(v)); } })) : null,
       el('td', { class: 'ord-prods' }, r.productsText ? el('span', { title: r.productsText }, r.productsText.length > 60 ? r.productsText.slice(0, 58).trimEnd() + '…' : r.productsText) : ''),
       el('td', { class: 'n nw' }, r.total == null || r.total === '' ? null : money(r.total), el('div', { class: 'cell-sub' }, r.paid ? 'opłacone' : 'nieopłacone')),
       el('td', null, el('span', { class: 'ord-st neutral', title: 'Status zamówienia: ' + statusName(r.statusId) }, statusName(r.statusId))),
@@ -302,10 +318,19 @@ function syncSel() {
 function renderBar() {
   const u = S.ui, n = S.sel.size;
   if (!u.bar) return;
+  const sel = selectedRows(), withT = sel.filter(r => r.tracking), noT = sel.filter(r => !r.tracking);
   u.bar.replaceChildren(
     el('strong', { id: 'shipSelCount' }, n ? 'Zaznaczono: ' + n : 'Nic nie zaznaczono'),
-    el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipCreate', disabled: !n, title: n ? 'Utworzy listy przewozowe u przewoźnika dla zaznaczonych zamówień (najpierw poprosimy o potwierdzenie)' : 'Najpierw zaznacz zamówienia w tabeli',
-      onclick: startCreate }, 'Utwórz listy przewozowe (' + n + ')'),
+    el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipCreate', disabled: !noT.length,
+      title: noT.length ? 'Utworzy listy przewozowe u przewoźnika dla zaznaczonych zamówień bez numeru przesyłki (najpierw poprosimy o potwierdzenie)'
+        : n ? 'Zaznaczone zamówienia mają już numer przesyłki — list przewozowy istnieje' : 'Najpierw zaznacz zamówienia w tabeli',
+      onclick: startCreate }, 'Utwórz listy przewozowe (' + noT.length + ')'),
+    el('button', { type: 'button', class: 'secondary', id: 'shipLabelsSel', disabled: !withT.length,
+      title: withT.length ? 'Pobierz etykiety PDF zaznaczonych zamówień, które mają numer przesyłki (kilka — archiwum ZIP)' : 'Żadne z zaznaczonych zamówień nie ma jeszcze listu przewozowego',
+      onclick: ev => downloadLabels(withT.map(r => ({ id: r.id, tracking: r.tracking })), ev.target) }, 'Pobierz etykiety (' + withT.length + ')'),
+    el('button', { type: 'button', class: 'secondary', write: ['przesylki', 'zamowienia'], id: 'shipStatusSel', disabled: !n,
+      title: n ? 'Zmień status zaznaczonych zamówień w Selly (np. na „Nadane” po oddaniu paczek)' : 'Najpierw zaznacz zamówienia w tabeli',
+      onclick: () => startStatus(sel.map(r => String(r.id))) }, 'Zmień status (' + n + ')'),
     el('button', { type: 'button', class: 'ghost', id: 'shipSelClear', disabled: !n, title: n ? 'Odznacz wszystkie zamówienia' : 'Nic nie jest zaznaczone', onclick: () => { S.sel.clear(); syncSel(); } }, 'Wyczyść zaznaczenie'));
 }
 
@@ -337,8 +362,11 @@ function renderCourier() {
 // ─── Tworzenie listów ───────────────────────────────────────────────────────
 
 function startCreate() {
-  const host = S.ui.dlg, key = S.view, rows = selectedRows(), name = courierName(key);
+  const host = S.ui.dlg, key = S.view, rows = selectedRows().filter(r => !r.tracking), name = courierName(key);
   if (!rows.length) return;
+  const changed = key === 'inpost' ? rows.filter(r => lockerChange(r)) : [];
+  const badLocker = key === 'inpost' ? rows.filter(r => { const v = lockerOf(r); return v && !LOCKER_RE.test(v); }) : [];
+  const noLocker = key === 'inpost' && !isCourierService(key) ? rows.filter(r => !lockerOf(r)) : [];
   const box = el('div', { class: 'card ord-dialog', role: 'dialog', 'aria-label': 'Tworzenie listów przewozowych' });
   host.replaceChildren(box);
   const doneAll = new Map();   // id → numer przesyłki
@@ -349,6 +377,9 @@ function startCreate() {
     el('h3', null, 'Utworzyć listy przewozowe dla ' + cnt(rows.length, 'zamówienia', 'zamówień', 'zamówień') + '?'),
     el('p', null, 'Przewoźnik: ', el('strong', null, name)),
     el('p', { class: 'muted small', id: 'shipParamsText' }, 'Parametry: ' + paramsText(key)),
+    changed.length ? el('p', { class: 'small', id: 'shipLockerNote' }, 'Poprawione paczkomaty (' + changed.length + ') zapiszemy w zamówieniach: ' + changed.slice(0, 5).map(r => (r.number || r.id) + ' → ' + lockerChange(r)).join(', ') + (changed.length > 5 ? ' …' : '')) : null,
+    badLocker.length ? el('div', { class: 'notice warn', role: 'status', id: 'shipBadLocker' }, 'Nieprawidłowy kod paczkomatu: ' + badLocker.map(r => r.number || r.id).join(', ') + ' — te listy się nie utworzą, popraw kod w tabeli.') : null,
+    noLocker.length ? el('div', { class: 'notice warn', role: 'status', id: 'shipNoLocker' }, 'Bez paczkomatu: ' + noLocker.map(r => r.number || r.id).slice(0, 10).join(', ') + (noLocker.length > 10 ? ' …' : '') + '. Dla usługi paczkomatowej list może się nie utworzyć — wpisz paczkomat w tabeli albo wybierz usługę kurierską.') : null,
     el('p', { class: 'muted small' }, 'Listy zostaną utworzone w Selly u przewoźnika (może to naliczyć opłaty). Porcje po ' + maxBatch() + ' zamówień.'),
     el('div', { class: 'ord-actions' },
       el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipConfirm', onclick: () => run(rows.map(r => String(r.id))) }, 'Utwórz listy przewozowe'),
@@ -365,14 +396,15 @@ function startCreate() {
     for (const chunk of chunks) {
       const p = { courier: key, orderIds: chunk, params };
       if (key === 'inpost') {
+        // Paczkomat odbiorcy integracja Selly bierze z zamówienia — wysyłamy tylko poprawione (Worker zapisze je w zamówieniu)
         const per = {};
-        for (const id of chunk) { const r = S.rows.find(x => String(x.id) === id); const v = r ? lockerOf(r) : ''; if (v) per[id] = { sending_point: v }; }
+        for (const id of chunk) { const r = S.rows.find(x => String(x.id) === id); const v = r ? lockerChange(r) : null; if (v) per[id] = { locker: v }; }
         if (Object.keys(per).length) p.perOrder = per;
       }
       try {
         const r = await api('shipping:create', p);
         const okIds = new Set();
-        for (const d of r.done || []) { doneAll.set(String(d.id), d.tracking || ''); okIds.add(String(d.id)); S.sel.delete(String(d.id)); }
+        for (const d of r.done || []) { doneAll.set(String(d.id), d.tracking || ''); okIds.add(String(d.id)); S.sel.delete(String(d.id)); S.lockers.delete(String(d.id)); }
         for (const f of r.failed || []) { failed.push({ id: String(f.id), error: f.error || 'błąd' }); okIds.add(String(f.id)); }
         for (const id of chunk) if (!okIds.has(id)) failed.push({ id, error: 'brak potwierdzenia z serwera' });
       } catch (e) { for (const id of chunk) failed.push({ id, error: e.message || 'błąd połączenia' }); }
@@ -406,23 +438,48 @@ function startCreate() {
   }
 }
 
+/** Zmiana statusu zaznaczonych zamówień z kolejki (np. „Nadane” po oddaniu paczek kurierowi). */
+function startStatus(ids) {
+  const host = S.ui.dlg;
+  if (!ids.length) return;
+  if (!statuses().length) { flash('', 'Brak listy statusów — odśwież stronę.'); return; }
+  const stSel = el('select', { id: 'shipNewStatus', 'aria-label': 'Nowy status', title: 'Status, który ustawimy zaznaczonym zamówieniom' }, statuses().map(s => el('option', { value: String(s.id) }, s.name)));
+  const guess = statuses().find(s => /nadan/.test(norm(s.name))); if (guess) stSel.value = String(guess.id);
+  const box = el('div', { class: 'card ord-dialog', role: 'dialog', 'aria-label': 'Zmiana statusu' });
+  box.append(
+    el('h3', null, 'Zmienić status ' + cnt(ids.length, 'zamówienia', 'zamówień', 'zamówień') + '?'),
+    el('div', { class: 'ship-status-row' }, el('label', { class: 'field-inline', title: 'Podpowiadamy status z „Nadane” w nazwie' }, 'Nowy status', stSel)),
+    el('p', { class: 'muted small' }, 'Zmiana statusu w Selly może wysłać klientom powiadomienie, jeśli tak skonfigurowano status.'),
+    el('div', { class: 'ord-actions' },
+      el('button', { type: 'button', class: 'primary', write: ['przesylki', 'zamowienia'], id: 'shipSetStatus', onclick: ev => setStatusDone(box, ids, stSel.value, ev.target) }, 'Zmień status'),
+      el('button', { type: 'button', class: 'secondary', id: 'shipClose', onclick: () => host.replaceChildren() }, 'Zamknij')));
+  host.replaceChildren(box);
+  box.scrollIntoView && box.scrollIntoView({ block: 'nearest' });
+}
+
 async function setStatusDone(box, ids, statusId, btn) {
   const batch = Math.max(1, Number(S.ordMeta && S.ordMeta.maxStatusBatch) || 50);
   btn.disabled = true;
   const label = el('div', { class: 'muted small', role: 'status', id: 'shipStatusRes' }, 'Zmieniam status: 0 z ' + ids.length);
   box.append(el('progress', { max: String(ids.length), value: '0', 'aria-label': 'Postęp zmiany statusu' }), label);
   const bar = box.lastElementChild.previousElementSibling;
-  let ok = 0, bad = 0;
+  let ok = 0;
+  const badIds = [], idOf = x => String(x && typeof x === 'object' ? (x.id != null ? x.id : x.orderId) : x);
   for (let i = 0; i < ids.length; i += batch) {
     const chunk = ids.slice(i, i + batch);
     try {
       const r = await api('orders:setStatus', { ids: chunk, statusId });
-      const f = (r.failed || []).length;
-      ok += (r.done || []).length; bad += f + Math.max(0, chunk.length - (r.done || []).length - f);
-    } catch (e) { bad += chunk.length; }
-    bar.value = ok + bad; label.textContent = 'Zmieniam status: ' + (ok + bad) + ' z ' + ids.length;
+      const done = new Set((r.done || []).map(idOf));
+      ok += done.size;
+      badIds.push(...chunk.filter(id => !done.has(id)));
+    } catch (e) { badIds.push(...chunk); }
+    bar.value = ok + badIds.length; label.textContent = 'Zmieniam status: ' + (ok + badIds.length) + ' z ' + ids.length;
   }
-  label.textContent = 'Status „' + statusName(statusId) + '”: zmieniono ' + ok + ', nieudane ' + bad + '.';
+  const numOf = id => S.numOf.get(String(id)) || id;
+  label.replaceChildren('Status „' + statusName(statusId) + '”: zmieniono ' + ok + ', nieudane ' + badIds.length + '.',
+    ...(badIds.length ? [' (' + badIds.slice(0, 10).map(numOf).join(', ') + (badIds.length > 10 ? ' …' : '') + ') ',
+      el('button', { type: 'button', class: 'ghost small-btn', write: ['przesylki', 'zamowienia'], id: 'shipStatusRetry', title: 'Spróbuj ponownie zmienić status tylko tym zamówieniom, którym się nie udało',
+        onclick: ev => { ev.target.remove(); setStatusDone(box, badIds.slice(), statusId, btn); } }, 'Ponów nieudane (' + badIds.length + ')')] : []));
   btn.disabled = false;
   loadQueue();
 }
@@ -447,12 +504,20 @@ async function downloadLabels(items, btn) {
     try {
       const r = await api('shipping:label', { courier: key, orderId: String(it.id) });
       files.push({ name: 'etykieta-' + safeFile(S.numOf.get(String(it.id)) || it.id) + '.pdf', data: b64Bytes(r.content), type: r.type || 'application/pdf' });
-    } catch (e) { errors.push((S.numOf.get(String(it.id)) || it.id) + ': ' + (e.message || 'błąd')); }
+    } catch (e) { errors.push({ it, msg: (S.numOf.get(String(it.id)) || it.id) + ': ' + (e.message || 'błąd') }); }
     if (bar) bar.value = files.length + errors.length;
   }
   if (bar) bar.remove();
   if (btn) btn.disabled = false;
-  if (errors.length) flash('', 'Nie pobrano etykiet: ' + errors.slice(0, 3).join('; ') + (errors.length > 3 ? ' …' : ''));
+  const old = document.getElementById('shipLblRes'); if (old) old.remove();
+  if (errors.length) {
+    // Wynik per zamówienie: które etykiety się nie pobrały + ponowienie tylko dla nich
+    const host = S.ui.dlg && S.ui.dlg.isConnected ? S.ui.dlg : null;
+    if (host) host.append(el('div', { class: 'notice warn', role: 'status', id: 'shipLblRes' },
+      'Nie pobrano etykiet (' + errors.length + '): ' + errors.slice(0, 5).map(x => x.msg).join('; ') + (errors.length > 5 ? ' …' : '') + ' ',
+      el('button', { type: 'button', class: 'ghost small-btn', id: 'shipLblRetry', title: 'Pobierz ponownie tylko etykiety, których nie udało się pobrać', onclick: ev => downloadLabels(errors.map(x => x.it), ev.target) }, 'Ponów (' + errors.length + ')')));
+    else flash('', 'Nie pobrano etykiet: ' + errors.slice(0, 3).map(x => x.msg).join('; ') + (errors.length > 3 ? ' …' : ''));
+  }
   if (!files.length) return;
   if (files.length === 1) saveBlob(new Blob([files[0].data], { type: files[0].type }), files[0].name, 'Pobrano etykietę');
   else saveBlob(zipStored(files.map(f => ({ name: f.name, data: f.data })), 'application/zip'), 'etykiety-' + key + '-' + today() + '.zip', 'Pobrano etykiety (' + files.length + ') w archiwum ZIP');

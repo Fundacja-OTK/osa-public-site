@@ -1,7 +1,7 @@
 // Treści (CMS) — natywne ekrany Selly z jednego pliku: strony, aktualności, menu, bloki HTML, formularze online, przekierowania SEO, gwarancje, opisy zaawansowane.
 // Lista + karta rekordu na sesji zalogowanego użytkownika (docs/selly-embed.md, docs/auth.md); zapis tylko z allowlisty pól (extension/lib/sellyNative.js, blok „treści (CMS)”).
 // Treści HTML (strona, blok) są tylko do odczytu (oczyszczone) z linkiem „Edytuj w Selly ↗”. Usuwania nie ma — zawsze w Selly.
-import { createNative } from './sellyNative.js?v=dc14c8f';
+import { createNative } from './sellyNative.js?v=d317124';
 
 export const screens = {
   cms: createNative({

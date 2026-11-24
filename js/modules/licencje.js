@@ -1,9 +1,9 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=dc14c8f';
-import { api, ctx } from '../core/client.js?v=dc14c8f';
-import { go } from '../core/router.js?v=dc14c8f';
-import { loadingBox } from '../core/ui.js?v=dc14c8f';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=d317124';
+import { api, ctx } from '../core/client.js?v=d317124';
+import { go } from '../core/router.js?v=d317124';
+import { loadingBox } from '../core/ui.js?v=d317124';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
