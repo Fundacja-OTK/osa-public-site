@@ -1011,3 +1011,12 @@ main.content .login-form button:not(.icon):not(.pin):not(.zs-fold) { min-height:
 .viewnav a { text-align: center; display: block; }
 a.chip { display: inline-flex; align-items: center; }
 .viewnav a:focus-visible, a.chip:focus-visible, .seg a:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* Świeżość danych (core/liveRefresh.js): „↻ Odśwież · dane sprzed 40 s”, krótkie podświetlenie zmienionych wierszy */
+.live-ctl { display: inline-flex; align-items: center; gap: var(--s1, 4px); font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
+.live-btn { padding: 2px 8px; min-height: 0; font-size: var(--fs-sm); }
+.live-btn.busy { opacity: .6; cursor: progress; }
+.live-age { min-width: 9ch; }
+tr.live-chg > td { animation: live-chg 2.4s ease-out; }
+@keyframes live-chg { from { background-color: var(--accent-soft); } to { background-color: transparent; } }
+@media (max-width: 520px) { .live-ctl { white-space: normal; } }

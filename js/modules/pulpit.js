@@ -1,8 +1,9 @@
 // Pulpit: sprzedaż z 30 dni (wykres wartość / ilość), liczniki z trendem, „Do zrobienia” (otwarte statusy),
 // najnowsze zamówienia, ostatnie zmiany i szybkie skróty. Dane: jedna akcja dashboard:get (tylko odczyt).
-import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=6bba789';
-import { api } from '../core/client.js?v=6bba789';
-import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=6bba789';
+import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=28c8ac7';
+import { api } from '../core/client.js?v=28c8ac7';
+import { liveRefresh } from '../core/liveRefresh.js?v=28c8ac7';
+import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=28c8ac7';
 
 const MODE_KEY = 'osa-pulpit-mode';
 const TODO_KEY = 'osa-pulpit-todo';
@@ -30,7 +31,8 @@ const QUICK = [
   ['licencje', 'Raport licencji', 'Licencje na orszaki'],
 ];
 
-let root = null, seq = 0, mode = 'value';
+let root = null, seq = 0, mode = 'value', live = null, touchedAt = 0;
+const touchHosts = new WeakSet();
 
 /** Progi „Dziś do zrobienia” zapamiętane w przeglądarce (z domyślnymi i w dozwolonych granicach). */
 export function todoSettings() {
@@ -202,17 +204,24 @@ function quick() {
 
 function render(d) {
   root.replaceChildren(
-    el('div', { class: 'pl-top' }, el('span', { class: 'muted tip', title: 'Dane z ostatniej synchronizacji z Selly (co kilka minut)' }, 'Dane z synchronizacji: ' + syncedLabel(d.syncedMs))),
+    el('div', { class: 'pl-top' }, live ? live.node : el('span', { class: 'muted tip', title: 'Dane z ostatniej synchronizacji z Selly' }, 'Dane z synchronizacji: ' + syncedLabel(d.syncedMs))),
     todayCard(d), tiles(d), chartCard(d),
     el('div', { class: 'pl-cols' }, el('div', null, todoCard(d), eventsCard(d)), latestCard(d)),
     quick());
 }
 
-function load() {
-  const my = ++seq;
-  root.replaceChildren(loadingBox('Wczytywanie pulpitu…'));
-  api('dashboard:get', todoSettings()).then(d => { if (my === seq && root) render(d); }).catch(err => {
+/** kind: { background | manual } — odświeżenie bez ekranu wczytywania i z zachowaniem przewinięcia (core/liveRefresh.js). */
+function load(kind = {}) {
+  const my = ++seq, quiet = !!(kind.background || kind.manual);
+  if (!quiet) root.replaceChildren(loadingBox('Wczytywanie pulpitu…'));
+  return api('dashboard:get', todoSettings()).then(d => {
     if (my !== seq || !root) return;
+    if (live) live.loaded(d.stamp);
+    const y = window.scrollY;
+    render(d);
+    if (quiet && Math.abs(window.scrollY - y) > 1) window.scrollTo(window.scrollX, y);
+  }).catch(err => {
+    if (my !== seq || !root || quiet) return;   // w tle: zostaje poprzedni widok
     root.replaceChildren(el('div', { class: 'card' }, el('div', { class: 'empty error', id: 'plError' },
       isUnavailable(err) ? 'Pulpit potrzebuje backendu Cloudflare — ten serwer go nie obsługuje.' : 'Nie udało się wczytać pulpitu: ' + err.message,
       el('div', null, el('button', { type: 'button', class: 'secondary', onclick: load }, 'Spróbuj ponownie')))));
@@ -226,7 +235,12 @@ export default {
   mount(el0) {
     root = el0;
     mode = store(MODE_KEY) === 'count' ? 'count' : 'value';
+    // Świeżość: znacznik wersji zamówień co 30 s (pulpit w tle najwyżej co 2 min — kilka zapytań agregujących), powrót do karty, „Odśwież”
+    if (!live) live = liveRefresh({ id: 'pl', reload: kind => load(kind), bgGapMs: 120000,
+      busy: () => !root || Date.now() - touchedAt < 5000 || !!(document.activeElement && root.contains(document.activeElement) && document.activeElement.matches('input, select, textarea')) });
+    if (!touchHosts.has(el0)) { touchHosts.add(el0); for (const t of ['pointerdown', 'keydown']) el0.addEventListener(t, () => { touchedAt = Date.now(); }, true); }
     load();
+    live.start();
   },
-  unmount() { seq++; root = null; },
+  unmount() { seq++; root = null; if (live) live.stop(); },
 };

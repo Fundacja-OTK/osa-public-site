@@ -1,18 +1,19 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=6bba789';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=6bba789';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=6bba789';
-import { api, ctx } from '../core/client.js?v=6bba789';
-import { go, setLeaveGuard } from '../core/router.js?v=6bba789';
-import { noteVisit } from '../core/recents.js?v=6bba789';
-import { registerListKeys } from '../core/listKeys.js?v=6bba789';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=6bba789';
-import { showNewOrder } from './zamowienieNowe.js?v=6bba789';
-import { showInvoices } from './zamowieniaFaktury.js?v=6bba789';
-import { createFilterUi } from './zamowieniaFiltry.js?v=6bba789';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=6bba789';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=6bba789';
+import { photoSrc } from '../core/photo.js?v=28c8ac7';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=28c8ac7';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=28c8ac7';
+import { api, ctx } from '../core/client.js?v=28c8ac7';
+import { go, setLeaveGuard } from '../core/router.js?v=28c8ac7';
+import { noteVisit } from '../core/recents.js?v=28c8ac7';
+import { registerListKeys } from '../core/listKeys.js?v=28c8ac7';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=28c8ac7';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=28c8ac7';
+import { showNewOrder } from './zamowienieNowe.js?v=28c8ac7';
+import { showInvoices } from './zamowieniaFaktury.js?v=28c8ac7';
+import { createFilterUi } from './zamowieniaFiltry.js?v=28c8ac7';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=28c8ac7';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=28c8ac7';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -30,7 +31,9 @@ const S = {
   sel: new Map(),            // id → wiersz listy (zaznaczenie zostaje przy zmianie filtrów i stron)
   listHash: '#/zamowienia',  // ostatni adres listy (powrót ze szczegółów)
   seq: 0, routeSeq: 0, guard: null,
+  touchedAt: 0, metaAt: 0, flashIds: null,   // świeżość: ostatnia interakcja z listą, ostatnie liczniki, wiersze do podświetlenia
 };
+const META_BG_MS = 5 * 60 * 1000;   // liczniki statusów w tle najwyżej co 5 min (skan tabeli); kliknięcie „Odśwież” — zawsze
 window.addEventListener('beforeunload', ev => { if (S.guard && S.guard()) { ev.preventDefault(); ev.returnValue = ''; } });
 // Ta sama ochrona przy przejściu w panelu (menu modułów, linki, Wstecz)
 setLeaveGuard(() => (S.guard && S.guard() ? 'W karcie zamówienia są niezapisane zmiany. Opuścić ją i je odrzucić?' : null));
@@ -116,7 +119,7 @@ async function ensureMeta() {
   if (S.meta) return true;
   if (S.metaLoading) return false;
   S.metaLoading = true; S.metaErr = null;
-  try { S.meta = await api('orders:meta'); } catch (e) { S.metaErr = e; }
+  try { S.meta = await api('orders:meta'); S.metaAt = Date.now(); } catch (e) { S.metaErr = e; }
   S.metaLoading = false;
   return !!S.meta;
 }
@@ -169,12 +172,14 @@ function buildList() {
   u.dlg = el('div', { id: 'ordDlg' });
   u.bulk = el('div', { class: 'ord-bulk', id: 'ordBulk', hidden: true });
   u.results = el('div', { id: 'ordResults' });
+  // Świeżość listy: znacznik wersji co 30 s, powrót do karty, „Odśwież” (core/liveRefresh.js)
+  u.live = liveRefresh({ id: 'ord', reload: kind => loadList(kind), busy: listBusy });
   u.layout = filterLayout({ key: 'zamowienia', panelId: 'ordFilters', panelNodes: [u.filtersInner],
-    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.fx.viewsMenu, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info), u.fx.sum, u.dlg, u.bulk, u.results] });
+    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.fx.viewsMenu, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info, u.live.node), u.fx.sum, u.dlg, u.bulk, u.results] });
   u.filters = u.layout.panel;
   S.listBox = el('div', { class: 'ord-list' },
     el('div', { class: 'card' },
-      pageToolbar({ title: 'Zamówienia', sub: 'Lista zamówień ze sklepu (kopia odświeżana co minutę). Kliknij numer zamówienia, aby zobaczyć szczegóły.',
+      pageToolbar({ title: 'Zamówienia', sub: 'Lista zamówień ze sklepu — zmiany z Selly pojawiają się same (zwykle w ciągu minuty, od razu po „Odśwież”). Kliknij numer zamówienia, aby zobaczyć szczegóły.',
         actions: [u.filtersBtn, el('a', { class: 'btn-secondary', id: 'ordInvoicesLink', href: '#/zamowienia/faktury',
           title: 'Faktury ze wszystkich zamówień: filtry (okres, numer, rozliczone / do zapłaty), rozliczenia, wydruk i eksport' }, 'Faktury'),
           el('a', { class: 'btn-secondary', id: 'ordSpeedMail', href: '#/speedmail',
@@ -183,6 +188,15 @@ function buildList() {
           title: 'Dodaj zamówienie ręcznie: klient, produkty, dostawa i płatność (formularz w panelu)' }, '+ Nowe zamówienie')] }),
       u.layout.node));
   S.root.append(S.listBox);
+  // Klik / klawisz w liście = użytkownik pracuje — odświeżenie w tle czeka chwilę (nie przestawia wierszy pod kursorem)
+  for (const t of ['pointerdown', 'keydown']) S.listBox.addEventListener(t, () => { S.touchedAt = Date.now(); }, true);
+}
+
+/** Czy odświeżenie w tle ma poczekać: lista niewidoczna / wczytuje się, otwarte okno zmiany statusu lub menu, świeża interakcja. */
+function listBusy() {
+  const u = S.ui;
+  return !S.listBox || S.listBox.hidden || S.loading || !S.data || (u.dlg && u.dlg.childElementCount > 0)
+    || !!S.listBox.querySelector('.menu-pop:not([hidden])') || Date.now() - S.touchedAt < 5000;
 }
 
 function toggleFilters(force) {
@@ -236,16 +250,26 @@ function renderSegs() {
 
 // ─── Lista: dane ────────────────────────────────────────────────────────────
 
-async function loadList() {
-  const my = ++S.seq, u = S.ui;
+/** kind: { background } — odświeżenie w tle (bez migania, z zachowaniem przewinięcia), { manual } — przycisk „Odśwież”. */
+async function loadList(kind = {}) {
+  const my = ++S.seq, u = S.ui, quiet = !!(kind.background || kind.manual);
   S.loading = true; S.err = '';
-  syncList();
+  if (!quiet) syncList();
   if (!S.data) u.results.replaceChildren(loadingBox('Pobieram zamówienia…'));
-  else u.results.classList.add('fade');
+  else if (!quiet) u.results.classList.add('fade');
+  const prev = S.data;
+  // Liczniki statusów: po kliknięciu „Odśwież” zawsze, w tle najwyżej co META_BG_MS
+  if (quiet && (kind.manual || Date.now() - S.metaAt >= META_BG_MS)) {
+    S.metaAt = Date.now();
+    api('orders:meta', kind.manual ? {} : { bg: 1 }).then(m => { if (m && m.statuses) { S.meta = m; if (S.listBox && !S.listBox.hidden) renderSegs(); } }).catch(() => {});
+  }
   try {
-    const r = await api('orders:list', listParams(S.Q));
+    const r = await api('orders:list', listParams(S.Q, kind.background ? { bg: 1 } : undefined));
     if (my !== S.seq) return;
     S.data = r;
+    u.live.loaded(r.stamp);
+    if (quiet && prev && prev.page === r.page) S.flashIds = changedIds(prev.rows, r.rows);
+    for (const row of r.rows) if (S.sel.has(row.id)) S.sel.set(row.id, row);   // zaznaczenie zostaje, z aktualnym statusem
     // strona poza zakresem (np. po zawężeniu filtra) → ostatnia strona
     const pages = Math.max(1, Math.ceil((r.total || 0) / (r.pageSize || 50)));
     if (S.Q.page > pages && r.total > 0) { setQ({ page: pages }, true); return; }
@@ -255,7 +279,17 @@ async function loadList() {
   }
   S.loading = false;
   u.results.classList.remove('fade');
-  renderList();
+  if (quiet) keepScroll(() => renderList()); else renderList();
+  S.flashIds = null;
+}
+
+/** Przebudowa tabeli bez skoku: przewinięcie strony i poziome przewinięcie tabeli zostają. */
+function keepScroll(fn) {
+  const y = window.scrollY, wrap = S.ui.results.querySelector('.table-wrap'), x = wrap ? wrap.scrollLeft : 0;
+  fn();
+  const w2 = S.ui.results.querySelector('.table-wrap');
+  if (w2 && x) w2.scrollLeft = x;
+  if (Math.abs(window.scrollY - y) > 1) window.scrollTo(window.scrollX, y);
 }
 
 const COLS = [
@@ -303,8 +337,7 @@ function renderList() {
     return;
   }
   const size = d.pageSize || pageSize(), pages = Math.max(1, Math.ceil(d.total / size));
-  const synced = d.syncedMs ? new Date(d.syncedMs).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
-  u.info.replaceChildren(d.sumTotal != null ? el('span', { class: 'tip', id: 'ordSum', title: 'Suma wartości wszystkich zamówień pasujących do filtrów (nie tylko tej strony), z kosztami dostawy' }, 'Suma na liście: ' + money(d.sumTotal) + ' zł · ') : null, el('span', { class: 'tip', title: 'Lista pochodzi z kopii zamówień, którą panel synchronizuje z Selly co minutę — najświeższe zmiany mogą pojawić się z opóźnieniem do ok. minuty.' }, 'dane z: ' + synced));
+  u.info.replaceChildren(d.sumTotal != null ? el('span', { class: 'tip', id: 'ordSum', title: 'Suma wartości wszystkich zamówień pasujących do filtrów (nie tylko tej strony), z kosztami dostawy' }, 'Suma na liście: ' + money(d.sumTotal) + ' zł') : null);
   const cols = COLS.filter(c => u.colMenu.isOn(c.key));
   const head = el('tr', null,
     el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'ordSelAll', 'aria-label': 'Zaznacz wszystkie na tej stronie', title: 'Zaznacz lub odznacz wszystkie zamówienia na tej stronie',
@@ -316,7 +349,7 @@ function renderList() {
     const nm = fullName(r.firstName, r.lastName), name = nm || r.company || r.email || '—';
     const contact = [r.email, r.phone].filter(Boolean).join('\n');
     const deliv = r.delivery ? r.delivery + (Number(r.deliveryPrice) ? ' (' + money(r.deliveryPrice) + ' zł)' : '') : '';
-    const tr = el('tr', { class: 'pick' + (S.sel.has(r.id) ? ' sel' : ''), 'data-id': r.id, onclick: tapOpen(() => openOrder(r.id)) },
+    const tr = el('tr', { class: 'pick' + (S.sel.has(r.id) ? ' sel' : '') + (S.flashIds && S.flashIds.has(String(r.id)) ? ' live-chg' : ''), 'data-id': r.id, onclick: tapOpen(() => openOrder(r.id)) },
       el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz zamówienie ' + r.number, checked: S.sel.has(r.id), onchange: ev => { if (ev.target.checked) S.sel.set(r.id, r); else S.sel.delete(r.id); refreshSel(); } })),
       el('td', null, el('div', { class: 'ord-cell-no' },
         el('a', { href: '#/zamowienia/' + encodeURIComponent(r.id), class: 'big-id ord-no', title: 'Otwórz zamówienie', onclick: () => { S.listHash = location.hash; } }, r.number || r.id),
@@ -528,13 +561,14 @@ async function renderDetail(id) {
   S.guard = () => card.C.dirty();
   const osaHost = el('div', { id: 'ordOsaCard' });
   fillOsa(osaHost, o, number, my);
-  const synced = r.syncedMs ? new Date(r.syncedMs).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
   box.replaceChildren(
     el('div', { class: 'card' },
       el('div', { class: 'ord-detail-top' },
         el('a', { href: S.listHash, class: 'btn-link', id: 'ordBack', title: 'Wróć do listy z zachowanymi filtrami, wyszukiwaniem i stroną', }, '← Wróć do listy'),  // potwierdzenie przy niezapisanych zmianach — strażnik routera
         el('span', { class: 'spacer' }),
-        el('span', { class: 'muted small tip', title: 'Dane z kopii zamówień synchronizowanej z Selly co minutę' }, 'dane z: ' + synced),
+        freshLabel(r),
+        el('button', { type: 'button', class: 'ghost live-btn', id: 'ordDetailRefresh', title: 'Pobierz to zamówienie z Selly jeszcze raz',
+          onclick: () => { if (card && card.C.dirty() && !confirm('W karcie są niezapisane zmiany — odświeżenie je odrzuci. Kontynuować?')) return; renderDetail(id); } }, '↻ Odśwież'),
         sellyLink('Otwórz w panelu Selly ↗', sellyOrderUrl(id), 'Otwiera to zamówienie w panelu administracyjnym Selly')),
       el('div', { class: 'card-head' }, el('h2', { id: 'ordTitle' }, 'Zamówienie ' + number), el('div', { class: 'sub' }, dateStr(o.date))),
       el('div', { class: 'ord-detail-status' }, 'Status: ', statusPill(stId, o.status_name || statusName(stId)), statusMenu, el('span', { class: 'spacer' }), card.toggle),
@@ -543,6 +577,18 @@ async function renderDetail(id) {
     el('div', { class: 'ord-grid' }, card.grid),
     card.items, card.totals, card.invoices, card.sellyOnly,
     osaHost, movesCard, eventsCard);
+}
+
+/** „odświeżono teraz” (zamówienie pobrane z Selly przy otwarciu karty) albo „dane z HH:MM” (kopia panelu — z powodem). */
+function freshLabel(r) {
+  const hm = ms => new Date(ms).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  if (r.liveMs) {
+    return el('span', { class: 'muted small tip', id: 'ordFresh', 'data-live': '1', title: 'Zamówienie pobrane z Selly przy otwarciu karty (' + new Date(r.liveMs).toLocaleTimeString('pl-PL') + ') — dane są aktualne.' + (r.changed ? ' Kopia w panelu została przy tym zaktualizowana.' : '') },
+      Date.now() - r.liveMs < 60000 ? 'odświeżono teraz' : 'odświeżono o ' + hm(r.liveMs));
+  }
+  const when = r.syncedMs ? new Date(r.syncedMs).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+  return el('span', { class: 'muted small tip', id: 'ordFresh', 'data-live': '0', title: (r.liveError || 'Nie udało się teraz zapytać Selly.') + ' Pokazujemy kopię zamówienia z panelu (synchronizowaną z Selly co minutę).' },
+    'dane z ' + when);
 }
 
 /** Sekcja „Orszak (z notatki)”: dane klienta przypisanego do zamówienia (wiersz z listy zamówień ma dołączone pola notatki). */
@@ -582,8 +628,9 @@ async function mountRoute() {
   if (!S.ui.search) buildList();
   registerListKeys({ screen: 'zamowienia', table: 'ordTable', filters: 'ordFiltersBtn', export: 'ordExport', cols: 'ordColsBtn', search: 'ordSearch', back: 'ordBack', select: true });
   S.guard = null;
-  if (route.id) { show('detail'); renderDetail(route.id); return; }
+  if (route.id) { S.ui.live.stop(); show('detail'); renderDetail(route.id); return; }
   show('list');
+  S.ui.live.start();
   S.Q = route.Q;
   S.listHash = location.hash || '#/zamowienia';
   loadList();
@@ -602,9 +649,10 @@ export default {
     }
     S.route = { id: params && params.parts && params.parts[0] || '', Q: readQ(params && params.query) };
     showInvoices(el0, S.route.id === 'faktury');   // #/zamowienia/faktury → zamowieniaFaktury.js
+    if (S.ui.live && (S.route.id === 'faktury' || S.route.id === 'nowe')) S.ui.live.stop();
     if (S.route.id === 'faktury') { S.routeSeq++; S.guard = null; showNewOrder(el0, false); show(''); return; }
     if (showNewOrder(el0, S.route.id === 'nowe') && S.route.id === 'nowe') { S.routeSeq++; S.guard = null; show(''); return; }   // #/zamowienia/nowe → zamowienieNowe.js
     mountRoute();
   },
-  unmount() { S.seq++; S.routeSeq++; S.guard = null; },
+  unmount() { S.seq++; S.routeSeq++; S.guard = null; if (S.ui.live) S.ui.live.stop(); },
 };

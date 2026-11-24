@@ -60,7 +60,7 @@
   // Uwaga: mag:moves DODAJE ruchy magazynowe (Warehouses.gs addMoves) — to zapis; historia ruchów przychodzi w mag:init.
   const READ_ACTIONS = [
     'init', 'whoami', 'report', 'orszaki', 'changes', 'refresh', 'auth:refresh', 'auth:perms',
-    'orders:list', 'orders:get', 'orders:meta', 'orders:invoices', 'orders:invoiceList', 'orders:invoiceScan',
+    'orders:list', 'orders:get', 'orders:meta', 'orders:invoices', 'orders:stamp', 'orders:refresh', 'orders:invoiceList', 'orders:invoiceScan',
     'clients:list', 'clients:get', 'clients:meta', 'clients:addresses', 'clients:affiliate', 'clients:extra', 'clients:groups', 'clients:prices', 'clients:emailsExist',
     'products:list', 'products:get', 'products:facets', 'products:dicts', 'products:extra', 'products:warehouses',
     'shipping:meta', 'shipping:queue', 'shipping:label',
@@ -139,7 +139,9 @@
   const RULES = [
     [/^(whoami|init|auth:(logout|refresh|perms)|feedback:send|client:errors|client:exits)$/, ANY],
     [/^(feedback:(list|status)|client:errors:list|client:exits:list|health:get|map:\w+|logins:list|grants:set|users:\w+)$/, ADMIN],
-    [/^orders:(list|get|meta|invoices)$/, ORD],
+    // orders:stamp (znacznik wersji, 1 wiersz D1) i orders:refresh (synchronizacja zamówień teraz — pisze tylko do kopii panelu w D1, nigdy do Selly;
+    // limit globalny i budżet Selly: panel/worker/src/lib/liveSync.js) — jak odczyt listy
+    [/^orders:(list|get|meta|invoices|stamp|refresh)$/, ORD],
     [/^orders:setStatus$/, ['zamowienia', 'przesylki']],
     [/^orders:\w+$/, ['zamowienia']],
     [/^clients:(list|get|meta|addresses|affiliate|extra|groups|prices)$/, CLI],
