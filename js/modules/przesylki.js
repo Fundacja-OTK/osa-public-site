@@ -1,9 +1,9 @@
 // Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS), tworzenie listów przewozowych
 // w porcjach, etykiety, zmiana statusu nadanych oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=ecaba1a';
-import { api, ctx } from '../core/client.js?v=ecaba1a';
-import { registerListKeys } from '../core/listKeys.js?v=ecaba1a';
+import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=64a1b3e';
+import { api, ctx } from '../core/client.js?v=64a1b3e';
+import { registerListKeys } from '../core/listKeys.js?v=64a1b3e';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';

@@ -1,7 +1,7 @@
 // Import wpłat bankowych — jedno wejście dla każdego formatu: camt.053/052 (XML), MT940, CSV/TXT (auto-wykrywanie + mapowanie).
 // Plik jest przetwarzany wyłącznie lokalnie. Wynik ma kształt zgodny z parserem CSV (patrz wplatyCsv.parseStatement).
-import { decodeBytes, parseStatement as parseCsvStatement, BANKS } from './wplatyCsv.js?v=ecaba1a';
-import { sniffFormat, parseCamt, parseMt940 } from './wplatyFormats.js?v=ecaba1a';
+import { decodeBytes, parseStatement as parseCsvStatement, BANKS } from './wplatyCsv.js?v=64a1b3e';
+import { sniffFormat, parseCamt, parseMt940 } from './wplatyFormats.js?v=64a1b3e';
 
 export { BANKS };
 export const FORMATS = { 'camt.053': 'ISO 20022 camt.053', 'camt.052': 'ISO 20022 camt.052', mt940: 'MT940', csv: 'CSV / TXT' };

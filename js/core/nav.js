@@ -13,7 +13,7 @@
 export const SECTIONS = [
   { id: 'sprzedaz', title: 'Sprzedaż', icon: 'bag', items: [
     { id: 'zamowienia', title: 'Zamówienia', a: 'zamowienia', kind: 'osa', tip: 'Lista zamówień, karta z edycją, statusy (także masowo), eksport' },
-    { id: 'speedmail', title: 'Wysyłka SpeedMail', kind: 'osa', tip: 'Kreator wysyłki do magazynu SpeedMail: wybór zamówień, sprawdzenie stanu SM, podział (SM / na miejscu), plik w kompletach, zatwierdzenie i statusy w Selly' },
+    { id: 'speedmail', title: 'Wysyłka SpeedMail', kind: 'osa', tip: 'Kto pakuje zamówienie — SpeedMail czy my — z powodem, przekazanie paczek zleceń (plik Excel, statusy w Selly), stan towaru w SpeedMail z alertami i tempo sprzedaży' },
     { id: 'oferty', title: 'Oferty', a: 'offersAdm', kind: 'osa', tip: 'Oferty z Selly: lista, filtry, karta oferty i zmiana statusu / opiekuna / notatek (na Twojej sesji Selly)' },
     { id: 'subskrypcje', title: 'Subskrypcje', a: 'subskrypcje', kind: 'resource' },
     '-',
@@ -211,7 +211,7 @@ export const GROUP_OF = {
 
 /** Synonimy do wyszukiwania w menu: słowa, których ktoś może szukać, i nazwy z panelu Selly (bez polskich znaków też zadziała). */
 export const SYNONYMS = {
-  zamowienia: 'sprzedaż lista zamówień', speedmail: 'magazyn zewnętrzny SM komplety wydanie wysyłka', przesylki: 'InPost DPD DHL UPS Orlen paczka paczkomat etykiety nadanie kurier list przewozowy',
+  zamowienia: 'sprzedaż lista zamówień', speedmail: 'magazyn zewnętrzny SM paczka zleceń stan alert dosyłka korekta tempo sprzedaży prognoza wysyłka', przesylki: 'InPost DPD DHL UPS Orlen paczka paczkomat etykiety nadanie kurier list przewozowy',
   furgonetka: 'kurier przesyłki', suus: 'Rohlig kurier przesyłki', produkty: 'asortyment towary ceny stany', magazyny: 'stany magazynowe inwentaryzacja przesunięcia wydania',
   klienci: 'kontrahenci kupujący odbiorcy', wplaty: 'przelewy bank wyciąg płatności opłacone CSV', raporty: 'statystyki wykresy obroty sprzedaż', licencje: 'członkowie przedłużenia orszaki składki',
   oferty: 'zapytania ofertowe wyceny', subskrypcje: 'abonament cykliczne', dropshipping: 'hurtownia dostawca paczki', reklamacje: 'RMA gwarancja reklamacja', zwroty: 'odstąpienie zwrot towaru',

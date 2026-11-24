@@ -1,9 +1,9 @@
 // Moduł „Magazyny”: stany, do rozliczenia, nowy ruch, inwentaryzacja, historia (+ przejście do kreatora „Wysyłka SpeedMail”, modules/speedmail.js).
 // Trasy: #/magazyny/stany, #/magazyny/rozliczenie, #/magazyny/ruch, #/magazyny/inwentaryzacja, #/magazyny/historia; dawne #/magazyny/speedmail → #/speedmail.
 // Dane i zapisy: backend Warehouses.gs (akcje mag:init, mag:moves).
-import { $, el, plural, store, flash, norm, dateInput } from '../core/ui.js?v=ecaba1a';
-import { api } from '../core/client.js?v=ecaba1a';
-import { go } from '../core/router.js?v=ecaba1a';
+import { $, el, plural, store, flash, norm, dateInput } from '../core/ui.js?v=64a1b3e';
+import { api } from '../core/client.js?v=64a1b3e';
+import { go } from '../core/router.js?v=64a1b3e';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 

@@ -1,8 +1,8 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=ecaba1a';
-import { api } from '../core/client.js?v=ecaba1a';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=ecaba1a';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=64a1b3e';
+import { api } from '../core/client.js?v=64a1b3e';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=64a1b3e';
 const gw = e => gateWrite(e, 'zamowienia');   // bez prawa zmian w sekcji: wyszarzone z podpowiedzią (core/ui.js)
 
 const EDIT_KEY = 'osa-ord-edit';

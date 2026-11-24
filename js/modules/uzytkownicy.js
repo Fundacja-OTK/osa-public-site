@@ -1,8 +1,8 @@
 // „Kto się logował” (tylko administrator panelu): konta Selly, które logowały się do panelu OSA — login, kiedy, do których części
 // panelu miały dostęp (wg uprawnień w Selly). Tylko do odczytu: dostęp nadaje się w Selly (Konto → Uprawnienia), nie tutaj (docs/auth.md).
-import { el, loadingBox, isUnavailable, dateStr } from '../core/ui.js?v=ecaba1a';
-import { api, ctx } from '../core/client.js?v=ecaba1a';
-import { TITLES, GRANTABLE } from '../lib/panelAuth.js?v=ecaba1a';
+import { el, loadingBox, isUnavailable, dateStr } from '../core/ui.js?v=64a1b3e';
+import { api, ctx } from '../core/client.js?v=64a1b3e';
+import { TITLES, GRANTABLE } from '../lib/panelAuth.js?v=64a1b3e';
 
 const MSG_UNAVAILABLE = 'Ten widok wymaga serwera głównego panelu (Cloudflare) — chwilowo niedostępny.';
 const PERMS_TIP = 'Panel OSA nie ma własnej listy uprawnionych: każdy loguje się swoim kontem Selly i widzi te części panelu, do których ma dostęp w Selly. Zmiany danych — kolumna „Może zmieniać”. Uprawnienia zmienia administrator sklepu w Selly (Konto → Grupy użytkowników / Uprawnienia); panel odczytuje je przy logowaniu i co godzinę.';

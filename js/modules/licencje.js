@@ -1,8 +1,8 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=ecaba1a';
-import { api, ctx } from '../core/client.js?v=ecaba1a';
-import { loadingBox } from '../core/ui.js?v=ecaba1a';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=64a1b3e';
+import { api, ctx } from '../core/client.js?v=64a1b3e';
+import { loadingBox } from '../core/ui.js?v=64a1b3e';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
@@ -387,17 +387,26 @@ function commonParams() {
   return out;
 }
 
+// Parametry niezależnie od kolejności list (statusy, produkty) — do porównania z widokiem policzonym w init
+const canonParams = p => JSON.stringify(p, (k, v) => (Array.isArray(v) && (k === 'statusIds' || k === 'products') ? v.slice().sort()
+  : v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((o, x) => { o[x] = v[x]; return o; }, {}) : v));
+
 function run() {
   const view = state.view;
   const params = commonParams();
   if (params.error) { showMessage(view, params.error); return; }
   const id = ++state.requestId;
   showLoading(view);
-  const req = view === 'list'
-    // catalog / packDefs: konfiguracja z arkusza (init) — Worker liczy raport z D1 tym samym kodem, ale lata produktów i pakiety zna tylko arkusz
-    ? api('report', Object.assign({ year: year(), mode: 'all', catalog: BOOT.products.map(p => ({ code: p.code, name: p.name, year: p.year, counted: p.counted })),
-      packDefs: BOOT.packs || [] }, params))
-    : api('orszaki', params);
+  const action = view === 'list' ? 'report' : 'orszaki';
+  const reqParams = view === 'list'
+    // catalog / packDefs: konfiguracja z init (arkusz Apps Script / jego kopia w D1) — oba backendy liczą raport tym samym kodem
+    ? Object.assign({ year: year(), mode: 'all', catalog: BOOT.products.map(p => ({ code: p.code, name: p.name, year: p.year, counted: p.counted })),
+      packDefs: BOOT.packs || [] }, params)
+    : params;
+  // Pierwsze wyświetlenie: backend policzył już ten widok w init (prefetch) — bez drugiego zapytania, jeśli ustawienia te same
+  const pf = BOOT.prefetch;
+  BOOT.prefetch = null;
+  const req = pf && pf.action === action && canonParams(pf.params) === canonParams(reqParams) ? Promise.resolve(pf.data) : api(action, reqParams);
   req.then(r => {
     if (id !== state.requestId) return;
     state.stale[view] = false;
@@ -1670,8 +1679,9 @@ async function refreshData() {
 
 
 let root = null, pendingView = 'list', bootP = null;
-/** „init” (statusy, produkty, pakiety, stan synchronizacji) pobiera tylko ten moduł — raz na sesję; powłoka startuje bez niego. */
-const loadBoot = () => bootP || (bootP = api('init').catch(e => { bootP = null; throw e; }));
+/** „init” (statusy, produkty, pakiety, stan synchronizacji) pobiera tylko ten moduł — raz na sesję; powłoka startuje bez niego.
+ *  prefetch: backend dokłada od razu otwierany widok z domyślnymi ustawieniami — strona startuje jednym zapytaniem. */
+const loadBoot = () => bootP || (bootP = api('init', { prefetch: pendingView === 'orszaki' ? 'orszaki' : 'report' }).catch(e => { bootP = null; throw e; }));
 
 const el0card = err => (err
   ? el('div', { class: 'card' }, el('div', { class: 'empty error' }, 'Nie udało się wczytać raportu licencji: ' + (err.message || 'błąd'), ' ', el('button', { type: 'button', class: 'secondary', onclick: () => location.reload() }, 'Spróbuj ponownie')))

@@ -1,0 +1,30 @@
+/* Wysyłka SpeedMail (#/speedmail) — dopełnienie wspólnych klocków (tabele, chipy, panel filtrów, okna) */
+#modSm .sm-fresh { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+#modSm .sm-segs { margin-top: var(--s3); }
+#modSm .sm-bulk { margin-top: var(--s3); padding: var(--s3); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r2); }
+#modSm .sm-bulk .ord-actions { margin-top: var(--s2); }
+#modSm .sm-sel { margin-top: var(--s2); }
+#modSm td.sm-items, #modSm td.sm-why { min-width: 200px; max-width: 420px; }
+#modSm td .ord-st { margin-left: 6px; }
+#modSm tr.sel td { background: var(--accent-soft); }
+#modSm tr.muted td { color: var(--muted); }
+#modSm .sm-foldcard > details.fold, #modSm fieldset.sm-set > details.fold:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+#modSm fieldset.sm-set { border: 0; padding: 0; margin: 0; min-width: 0; }
+#modSm .sm-in { width: 100%; min-width: 64px; }
+#modSm .sm-in.n { min-width: 78px; text-align: right; }
+#modSm .sm-in.wide { min-width: 210px; }
+#modSm table.sm-edit td { padding: 3px 4px; }
+#modSm .sm-check { display: inline-flex; align-items: center; gap: 4px; }
+#modSm .sm-setbar { position: sticky; bottom: 8px; z-index: 2; display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin-top: var(--s3); padding: var(--s2) var(--s3);
+  background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-border); border-radius: var(--r2); }
+#modSm .sm-setbar[hidden] { display: none; }
+#modSm .sm-bundle { border: 1px solid var(--border); border-radius: var(--r2); padding: var(--s2) var(--s3); margin-top: var(--s2); }
+#modSm .sm-parts { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; gap: 4px; }
+#modSm .sm-parts li { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+#modSm .sm-parts .sm-in { width: 96px; }
+#modSm .sm-set textarea { width: 100%; max-width: 520px; display: block; }
+#modSm .ord-dialog input[type=text] { max-width: 520px; }
+@media (max-width: 640px) {
+  #modSm .sm-bulk .ord-actions > * { flex: 1 1 100%; }
+  #modSm td.sm-items, #modSm td.sm-why { min-width: 160px; }
+}
