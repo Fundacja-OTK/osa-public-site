@@ -1,14 +1,14 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=b6155cb';
-import { api, ctx } from '../core/client.js?v=b6155cb';
-import { go, setLeaveGuard } from '../core/router.js?v=b6155cb';
-import { noteVisit } from '../core/recents.js?v=b6155cb';
-import { registerListKeys } from '../core/listKeys.js?v=b6155cb';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=b6155cb';
-import { createFilterUi } from './zamowieniaFiltry.js?v=b6155cb';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=b6155cb';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=b6155cb';
+import { el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=2851893';
+import { api, ctx } from '../core/client.js?v=2851893';
+import { go, setLeaveGuard } from '../core/router.js?v=2851893';
+import { noteVisit } from '../core/recents.js?v=2851893';
+import { registerListKeys } from '../core/listKeys.js?v=2851893';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=2851893';
+import { createFilterUi } from './zamowieniaFiltry.js?v=2851893';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=2851893';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=2851893';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -138,20 +138,19 @@ function buildList() {
   u.prodClear = el('button', { type: 'button', class: 'ghost', id: 'ordProdClear', title: 'Usuń filtr produktu', onclick: () => setQ({ product: '', pname: '' }) }, 'Usuń');
   u.filtersBtn = el('button', { type: 'button', class: 'secondary', id: 'ordFiltersBtn', 'aria-expanded': 'false', 'aria-controls': 'ordFilters',
     title: 'Pokaż lub ukryj panel filtrów po lewej: płatność, dostawa, produkt, zakres dat, dane z notatek klientów. Wybór jest zapamiętywany.', onclick: () => toggleFilters() }, 'Filtry');
-  u.fx = createFilterUi({ Q: () => S.Q, meta: () => S.meta, setQ: patch => setQ(patch), osaOn: () => osaActive(S.Q), osaClear: OSA_CLEAR, qsOf, clearAll: () => setQ(CLEAR_ALL()),
+  u.fx = createFilterUi({ Q: () => S.Q, meta: () => S.meta, setQ: patch => setQ(patch), osaOn: () => osaActive(S.Q), osaClear: OSA_CLEAR, qsOf, clearAll: () => setQ(CLEAR_ALL()), openPanel: () => { if (u.layout && !u.layout.isOpen()) toggleFilters(true); },
     goQs: qs => go('/zamowienia' + (qs ? '?' + qs : '')), linkFor: qs => location.href.split('#')[0] + '#/zamowienia' + (qs ? '?' + qs : '') });
   u.filtersInner = el('div', { class: 'opts-box ord-filters' });
   u.thumbs = el('input', { type: 'checkbox', id: 'ordThumbs', checked: thumbsOn(), onchange: () => { store('osa-ord-thumbs', u.thumbs.checked ? 1 : 0); if (S.data) renderList(); } });
   u.osa = osaBar({ prefix: 'ordOsa', withLicense: true, plain: true, getQ: () => S.Q, apply: patch => setQ(patch), facets: () => S.meta && S.meta.facets });
   u.filtersInner.append(...u.fx.panelNodes({
+    moreTitle: 'Klient i produkt', moreTip: 'Dane z notatek klientów (województwo, rodzaj podmiotu, tytuł, tagi, licencja) i produkt w zamówieniu', moreActive: () => !!(S.Q.product || osaActive(S.Q)),
     payMethod: el('div', { class: 'field-inline' }, 'Sposób płatności', u.payment.node), delivery: el('div', { class: 'field-inline' }, 'Sposób dostawy', u.deliverySel.node), range: u.range.node,
-    more: [el('section', { class: 'fp-sec' }, el('h3', { class: 'tip', title: 'Dane z notatek klientów (województwo, rodzaj podmiotu, tytuł, tagi, licencja) i produkt w zamówieniu' }, 'Klient i produkt'), u.osa.node,
-      el('div', { class: 'field-inline ord-prodf' }, 'Produkt', u.prodPick.node, u.prodLabel, u.prodClear))],
+    more: [el('div', { class: 'fx-clients' }, u.osa.node, el('div', { class: 'field-inline ord-prodf' }, 'Produkt', u.prodPick.node, u.prodLabel, u.prodClear))],
   }));
   u.filtersInner.append(el('div', { class: 'ord-filter-row' },
     el('label', { class: 'field-inline' }, 'Wierszy na stronie', u.size),
-    el('label', { class: 'field-inline', style: 'flex-direction:row;align-items:center;gap:6px', title: 'Pokazuje lub ukrywa miniatury zdjęć przy produktach w kolumnie „Zamówione produkty”' }, u.thumbs, 'Pokazuj małe zdjęcia produktów'),
-    el('button', { type: 'button', class: 'ghost', id: 'ordClear', title: 'Usuń wyszukiwanie, zakres dat, statusy, płatność, przesyłkę, wartość i filtry z notatek klientów', onclick: () => setQ(CLEAR_ALL()) }, 'Wyczyść filtry')));
+    el('label', { class: 'field-inline', style: 'flex-direction:row;align-items:center;gap:6px', title: 'Pokazuje lub ukrywa miniatury zdjęć przy produktach w kolumnie „Zamówione produkty”' }, u.thumbs, 'Pokazuj małe zdjęcia produktów')));
   u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Status zamówienia' });
   u.exportBtn = menuButton({ id: 'ordExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz zamówienia z tabeli do pliku Excel lub CSV — zaznaczone albo cały wynik filtra', items: exportItems });
   u.colMenu = columnMenu({ id: 'ordColsBtn', storeKey: 'osa-ord-cols2',   // v2: Klient i Informacje dodatkowe domyślnie wyłączone
@@ -167,7 +166,7 @@ function buildList() {
   u.bulk = el('div', { class: 'ord-bulk', id: 'ordBulk', hidden: true });
   u.results = el('div', { id: 'ordResults' });
   u.layout = filterLayout({ key: 'zamowienia', panelId: 'ordFilters', panelNodes: [u.filtersInner],
-    mainNodes: [u.segs, u.fx.presets, u.fx.sum, el('div', { class: 'toolbar' }, u.search, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info), u.dlg, u.bulk, u.results] });
+    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.fx.viewsMenu, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info), u.fx.sum, u.dlg, u.bulk, u.results] });
   u.filters = u.layout.panel;
   S.listBox = el('div', { class: 'ord-list' },
     el('div', { class: 'card' },

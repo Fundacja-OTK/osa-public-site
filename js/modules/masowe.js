@@ -2,9 +2,9 @@
 // Przebieg: 1) wybór produktów (filtry albo zaznaczenie) → 2) co zmienić → 3) OBOWIĄZKOWY podgląd „przed → po” → potwierdzenie z liczbą →
 // 4) wykonanie partiami z paskiem postępu (wstrzymaj / zatrzymaj, błędy per produkt) → 5) podsumowanie i „Cofnij” (do 7 dni).
 // Backend: akcje bulk:* (Worker, token READWRITE, tempo ≤ 120 zapisów/min do Selly).
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=b6155cb';
-import { api, ctx } from '../core/client.js?v=b6155cb';
-import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=b6155cb';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=2851893';
+import { api, ctx } from '../core/client.js?v=2851893';
+import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=2851893';
 
 const zl = v => money(v) + ' zł';
 const STEP = 4;   // produktów na jedno wywołanie (każdy = 2 zapytania do Selly)

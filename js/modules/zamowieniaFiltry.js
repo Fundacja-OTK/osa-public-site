@@ -1,8 +1,8 @@
 // Zamówienia — interfejs filtrów złożonych: szybkie widoki, zdanie z usuwalnymi plakietkami, grupy statusów, płatność, przesyłka,
 // wartość, zapisane widoki. Logika (bez DOM) jest w zamFiltry.js. Moduł dostaje od zamowienia.js uchwyty `h` (stan, setQ, adres).
-import { el, store, flash, menuButton, copyToClipboard } from '../core/ui.js?v=b6155cb';
+import { el, store, flash, menuButton, copyToClipboard } from '../core/ui.js?v=2851893';
 import { PAY_STATES, TRACK_STATES, OLDER_OPTIONS, STATUS_GROUPS, groupStatuses, toggleOption, toggleMany, csvHas, csvList, clausesOf, sentenceOf, anyFilter,
-  presetsOf, presetActive, olderToDate, cleanViews, addView, renameView, removeView, viewQs, FKEYS, EMPTY_F } from './zamFiltry.js?v=b6155cb';
+  presetsOf, presetActive, olderToDate, cleanViews, addView, renameView, removeView, viewQs, FKEYS, EMPTY_F } from './zamFiltry.js?v=2851893';
 
 const VIEWS_KEY = 'osa-ord-views', GROUPS_KEY = 'osa-ord-sgroups';
 const loadViews = () => cleanViews(store(VIEWS_KEY));
@@ -13,7 +13,7 @@ export function createFilterUi(h) {
   const U = {};
   let mode = 'in';           // klikanie w opcje: 'in' = pokaż, 'out' = wyklucz (NIE)
   let views = loadViews();
-  let namingOpen = false;
+  let namingOpen = false, chipsAll = false, exactOpen = false;
 
   const Q = () => h.Q();
   const metaOf = () => h.meta();
@@ -27,19 +27,28 @@ export function createFilterUi(h) {
   // ─── Plakietka opcji (pokaż / wyklucz) ─────────────────────────────────────
   function optChip({ id, label, n, tip, state, onpick }) {
     const out = state === 'out';
-    const b = el('button', { type: 'button', class: 'chip fx-opt' + (out ? ' neg' : ''), 'aria-pressed': String(!!state), id, 'data-state': state || '',
-      title: (tip ? tip + '\n\n' : '') + 'Klik: ' + (mode === 'out' ? 'wyklucz' : 'pokaż') + ' · Alt+klik: ' + (mode === 'out' ? 'pokaż' : 'wyklucz') + (state ? ' · kliknij ponownie, aby wyłączyć' : ''),
-      onclick: ev => onpick(ev.altKey ? (mode === 'out' ? 'in' : 'out') : mode) }, out ? 'bez ' : '', label, n == null ? null : el('span', { class: 'ord-n' }, String(n)));
-    return b;
+    const inp = el('input', { type: 'checkbox', id, checked: !!state, 'data-state': state || '',
+      onclick: ev => onpick(ev.altKey ? (mode === 'out' ? 'in' : 'out') : mode) });
+    return el('label', { class: 'fx-opt' + (out ? ' neg' : ''), 'data-state': state || '',
+      title: (tip ? tip + '\n\n' : '') + 'Klik: ' + (mode === 'out' ? 'wyklucz' : 'pokaż') + ' · Alt+klik: ' + (mode === 'out' ? 'pokaż' : 'wyklucz') + (state ? ' · kliknij ponownie, aby wyłączyć' : '') },
+    inp, el('span', { class: 'fx-lab' }, out ? 'bez ' : '', label), n == null ? null : el('span', { class: 'ord-n' }, String(n)));
   }
   const stateOf = (Fin, Fout, v) => (csvHas(Q()[Fin], v) ? 'in' : csvHas(Q()[Fout], v) ? 'out' : '');
 
-  // ─── Szybkie widoki (zawsze widoczne) ──────────────────────────────────────
-  U.presets = el('div', { class: 'fx-presets', id: 'ordPresets', role: 'group', 'aria-label': 'Szybkie widoki' });
-  U.viewsMenu = menuButton({ id: 'ordViewsMenu', label: 'Moje widoki', cls: 'secondary', title: 'Zapisane przez Ciebie zestawy filtrów (w tej przeglądarce). Zapiszesz je przyciskiem „Zapisz jako widok” nad tabelą, gdy jakiś filtr jest włączony.',
+  // ─── Szybkie widoki: jedno menu ▾ (gotowe zestawy + „Moje widoki” + zapis bieżącego) ───────────────
+  const PRESET_DESC = { 'paid-todo': 'zapłacone, jeszcze bez numeru przesyłki', 'to-send': 'opłacone lub za pobraniem, bez numeru przesyłki', 'unpaid-old': 'do przypomnienia o płatności',
+    partial: 'wpłacono mniej niż wartość', over: 'wpłacono więcej niż wartość', 'sent-no-tracking': 'status „Wysłane”, brak numeru' };
+  U.viewsMenu = menuButton({ id: 'ordViewsMenu', label: 'Szybkie widoki', cls: 'secondary', title: 'Gotowe zestawy filtrów jednym kliknięciem oraz Twoje zapisane widoki (zapis w tej przeglądarce).',
     items: () => {
-      const it = views.map(v => ({ label: v.name, title: 'Zastosuj zapisany widok „' + v.name + '”', run: () => applyView(v) }));
-      return it.length ? it : [{ label: 'Brak zapisanych widoków', title: 'Włącz filtry i użyj „Zapisz jako widok” nad tabelą', count: 0, run: () => {} }];
+      const Qn = Q(), on = anyFilter(Qn, h.osaOn());
+      const it = presetsOf(groups()).map(p => ({ label: p.label, desc: PRESET_DESC[p.id] || '', id: 'ordPre-' + p.id, active: presetActive(p, Qn) && anyFilter(Qn, false),
+        title: p.tip + '\n\nKliknij ponownie, aby wyłączyć.', run: () => applyPreset(p) }));
+      it.push({ heading: 'Moje widoki' });
+      if (views.length) views.forEach(v => it.push({ label: v.name, title: 'Zastosuj zapisany widok „' + v.name + '”', run: () => applyView(v) }));
+      else it.push({ label: 'Brak zapisanych widoków', desc: 'zapisz bieżące filtry poniżej', disabled: true, title: 'Włącz filtry i wybierz „Zapisz jako widok…”', run: () => {} });
+      it.push({ label: 'Zapisz jako widok…', id: 'ordSaveView', disabled: !on, title: on ? 'Zapisz bieżący zestaw filtrów pod własną nazwą — pojawi się w tym menu (zapis w tej przeglądarce)' : 'Najpierw włącz jakiś filtr, potem zapisz go jako widok',
+        run: () => { namingOpen = true; paintSummary(); U.nameInput.focus(); } });
+      return it;
     } });
   function applyPreset(p) {
     if (presetActive(p, Q())) { h.setQ({ ...EMPTY_F }); return; }
@@ -49,19 +58,20 @@ export function createFilterUi(h) {
 
   // ─── Zdanie + usuwalne plakietki (nad tabelą) ──────────────────────────────
   U.sentence = el('p', { class: 'fx-sentence', id: 'ordFsentence', role: 'status' });
-  U.chips = el('div', { class: 'fx-chips', id: 'ordFchips' });
   U.nameInput = el('input', { type: 'text', id: 'ordViewName', class: 'fx-name', maxlength: '60', placeholder: 'Nazwa widoku, np. „Do wysyłki”', 'aria-label': 'Nazwa zapisywanego widoku',
     onkeydown: ev => { if (ev.key === 'Enter') { ev.preventDefault(); saveCurrent(); } else if (ev.key === 'Escape') { namingOpen = false; paintSummary(); } } });
   U.nameRow = el('div', { class: 'fx-namerow', hidden: true }, U.nameInput,
     el('button', { type: 'button', class: 'primary', id: 'ordViewSave', onclick: () => saveCurrent() }, 'Zapisz'),
     el('button', { type: 'button', class: 'ghost', onclick: () => { namingOpen = false; paintSummary(); } }, 'Anuluj'));
-  U.saveBtn = el('button', { type: 'button', class: 'secondary', id: 'ordSaveView', title: 'Zapisz bieżący zestaw filtrów pod własną nazwą — pojawi się w „Moje widoki” (zapis w tej przeglądarce)',
-    onclick: () => { namingOpen = !namingOpen; paintSummary(); if (namingOpen) U.nameInput.focus(); } }, 'Zapisz jako widok');
-  U.linkBtn = el('button', { type: 'button', class: 'ghost', id: 'ordCopyLink', title: 'Kopiuje adres z tymi filtrami — po otwarciu przez inną osobę (zalogowaną w panelu) zobaczy ten sam widok',
+  U.linkBtn = el('button', { type: 'button', class: 'link', id: 'ordCopyLink', title: 'Kopiuje adres z tymi filtrami — po otwarciu przez inną osobę (zalogowaną w panelu) zobaczy ten sam widok',
     onclick: () => copyToClipboard(h.linkFor(qsNow()), null, 'Skopiowano link do widoku', '') }, 'Kopiuj link');
-  U.clearBtn = el('button', { type: 'button', class: 'ghost', id: 'ordFclear', title: 'Usuwa wszystkie filtry i wyszukiwanie', onclick: () => h.clearAll() }, 'Wyczyść wszystko');
-  U.sum = el('div', { class: 'fx-sum', id: 'ordFsum', hidden: true }, U.sentence, U.chips,
-    el('div', { class: 'fx-actions' }, U.saveBtn, U.linkBtn, U.clearBtn), U.nameRow);
+  U.clearBtn = el('button', { type: 'button', class: 'link', id: 'ordFclear', title: 'Usuwa wszystkie filtry i wyszukiwanie', onclick: () => h.clearAll() }, 'Wyczyść');
+  U.exactBtn = el('button', { type: 'button', class: 'link fx-exact', id: 'ordFexact', 'aria-expanded': 'false', title: 'Pokazuje pełny opis filtrów zwykłym zdaniem',
+    onclick: () => { exactOpen = !exactOpen; paintSummary(); } }, 'Co dokładnie?');
+  U.chips = el('span', { class: 'fx-groupsline', id: 'ordFchips' });
+  U.chipsLine = el('div', { class: 'fx-line' }, el('span', { class: 'muted' }, 'Filtry:'), U.chips, el('span', { class: 'fx-tools' }, U.exactBtn, U.clearBtn));
+  U.exact = el('div', { class: 'fx-exactbox', hidden: true }, U.sentence, U.linkBtn);
+  U.sum = el('div', { class: 'fx-sum', id: 'ordFsum', hidden: true }, U.chipsLine, U.exact, U.nameRow);
   function saveCurrent() {
     const name = U.nameInput.value.trim();
     if (!name) { U.nameInput.focus(); return; }
@@ -71,22 +81,33 @@ export function createFilterUi(h) {
     flash('', 'Zapisano widok „' + name + '”');
     paintSummary(); paintViewsList();
   }
+  const SEC_OF = { 'płatność': 'pay', 'sposób płatności': 'pay', status: 'status', dostawa: 'ship', 'przesyłka': 'ship', 'wartość': 'val', 'złożone': 'val', data: 'val', produkt: 'cli', klient: 'cli' };
   function paintSummary() {
     const cl = clauses(), on = anyFilter(Q(), h.osaOn());
     U.sum.hidden = !on;
-    if (!on) return;
-    U.sentence.textContent = sentenceOf(cl);
-    U.chips.replaceChildren(...cl.flatMap(c => c.items.map(i => el('button', { type: 'button', class: 'chip fx-x' + (c.neg ? ' neg' : ''), 'data-clause': c.id,
-      title: 'Usuń z filtra: ' + c.name + (c.neg ? ' — bez ' : ': ') + i.label, 'aria-label': 'Usuń z filtra: ' + c.name + ' ' + i.label, onclick: () => h.setQ(i.patch) },
-      el('span', { class: 'fx-k' }, c.name + (c.neg ? ' — bez' : '') + ':'), ' ' + i.label, el('span', { class: 'fx-xx', 'aria-hidden': 'true' }, ' ×')))));
+    if (!on) { exactOpen = false; namingOpen = false; return; }
+    const sent = sentenceOf(cl);
+    U.sentence.textContent = sent;
+    U.chipsLine.title = sent;
+    const by = new Map();
+    for (const c of cl) { const g = by.get(c.name) || { name: c.name, n: 0, key: SEC_OF[c.name] }; g.n += c.items.length; by.set(c.name, g); }
+    const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+    U.chips.replaceChildren(...[...by.values()].map(g => el('button', { type: 'button', class: 'link fx-g', 'data-clause': g.key || g.name,
+      title: g.key ? 'Zmień ten filtr w panelu filtrów' : 'Ten warunek ustawiasz w wyszukiwarce lub panelu filtrów', onclick: () => { if (g.key) h.openPanel(); focusSec(g.key); } }, cap(g.name) + (g.n > 1 ? ' (' + g.n + ')' : ''))));
+    U.exact.hidden = !exactOpen;
+    U.exactBtn.setAttribute('aria-expanded', String(exactOpen));
     U.nameRow.hidden = !namingOpen;
-    U.saveBtn.setAttribute('aria-expanded', String(namingOpen));
   }
 
   // ─── Panel filtrów ─────────────────────────────────────────────────────────
-  const sec = (title, tip, ...body) => el('section', { class: 'fp-sec' }, el('h3', { class: tip ? 'tip' : null, title: tip || null }, title), ...body);
-  U.hint = el('p', { class: 'muted small fx-hint', id: 'ordFhint', title: 'Przykład: „opłacone” ORAZ („Złożone” LUB „W realizacji”) — zamówienia opłacone i jednocześnie w jednym z dwóch statusów.' },
-    'Zaznaczone opcje w jednej grupie łączą się słowem LUB, a różne grupy — słowem ORAZ. Nad tabelą zobaczysz to jako zdanie.');
+  // Sekcje panelu zwijane: domyślnie otwarte tylko najczęściej używane; sekcja z aktywnym filtrem otwiera się sama
+  const secs = [];
+  const sec = (title, tip, { key, open, active }, ...body) => {
+    const dot = el('span', { class: 'fx-dot', hidden: true, title: 'W tej grupie jest aktywny filtr' }, '●');
+    const d = el('details', { class: 'fp-sec fx-fold' }, el('summary', { class: tip ? 'tip' : null, title: tip || null }, title, dot), el('div', { class: 'fx-secbody' }, ...body));
+    d.open = !!open; secs.push({ d, active, dot, key });
+    return d;
+  };
   U.modeNote = el('div', { class: 'notice warn fx-modenote', id: 'ordFmodeNote', hidden: true, role: 'status' }, 'Tryb wykluczania: kliknięcie opcji ją wyklucza (pokaże zamówienia bez niej). ',
     el('button', { type: 'button', class: 'link', onclick: () => setMode('in') }, 'Wróć do pokazywania'));
   U.statusBox = el('div', { class: 'fx-groups', id: 'ordFstatus' });
@@ -102,14 +123,18 @@ export function createFilterUi(h) {
   U.modeOut = el('button', { type: 'button', id: 'ordModeOut', class: 'chip', 'aria-pressed': 'false', title: 'Kliknięcie opcji filtra wyklucza ją: pokaże zamówienia BEZ tej opcji (NIE). Skrót: Alt+klik w dowolną opcję.', onclick: () => setMode('out') }, 'Wykluczaj (NIE)');
   U.groupEditor = el('div', { class: 'fx-geditor', id: 'ordFgroups' });
   U.viewsList = el('div', { class: 'fx-views', id: 'ordFviews' });
-  U.adv = el('details', { class: 'fp-sec fold', id: 'ordFmore' },
-    el('summary', { title: 'Wykluczanie (NIE), własne grupy statusów i zarządzanie zapisanymi widokami' }, 'Zaawansowane: wykluczanie, grupy statusów, zapisane widoki'),
+  U.adv = el('details', { class: 'fp-sec fold fx-extra', id: 'ordFmore' },
+    el('summary', { title: 'Wykluczanie (NIE), własne grupy statusów i zarządzanie zapisanymi widokami' }, 'Zaawansowane'),
     el('div', { class: 'fx-more' },
       el('div', { class: 'fx-morebox' }, el('strong', null, 'Klikanie w opcje'), el('p', { class: 'muted small' }, 'Domyślnie klik pokazuje zamówienia z opcją. W trybie „Wykluczaj” pokaże te bez niej (NIE). Szybciej: Alt+klik w dowolną opcję.'),
         el('div', { class: 'fx-row' }, U.modeIn, U.modeOut)),
       el('div', { class: 'fx-morebox' }, el('strong', null, 'Grupy statusów'), el('p', { class: 'muted small' }, 'Statusy są grupowane po nazwie. Jeśli któryś trafił do złej grupy, przypisz go ręcznie (zapamiętane w tej przeglądarce).'), U.groupEditor),
       el('div', { class: 'fx-morebox' }, el('strong', null, 'Zapisane widoki'), el('p', { class: 'muted small' }, 'Zmień nazwę, usuń albo skopiuj link do widoku. Nowy widok zapiszesz przyciskiem „Zapisz jako widok” nad tabelą.'), U.viewsList)));
 
+  function focusSec(key) {
+    const x = secs.find(y => y.key === key); if (!x) return;
+    x.d.open = true; setTimeout(() => x.d.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 0);
+  }
   function setMode(m) {
     mode = m;
     U.modeIn.setAttribute('aria-pressed', String(m === 'in')); U.modeOut.setAttribute('aria-pressed', String(m === 'out'));
@@ -118,14 +143,16 @@ export function createFilterUi(h) {
   }
 
   U.panelNodes = (extra) => [
-    U.hint, U.modeNote,
-    sec('Status zamówienia', 'Statusy z Selly pogrupowane tematycznie. Kliknij nazwę grupy, aby wybrać wszystkie jej statusy naraz (LUB).', U.statusBox),
-    sec('Płatność', 'Czy zamówienie jest opłacone — wyliczane z kwoty wpłaconej w Selly, niezależnie od statusu. Można łączyć np. „opłacone” ze statusem „Złożone”.', U.payBox, extra.payMethod),
-    sec('Dostawa i przesyłka', 'Sposób dostawy oraz to, czy zamówienie ma już numer przesyłki.', extra.delivery, U.trkBox),
-    sec('Wartość i data', 'Wartość zamówienia z dostawą oraz zakres dat złożenia.', el('div', { class: 'fx-row' },
+    U.modeNote,
+    sec('Status zamówienia', 'Statusy z Selly pogrupowane tematycznie. Kliknij nazwę grupy, aby wybrać wszystkie jej statusy naraz. Zaznaczone opcje w jednej grupie łączą się słowem LUB, a różne grupy — ORAZ.',
+      { key: 'status', open: true, active: () => !!(Q().status || Q().xstatus) }, U.statusBox),
+    sec('Płatność', 'Czy zamówienie jest opłacone — wyliczane z kwoty wpłaconej w Selly, niezależnie od statusu. Można łączyć np. „opłacone” ze statusem „Złożone”.',
+      { key: 'pay', open: true, active: () => !!(Q().pay || Q().xpay || Q().payment) }, U.payBox, extra.payMethod),
+    sec('Dostawa i przesyłka', 'Sposób dostawy oraz to, czy zamówienie ma już numer przesyłki.', { key: 'ship', active: () => !!(Q().trk || Q().delivery) }, extra.delivery, U.trkBox),
+    sec('Wartość i data', 'Wartość zamówienia z dostawą oraz zakres dat złożenia.', { key: 'val', active: () => !!(Q().min || Q().max || Q().older || Q().from || Q().to) }, el('div', { class: 'fx-row' },
       el('label', { class: 'field-inline' }, 'Wartość od (zł)', U.min), el('label', { class: 'field-inline' }, 'do (zł)', U.max)),
       el('div', { class: 'fx-row' }, extra.range, el('label', { class: 'field-inline' }, 'Wiek zamówienia', U.older), U.olderNote)),
-    ...extra.more,
+    ...extra.more.map(m => sec(extra.moreTitle, extra.moreTip, { key: 'cli', active: extra.moreActive }, m)),
     U.adv,
   ];
 
@@ -175,14 +202,10 @@ export function createFilterUi(h) {
     }));
   }
 
-  function paintPresets() {
-    const ps = presetsOf(groups()), Qn = Q();
-    U.presets.replaceChildren(el('span', { class: 'fx-lbl muted small', title: 'Gotowe zestawy filtrów jednym kliknięciem. Najedź na nazwę, aby zobaczyć dokładnie, co zawiera.' }, 'Szybkie widoki:'),
-      ...ps.map(p => el('button', { type: 'button', class: 'chip fx-preset', id: 'ordPre-' + p.id, 'aria-pressed': String(presetActive(p, Qn) && anyFilter(Qn, false)), title: p.tip + '\n\nKliknij ponownie, aby wyłączyć.', onclick: () => applyPreset(p) }, p.label)),
-      U.viewsMenu);
-  }
-
-  U.sync = () => { paintPresets(); paintSummary(); paintPanel(); };
+  U.sync = () => {
+    paintSummary(); paintPanel();
+    for (const x of secs) { const a = !!(x.active && x.active()); x.dot.hidden = !a; if (a && !x.seen) x.d.open = true; x.seen = a; }
+  };
   U.mode = () => mode;
   U.views = () => views;
   U.FKEYS = FKEYS;

@@ -122,10 +122,11 @@ export function menuButton({ id, label, cls, title, items, disabled }) {
   }
   function open() {
     if (btn.disabled) return;
-    pop.replaceChildren(...items().map(it => el('button', {
-      type: 'button', role: 'menuitem', class: 'menu-item', tabindex: '-1', title: it.title, disabled: it.count === 0,
+    pop.replaceChildren(...items().map(it => it.heading ? el('div', { class: 'menu-head', role: 'presentation' }, it.heading) : el('button', {
+      type: 'button', role: 'menuitem', class: 'menu-item', tabindex: '-1', title: it.title, disabled: it.count === 0 || !!it.disabled,
+      'data-active': it.active ? '1' : null, id: it.id || null,
       onclick: () => { close(true); it.run(); },
-    }, it.label, it.count == null ? null : el('span', { class: 'menu-count' }, ' · ' + it.count))));
+    }, it.label, it.count == null ? null : el('span', { class: 'menu-count' }, ' · ' + it.count), it.desc ? el('span', { class: 'menu-desc' }, it.desc) : null)));
     pop.style.transform = '';
     pop.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
@@ -650,4 +651,4 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=b6155cb';   // pole daty i zakres dat
+export * from './datepicker.js?v=2851893';   // pole daty i zakres dat

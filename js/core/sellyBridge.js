@@ -1,6 +1,6 @@
 // Natywne ekrany Selly (etap 2): żądania do rozszerzenia OSA przez most (extension/content/panelBridge.js).
 // {osa:'sel-req', id, req} → {osa:'sel-res', id, res}. Dane Selly zostają w tej przeglądarce (Selly → rozszerzenie → ta strona).
-import { isTrustedMessage } from './extBridge.js?v=b6155cb';
+import { isTrustedMessage } from './extBridge.js?v=2851893';
 
 let seq = 0;
 const TIMEOUT_MS = 30000;
