@@ -1,17 +1,17 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=c46bdf1';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=c46bdf1';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=c46bdf1';
-import { api, ctx } from '../core/client.js?v=c46bdf1';
-import { go, setLeaveGuard } from '../core/router.js?v=c46bdf1';
-import { noteVisit } from '../core/recents.js?v=c46bdf1';
-import { registerListKeys } from '../core/listKeys.js?v=c46bdf1';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=c46bdf1';
-import { showNewOrder } from './zamowienieNowe.js?v=c46bdf1';
-import { createFilterUi } from './zamowieniaFiltry.js?v=c46bdf1';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=c46bdf1';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=c46bdf1';
+import { photoSrc } from '../core/photo.js?v=e5c8181';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=e5c8181';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=e5c8181';
+import { api, ctx } from '../core/client.js?v=e5c8181';
+import { go, setLeaveGuard } from '../core/router.js?v=e5c8181';
+import { noteVisit } from '../core/recents.js?v=e5c8181';
+import { registerListKeys } from '../core/listKeys.js?v=e5c8181';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=e5c8181';
+import { showNewOrder } from './zamowienieNowe.js?v=e5c8181';
+import { createFilterUi } from './zamowieniaFiltry.js?v=e5c8181';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=e5c8181';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=e5c8181';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -174,8 +174,8 @@ function buildList() {
   S.listBox = el('div', { class: 'ord-list' },
     el('div', { class: 'card' },
       pageToolbar({ title: 'Zamówienia', sub: 'Lista zamówień ze sklepu (kopia odświeżana co minutę). Kliknij numer zamówienia, aby zobaczyć szczegóły.',
-        actions: [u.filtersBtn, el('button', { type: 'button', class: 'secondary', id: 'ordSpeedMail', onclick: () => go('/speedmail'),
-          title: 'Kreator wysyłki do magazynu SpeedMail: wybór zamówień, sprawdzenie stanu SM, podział, plik dla SpeedMail i zmiana statusów w Selly' }, 'Wysyłka SpeedMail'),
+        actions: [u.filtersBtn, el('a', { class: 'btn-secondary', id: 'ordSpeedMail', href: '#/speedmail',
+          title: 'Kreator wysyłki do magazynu SpeedMail: wybór zamówień, sprawdzenie stanu SM, podział, plik dla SpeedMail i zmiana statusów w Selly. Środkowy przycisk myszy albo Ctrl+klik otwiera w nowej karcie.' }, 'Wysyłka SpeedMail'),
           el('a', { class: 'btn-primary', id: 'ordAdd', href: '#/zamowienia/nowe', write: 'zamowienia',
           title: 'Dodaj zamówienie ręcznie: klient, produkty, dostawa i płatność (formularz w panelu)' }, '+ Nowe zamówienie')] }),
       u.layout.node));

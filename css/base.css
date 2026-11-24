@@ -565,6 +565,9 @@ tbody tr { transition: background-color .08s; }
 .page-toolbar .pt-actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 a.btn-primary { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 16px; border-radius: var(--r1); background: var(--accent); color: var(--accent-text); font-weight: 700; font-size: var(--fs-sm); text-decoration: none; }
 a.btn-primary:hover { background: var(--accent-strong); }
+/* Nawigacja jako link (da się otworzyć w nowej karcie) o wyglądzie przycisku drugorzędnego */
+a.btn-secondary { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 14px; border-radius: var(--radius, 8px); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); text-decoration: none; font: inherit; }
+a.btn-secondary:hover { background: var(--hover); color: var(--accent-strong); }
 
 /* Panel filtrów po lewej (zwijany) + treść */
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); align-items: start; margin-top: var(--s3); }
