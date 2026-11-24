@@ -1,14 +1,14 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
-import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=7fa4a02';
-import { api, ctx } from '../core/client.js?v=7fa4a02';
-import { go, setLeaveGuard } from '../core/router.js?v=7fa4a02';
-import { noteVisit } from '../core/recents.js?v=7fa4a02';
-import { registerListKeys } from '../core/listKeys.js?v=7fa4a02';
-import { clientForm } from './klienciForm.js?v=7fa4a02';
-import { mountBlockToggle } from './klienciBlokada.js?v=7fa4a02';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=7fa4a02';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=7fa4a02';
+import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=79172be';
+import { api, ctx } from '../core/client.js?v=79172be';
+import { go, setLeaveGuard } from '../core/router.js?v=79172be';
+import { noteVisit } from '../core/recents.js?v=79172be';
+import { registerListKeys } from '../core/listKeys.js?v=79172be';
+import { clientForm } from './klienciForm.js?v=79172be';
+import { mountBlockToggle } from './klienciBlokada.js?v=79172be';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=79172be';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=79172be';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'email', 'created', 'modified', 'orders', 'id', 'login', 'city'];

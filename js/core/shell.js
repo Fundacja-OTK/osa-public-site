@@ -1,19 +1,19 @@
 // Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu sekcji z wysuwanymi listami
 // (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K), okruszki i tytuł strony, logowanie/start, stopka.
-import { $, el, store, pageError, refreshWriteGates } from './ui.js?v=7fa4a02';
-import { api, ctx, ENV, apiInfo, onApiInfo, canWriteSection, READONLY_TIP } from './client.js?v=7fa4a02';
-import { signOut, freshToken, hasToken, sessionLogin, adoptBoot, completePerms } from './auth.js?v=7fa4a02';
-import { canSee } from '../lib/panelAuth.js?v=7fa4a02';
-import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=7fa4a02';
-import { initErrorReporting } from './errors.js?v=7fa4a02';
-import { setReporter } from './errorHook.js?v=7fa4a02';
-import { initFeedback } from './feedback.js?v=7fa4a02';
-import { watchVersion, showNewVersion } from './update.js?v=7fa4a02';
-import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=7fa4a02';
-import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=7fa4a02';
-import { initPalette, openPalette } from './palette.js?v=7fa4a02';
-import { installShortcuts, shortcuts } from './shortcuts.js?v=7fa4a02';
-import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=7fa4a02';
+import { $, el, store, pageError, refreshWriteGates } from './ui.js?v=79172be';
+import { api, ctx, ENV, apiInfo, onApiInfo, canWriteSection, READONLY_TIP } from './client.js?v=79172be';
+import { signOut, freshToken, hasToken, sessionLogin, adoptBoot, completePerms } from './auth.js?v=79172be';
+import { canSee } from '../lib/panelAuth.js?v=79172be';
+import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=79172be';
+import { initErrorReporting } from './errors.js?v=79172be';
+import { setReporter } from './errorHook.js?v=79172be';
+import { initFeedback } from './feedback.js?v=79172be';
+import { watchVersion, showNewVersion } from './update.js?v=79172be';
+import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=79172be';
+import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=79172be';
+import { initPalette, openPalette } from './palette.js?v=79172be';
+import { installShortcuts, shortcuts } from './shortcuts.js?v=79172be';
+import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=79172be';
 
 const ROUTE_KEY = 'osa-route';
 const RECORD_MODS = new Set(['zamowienia', 'klienci', 'produkty']);   // karta rekordu zapisuje się sama (z nazwą)
@@ -25,28 +25,28 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
 
 /** Moduły ładowane przy pierwszym wejściu (nowe ekrany; brak pliku → strona „w planie”). */
 const LAZY = {
-  pulpit: () => import('../modules/pulpit.js?v=7fa4a02'),
-  przesylki: () => import('../modules/przesylki.js?v=7fa4a02'),
-  dropshipping: () => import('../modules/dropshipping.js?v=7fa4a02'),
-  wplaty: () => import('../modules/wplaty.js?v=7fa4a02'),
-  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=7fa4a02'),
-  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=7fa4a02'),
-  raporty: () => import('../modules/raporty.js?v=7fa4a02'),
+  pulpit: () => import('../modules/pulpit.js?v=79172be'),
+  przesylki: () => import('../modules/przesylki.js?v=79172be'),
+  dropshipping: () => import('../modules/dropshipping.js?v=79172be'),
+  wplaty: () => import('../modules/wplaty.js?v=79172be'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=79172be'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=79172be'),
+  raporty: () => import('../modules/raporty.js?v=79172be'),
   // konfiguracja sklepu — natywne ekrany „strona ustawień” (modules/konfSklepu.js)
-  konf: () => import('../modules/konfSklepu.js?v=7fa4a02').then(m => ({ default: m.konf })), 'panel-konf': () => import('../modules/konfSklepu.js?v=7fa4a02').then(m => ({ default: m.panelKonf })),
-  'wyglad-konf': () => import('../modules/konfSklepu.js?v=7fa4a02').then(m => ({ default: m.wygladKonf })), znaki: () => import('../modules/konfSklepu.js?v=7fa4a02').then(m => ({ default: m.znaki })),
-  jezyki: () => import('../modules/konfSklepu.js?v=7fa4a02').then(m => ({ default: m.jezyki })), dostepnosc: () => import('../modules/konfSklepu.js?v=7fa4a02').then(m => ({ default: m.dostepnosc })),
+  konf: () => import('../modules/konfSklepu.js?v=79172be').then(m => ({ default: m.konf })), 'panel-konf': () => import('../modules/konfSklepu.js?v=79172be').then(m => ({ default: m.panelKonf })),
+  'wyglad-konf': () => import('../modules/konfSklepu.js?v=79172be').then(m => ({ default: m.wygladKonf })), znaki: () => import('../modules/konfSklepu.js?v=79172be').then(m => ({ default: m.znaki })),
+  jezyki: () => import('../modules/konfSklepu.js?v=79172be').then(m => ({ default: m.jezyki })), dostepnosc: () => import('../modules/konfSklepu.js?v=79172be').then(m => ({ default: m.dostepnosc })),
   // marketplace, integracje, treści, konfiguracja zamówień — natywne ekrany „strona ustawień” (modules/konfSklepu.js)
   ...Object.fromEntries(['allegro', 'allegro-aukcje', 'empik', 'int-porownywarki', 'int-przesylki', 'int-fk', 'int-dodatkowe', 'ai', 'slajdy', 'ksztalty', 'dostawy-konf', 'statusy-konf']
-    .map(id => [id, () => import('../modules/konfSklepu.js?v=7fa4a02').then(m => ({ default: m.extra[id] }))])),
-  reklamacje: () => import('../modules/reklamacje.js?v=7fa4a02'), oferty: () => import('../modules/oferty.js?v=7fa4a02'),
+    .map(id => [id, () => import('../modules/konfSklepu.js?v=79172be').then(m => ({ default: m.extra[id] }))])),
+  reklamacje: () => import('../modules/reklamacje.js?v=79172be'), oferty: () => import('../modules/oferty.js?v=79172be'),
   // === administracja i system (podgląd): ekrany tylko do odczytu, jeden moduł (modules/adminNative.js) ===
-  ...Object.fromEntries(['admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki', 'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus'].map(id => [id, () => import('../modules/adminNative.js?v=7fa4a02').then(m => ({ default: m.views[id] }))])),
+  ...Object.fromEntries(['admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki', 'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus'].map(id => [id, () => import('../modules/adminNative.js?v=79172be').then(m => ({ default: m.views[id] }))])),
   // treści (CMS): natywne ekrany z jednego pliku
-  ...Object.fromEntries(['cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy'].map(id => [id, () => import('../modules/tresci.js?v=7fa4a02').then(m => ({ default: m.screens[id] }))])),
+  ...Object.fromEntries(['cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy'].map(id => [id, () => import('../modules/tresci.js?v=79172be').then(m => ({ default: m.screens[id] }))])),
   // === sprzedaż (kupony, koszyki) ===
-  kupony: () => import('../modules/kupony.js?v=7fa4a02'), koszyki: () => import('../modules/koszyki.js?v=7fa4a02'),
-  'zmiana-cen': () => import('../modules/masowe.js?v=7fa4a02'), 'zmiana-danych': () => import('../modules/masowe.js?v=7fa4a02').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=7fa4a02').then(m => ({ default: m.modes.kat })),
+  kupony: () => import('../modules/kupony.js?v=79172be'), koszyki: () => import('../modules/koszyki.js?v=79172be'),
+  'zmiana-cen': () => import('../modules/masowe.js?v=79172be'), 'zmiana-danych': () => import('../modules/masowe.js?v=79172be').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=79172be').then(m => ({ default: m.modes.kat })),
 };
 
 // ─── Błędy strony ───────────────────────────────────────────────────────────
@@ -271,7 +271,7 @@ export function startShell(modules) {
   for (const m of modules) register(m);
   for (const [id, load] of Object.entries(LAZY)) if (!getModule(id)) register({ id, title: (itemById(id) || {}).title || '', load: () => load().then(m => m.default) });
   // Ekrany uniwersalne (lista → karta → formularz ze specyfikacji API): kind 'resource'
-  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=7fa4a02').then(m => m.createResource(i.id)) });
+  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=79172be').then(m => m.createResource(i.id)) });
   // Pozycje bez własnego ekranu: strona „w planie / tylko w Selly” z linkiem
   for (const i of ITEMS) if (!getModule(i.id)) register(createPlaceholder({ id: i.id, title: i.title, sellyQuery: i.a ? '?a=' + i.a : '', adminUrl, kind: i.kind, tip: i.tip }));
   $('signOut').addEventListener('click', signOut);

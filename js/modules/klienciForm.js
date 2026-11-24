@@ -1,6 +1,6 @@
 // Formularz klienta (dodawanie i edycja) — walidacja po stronie przeglądarki lustrzana do Workera (clients.js), który i tak sprawdza wszystko.
 // Podstawy na wierzchu, reszta w zwijanych sekcjach (faktura, ceny i grupa, zaawansowane). Zapis wysyła tylko zmienione pola.
-import { el, dateInput } from '../core/ui.js?v=7fa4a02';
+import { el, dateInput } from '../core/ui.js?v=79172be';
 
 const isOn = v => v === true || v === 1 || v === '1' || v === 'true';
 const isPl = c => !c || /^(polska|poland|pl)$/i.test(String(c).trim());
