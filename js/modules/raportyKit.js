@@ -1,6 +1,6 @@
 // Wspólne drobiazgi ekranu „Raporty sprzedaży” (raporty.js = powłoka i widok „Okres”, raportyLata.js = widok „Lata”): formaty liczb i dat,
 // różnica między okresem bieżącym a porównawczym, wykresy SVG w kolorach motywu.
-import { el, money } from '../core/ui.js?v=91371e0';
+import { el, money } from '../core/ui.js?v=5b9e0d7';
 
 const SVG = 'http://www.w3.org/2000/svg';
 export const svg = (tag, attrs, ...kids) => {
@@ -18,14 +18,10 @@ export const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', '
 export const MONTHS_LONG = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
 
 // ─── Daty (yyyy-MM-dd, południe UTC — bez przesunięć strefy) ────────────────
-const DAY = 86400e3;
+export { isoOf, addDays, daysBetween, addYears, validIso } from './raportyDaty.js?v=5b9e0d7';
+import { isoOf, addDays, daysBetween, addYears, validIso } from './raportyDaty.js?v=5b9e0d7';
 const pad = n => String(n).padStart(2, '0');
 const parse = s => new Date(s + 'T12:00:00Z');
-export const isoOf = d => d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
-export const addDays = (iso, n) => isoOf(new Date(parse(iso).getTime() + n * DAY));
-export const daysBetween = (a, b) => Math.round((parse(b) - parse(a)) / DAY) + 1;
-export const addYears = (iso, n) => { const y = Number(iso.slice(0, 4)) + n, m = iso.slice(5, 7), d = iso.slice(8, 10); return y + '-' + m + '-' + (m === '02' && d === '29' && !(y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? '28' : d); };
-export const validIso = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && !isNaN(parse(s));
 export const ddmm = d => d.slice(8, 10) + '.' + d.slice(5, 7);
 export const dmy = d => d.slice(8, 10) + '.' + d.slice(5, 7) + '.' + d.slice(0, 4);
 const dm = d => Number(d.slice(8, 10)) + '.' + Number(d.slice(5, 7));

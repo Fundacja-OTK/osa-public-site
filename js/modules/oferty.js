@@ -1,5 +1,5 @@
 // Oferty (Selly ?a=offersAdm) — natywny ekran przez rozszerzenie OSA; bez rozszerzenia ramka / link (docs/selly-embed.md, etap 2).
-import { createNative } from './sellyNative.js?v=91371e0';
+import { createNative } from './sellyNative.js?v=5b9e0d7';
 
 export default createNative({
   id: 'oferty', title: 'Oferty', screen: 'oferty', a: 'offersAdm', recordRoute: 'offersAdm.view', noun: 'oferty',
