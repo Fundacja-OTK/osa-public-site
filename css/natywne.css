@@ -21,3 +21,19 @@
 /* Podgląd treści HTML z Selly (L3): zamknięty w ramce — żaden element nie wyjdzie poza nią ani nie nakryje panelu */
 .nat-html { position: relative; overflow: hidden; contain: paint; max-height: 480px; overflow-y: auto; }
 .nat-html * { position: static !important; max-width: 100%; }
+/* Edytor treści HTML (strony, bloki, aktualności): kod + podgląd obok (na telefonie pod spodem); różnica wierszy w oknie potwierdzenia */
+.nat-content { margin-top: var(--s4); }
+.nat-cgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); margin-top: var(--s2); }
+@media (min-width: 900px) { .nat-cgrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.nat-code { width: 100%; min-height: 260px; resize: vertical; font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.5; tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nat-cprev { min-height: 260px; padding: var(--s3); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
+.nat-cstats.nat-over { color: var(--no); font-weight: 600; }
+.nat-strip { margin-top: var(--s3); padding: var(--s2) var(--s3); border: 1px solid var(--border-strong); border-radius: 6px; font-size: var(--fs-sm); }
+.nat-strip p { margin: 4px 0; }
+.nat-strip-active { border-color: var(--warn-border); background: var(--warn-soft); color: var(--text); }
+.nat-ldiff { max-height: 45vh; overflow: auto; margin-top: var(--s2); border: 1px solid var(--border); border-radius: 6px; font-family: var(--mono); font-size: var(--fs-2xs); line-height: 1.45; }
+.nat-ld { white-space: pre-wrap; overflow-wrap: anywhere; padding: 0 var(--s2); }
+.nat-ld-sign { display: inline-block; width: 1.2em; color: var(--muted); user-select: none; }
+.nat-ld-add { background: var(--ok-soft); }
+.nat-ld-del { background: var(--no-soft); }
+.nat-ld-gap { padding: 2px var(--s2); color: var(--muted); font-style: italic; }

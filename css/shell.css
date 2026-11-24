@@ -106,9 +106,6 @@ main.content { max-width: none; margin: 0; min-width: 0; padding: var(--s5) var(
 .ph-tag { padding: 2px 10px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .ph-soon { background: var(--info-soft); color: var(--link); }
 .ph-selly { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
-.btn-primary-link { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border-radius: var(--r2); background: var(--accent); color: var(--accent-text);
-  font-weight: 700; text-decoration: none; }
-.btn-primary-link:hover { background: var(--accent-strong); }
 
 /* Telefon / wąskie okno: menu jako szuflada, sekcje rozwijane w miejscu */
 @media (max-width: 900px) {

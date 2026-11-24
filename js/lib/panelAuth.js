@@ -125,7 +125,7 @@
   const NATIVE_READ_ONLY = [
     'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki',
     'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus',
-    'aktualnosci', 'menu-ed', 'formularze', 'koszyki', 'konf', 'panel-konf', 'allegro', 'empik', 'allegro-aukcje-lista', 'allegro-zdarzenia', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-przesylki', 'int-fk',
+    'menu-ed', 'formularze', 'koszyki', 'konf', 'panel-konf', 'allegro', 'empik', 'allegro-aukcje-lista', 'allegro-zdarzenia', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-przesylki', 'int-fk',
   ];
   const NATIVE = 'native';
 
@@ -134,6 +134,9 @@
   const PRD = ['produkty', 'zamowienia', 'dropshipping', 'magazyny', 'raporty', 'zestawy', 'zmiana-cen', 'zmiana-danych', 'zmiana-kategorii'];
   const BULK = ['zmiana-cen', 'zmiana-danych', 'zmiana-kategorii'];
   const ANY = '*', ADMIN = 'admin';
+  // Rodzaj operacji masowej → sekcja, której prawo zmian jest potrzebne (zgoda na „Masową zmianę cen” nie pozwala masowo zmieniać kategorii ani danych)
+  const BULK_KIND = { price: 'zmiana-cen', field: 'zmiana-danych', category: 'zmiana-kategorii', producer: 'zmiana-kategorii' };
+  const bulkSection = kind => (typeof kind === 'string' && Object.prototype.hasOwnProperty.call(BULK_KIND, kind) ? BULK_KIND[kind] : '');
 
   // [wzorzec akcji, sekcje (dowolna z nich wystarcza) | ANY | ADMIN | funkcja(params) → sekcje]
   const RULES = [
@@ -157,6 +160,9 @@
     [/^reports:familySave$/, ADMIN],
     [/^reports:\w+$/, ['raporty']],
     [/^dashboard:\w+$/, ['pulpit']],
+    // start / podgląd: sekcja wg rodzaju operacji (nieznany rodzaj — dowolna z trzech; operację i tak odrzuca walidacja 400);
+    // kroki, wstrzymanie, cofanie istniejącej partii: dowolna z trzech + kontrola rodzaju partii w module (bulk.js needBatchWrite)
+    [/^bulk:(start|preview)$/, p => { const s = bulkSection(p && p.op && p.op.kind); return s ? [s] : BULK; }],
     [/^bulk:\w+$/, BULK],
     [/^mag:\w+$/, ['magazyny']],
     [/^(report|orszaki|changes|refresh)$/, ['licencje']],
@@ -262,11 +268,11 @@
     return { login: p.l, perms: p.p.map(String), write: Array.isArray(p.w) ? p.w.map(String) : [], admin: p.a === true, sid: p.s, iat: p.iat || 0 };
   }
 
-  const api = { SECTION_ROUTES, SESSION_WRITE, GRANTABLE, VIEW_REDIRECTS, READONLY_SECTIONS, ADMIN_ROUTE, DERIVED, ADMIN_SECTIONS, DICTS, RULES, TITLES, ANY, ADMIN, NATIVE, NATIVE_SCREENS, NATIVE_READ_ONLY, READ_ACTIONS, WRITE_ACTIONS, GAS_TOKEN_TTL_MS,
+  const api = { bulkSection, SECTION_ROUTES, SESSION_WRITE, GRANTABLE, VIEW_REDIRECTS, READONLY_SECTIONS, ADMIN_ROUTE, DERIVED, ADMIN_SECTIONS, DICTS, RULES, TITLES, ANY, ADMIN, NATIVE, NATIVE_SCREENS, NATIVE_READ_ONLY, READ_ACTIONS, WRITE_ACTIONS, GAS_TOKEN_TTL_MS,
     sectionsFromProbe, computeWrite, isWriteAction, isAdminLogin, ruleFor, denyReason, canSee, probeRoutes, gasPayload, checkPayload };
   globalThis.OSA_PANEL_AUTH = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
 
 const _pa = globalThis.OSA_PANEL_AUTH;
-export const { SECTION_ROUTES, SESSION_WRITE, GRANTABLE, VIEW_REDIRECTS, READONLY_SECTIONS, computeWrite, isWriteAction, ADMIN_ROUTE, DERIVED, ADMIN_SECTIONS, DICTS, TITLES, ANY, ADMIN, NATIVE, NATIVE_SCREENS, NATIVE_READ_ONLY, READ_ACTIONS, WRITE_ACTIONS, GAS_TOKEN_TTL_MS, sectionsFromProbe, isAdminLogin, ruleFor, denyReason, canSee, probeRoutes, gasPayload, checkPayload } = _pa;
+export const { bulkSection, SECTION_ROUTES, SESSION_WRITE, GRANTABLE, VIEW_REDIRECTS, READONLY_SECTIONS, computeWrite, isWriteAction, ADMIN_ROUTE, DERIVED, ADMIN_SECTIONS, DICTS, TITLES, ANY, ADMIN, NATIVE, NATIVE_SCREENS, NATIVE_READ_ONLY, READ_ACTIONS, WRITE_ACTIONS, GAS_TOKEN_TTL_MS, sectionsFromProbe, isAdminLogin, ruleFor, denyReason, canSee, probeRoutes, gasPayload, checkPayload } = _pa;

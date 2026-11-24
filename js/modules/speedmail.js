@@ -5,11 +5,11 @@
 // Dane: mag:init / mag:settled / mag:confirm / mag:packs / mag:moves (Apps Script: Warehouses.gs, SpeedMail.gs), mag:orders
 // (Worker — świeże statusy z D1; zapasowo Apps Script), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: speedmailLogic.js. Bez danych osobowych — tylko numery zamówień, daty i pozycje.
-import { $, el, plural, store, flash, norm, tableTsv, tableHtml, downloadXlsx, copyToClipboard, today, cnt } from '../core/ui.js?v=28c8ac7';
-import { api, canWriteSection } from '../core/client.js?v=28c8ac7';
-import { go } from '../core/router.js?v=28c8ac7';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=28c8ac7';
-import * as L from './speedmailLogic.js?v=28c8ac7';
+import { $, el, plural, store, flash, norm, tableTsv, tableHtml, downloadXlsx, copyToClipboard, today, cnt } from '../core/ui.js?v=ecaba1a';
+import { api, canWriteSection } from '../core/client.js?v=ecaba1a';
+import { go } from '../core/router.js?v=ecaba1a';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=ecaba1a';
+import * as L from './speedmailLogic.js?v=ecaba1a';
 
 const STATUS_WRITE = ['zamowienia', 'przesylki'];   // jak reguła orders:setStatus (shared/panelAuth.js)
 const STEPS = [

@@ -27,6 +27,9 @@
 .pk-code { font: var(--fs-sm) ui-monospace, SFMono-Regular, Consolas, monospace; min-height: 6em; }
 .pk-prevhead { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); margin-top: var(--s2); }
 .pk-preview { border: 1px dashed var(--border-strong); border-radius: var(--r2); padding: var(--s3); background: var(--surface-2); max-height: 360px; overflow: auto; overflow-wrap: anywhere; }
+/* treść opisu (z Selly / od dostawcy) nie może wyjść poza pole podglądu ani nakryć panelu: bez pozycjonowania, malowanie tylko w polu */
+.pk-preview { position: relative; contain: paint; }
+.pk-preview * { position: static !important; max-width: 100%; }
 .pk-preview img { max-width: 100%; height: auto; }
 .pk-preview table { border-collapse: collapse; } .pk-preview td, .pk-preview th { border: 1px solid var(--border-strong); padding: 3px 6px; }
 .pk-serp { border: 1px solid var(--border); border-radius: var(--r2); background: var(--field-bg); padding: var(--s3); max-width: 640px; }
@@ -46,8 +49,6 @@
 .pk-chip { display: inline-flex; gap: 6px; align-items: center; background: var(--accent-soft); color: var(--text); border-radius: var(--r-pill); padding: 3px 10px; font-size: var(--fs-sm); text-decoration: none; }
 .pk-vin { width: 100%; min-width: 60px; } .pk-vin.n { max-width: 90px; } .pk-vin.w { min-width: 110px; }
 .pk-actions { display: inline-flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
-.pk-actions .btn-link { margin-top: 0; }
-button.danger { color: var(--no); }
 /* Podgląd zmian przed zapisem (js/modules/produktPodglad.js), warianty i magazyny (produktWarianty.js, produktMagazyny.js) */
 .pk-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: var(--scrim); padding: var(--s4); }
 .pk-dialog { max-width: 640px; width: 100%; margin: 0; max-height: calc(100vh - 32px); overflow: auto; box-shadow: var(--shadow-pop); border-color: var(--accent); }
@@ -56,7 +57,6 @@ button.danger { color: var(--no); }
 .pk-diff { width: 100%; }
 .pk-diff td { vertical-align: top; overflow-wrap: anywhere; }
 .pk-before { color: var(--muted); text-decoration: line-through; }
-button.primary.danger-fill { background: var(--no); border-color: var(--no); color: var(--surface); }
 .pk-vact { display: flex; flex-wrap: wrap; gap: 4px; }
 .pk-vmore > td { background: var(--accent-soft); }
 .pk-vadd { margin: var(--s3) 0; }

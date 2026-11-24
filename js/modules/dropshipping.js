@@ -1,10 +1,10 @@
 // Moduł „Dropshipping”: paczki dropshipping i produkty w paczkach (Selly REST API /api/dropshipping/packages…).
 // Lista paczek (filtr dat utworzenia, status, sortowanie, strony) → karta paczki (edycja danych, zmiana statusu, produkty: dodawanie,
 // zmiana ilości i magazynu, usuwanie) → nowa paczka (#/dropshipping/nowa). Backend: dropshipping:* (Worker, token READWRITE do zapisów).
-import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=28c8ac7';
-import { api } from '../core/client.js?v=28c8ac7';
-import { go } from '../core/router.js?v=28c8ac7';
-import { registerListKeys } from '../core/listKeys.js?v=28c8ac7';
+import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=ecaba1a';
+import { api } from '../core/client.js?v=ecaba1a';
+import { go } from '../core/router.js?v=ecaba1a';
+import { registerListKeys } from '../core/listKeys.js?v=ecaba1a';
 
 const STATUS = {
   '-1': { label: 'skasowana', tone: 'bad', tip: 'Paczka skasowana / ignorowana — nie jest brana pod uwagę.' },

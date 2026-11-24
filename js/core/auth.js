@@ -2,7 +2,7 @@
 // (#cardSignIn); hasło idzie wyłącznie do serwera głównego (Worker), który przekazuje je do Selly i nigdzie go nie zapisuje.
 // Po zalogowaniu: token sesji (256 bitów) w localStorage — wspólny dla kart (nowa karta otwiera panel od razu; zalogowanie / wylogowanie
 // w jednej karcie dociera do pozostałych przez zdarzenie „storage”) + krótki token dla serwera zapasowego (Apps Script), odświeżany w tle.
-import { $ } from './ui.js?v=28c8ac7';
+import { $ } from './ui.js?v=ecaba1a';
 
 const ENV = () => window.OSA_CONFIG || {};
 export const SESSION_KEY = 'osa-sess';
@@ -220,6 +220,8 @@ function startCode(r) {
 export async function signOut() {
   const t = sess && sess.t;
   save(null);
+  // dane startowe i „Ostatnie” (nazwy klientów, numery zamówień) nie zostają w przeglądarce po wylogowaniu
+  try { for (const k of ['osa-recent', 'osa-recent-who', 'osa-boot']) localStorage.removeItem(k); } catch (e) { /* brak magazynu */ }
   if (t) { try { await authCall('auth:logout', {}, t, { timeoutMs: 4000 }); } catch (e) { /* sesja i tak wygaśnie */ } }
   location.reload();
 }

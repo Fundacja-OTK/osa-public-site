@@ -8,7 +8,6 @@
 .fb-preview { margin: var(--s2) 0 0; padding: var(--s2) var(--s3); background: var(--surface-2); border-radius: var(--r2); font-size: var(--fs-xs); white-space: pre-wrap; max-height: 160px; overflow: auto; }
 .fb-status .notice { margin-top: 0; }
 .fb-status .ord-actions { margin-top: var(--s2); }
-.notice.ok { background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok-soft); }
 .fb-path { display: block; margin-top: 4px; font-size: var(--fs-xs); opacity: .85; }
 @media (max-width: 700px) { .tb-fb-text { display: none; } }
 

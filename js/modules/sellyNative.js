@@ -3,10 +3,12 @@
 // czyta je i zwraca strukturę (sekrety zamaskowane po stronie serwera); zapis tylko z allowlisty pól, zawsze przez podgląd zmian (dryRun)
 // i potwierdzenie (docs/selly-embed.md, docs/auth.md). „Tylko do podglądu” = flaga `readOnly` z odpowiedzi serwera (jedna, z silnika).
 // Strony ustawień (jedna strona-formularz) obsługuje modules/sellyNativeSettings.js.
-import { el, loadingBox, tapOpen } from '../core/ui.js?v=28c8ac7';
-import { api } from '../core/client.js?v=28c8ac7';
-import { sellyUrl } from './_placeholder.js?v=28c8ac7';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=28c8ac7';
+import { el, loadingBox, tapOpen } from '../core/ui.js?v=ecaba1a';
+import { api } from '../core/client.js?v=ecaba1a';
+import { sellyUrl } from './_placeholder.js?v=ecaba1a';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=ecaba1a';
+import { addLeaveGuard } from '../core/router.js?v=ecaba1a';
+import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=ecaba1a';
 
 /** Żądanie do Workera: native:read / native:save / native:create → { ok, data } albo { ok:false, code, error } (nigdy nie rzuca). */
 export function sellyCall(req) {
@@ -42,22 +44,33 @@ const num = s => parseFloat(String(s).replace(/\s/g, '').replace(',', '.')) || 0
  * cfg: { id, title, screen, a (trasa listy), recordRoute (brak/null = tylko lista), idParam?, noun, recordTitle(id), headerTips: {nagłówek: opis},
  *  opcjonalnie: labels {pole: etykieta}, fieldTips {pole: opis}, cellLink(href) → { href, tip } (link do panelu OSA zamiast Selly),
  *  create: { label, title?, tip } (przycisk „dodaj”: pusty formularz z Selly → podgląd → potwierdzenie → native:create),
- *  quick(rec) → [{ key, label, tip, changes }] (szybkie akcje na karcie — przez to samo potwierdzenie zmian) }
+ *  quick(rec) → [{ key, label, tip, changes }] (szybkie akcje na karcie — przez to samo potwierdzenie zmian),
+ *  advanced: [pole | RegExp] (pola schowane w zwijanym panelu „Ustawienia zaawansowane”), advancedTitle, labelOf(f) → etykieta (pola o zmiennych nazwach),
+ *  contentTitle (nagłówek edytora treści HTML — pola `content` z odpowiedzi serwera; edytor: tresciEdytor.js) }
  */
 export function createNative(cfg) {
-  let root = null, seq = 0;
+  let root = null, seq = 0, dirty = null;   // dirty() → czy karta z edytorem treści ma niezapisane zmiany (strażnik wyjścia)
   const S = { q: {}, page: 1, sort: null, dir: 'asc', data: null, rec: null };
   const sellyList = () => sellyUrl('', '?a=' + cfg.a);
   const sellyRecord = id => sellyUrl('', '?a=' + cfg.recordRoute + (id == null ? '' : '&' + (cfg.idParam || 'id') + '=' + encodeURIComponent(id)));
-  const lab = f => (cfg.labels && cfg.labels[f.name]) || f.label || f.name;
+  const lab = f => (cfg.labels && cfg.labels[f.name]) || (cfg.labelOf && cfg.labelOf(f)) || f.label || f.name;
   const ftip = f => (cfg.fieldTips && cfg.fieldTips[f.name]) || lab(f);
   const headerTips = cfg.headerTips || {};
+  const isAdv = n => (cfg.advanced || []).some(e => e instanceof RegExp ? e.test(n) : e === n);
+  const LEAVE = 'Masz niezapisane zmiany (' + cfg.title + '). Opuścić bez zapisywania?';
+  const isDirty = () => !!(root && dirty && dirty());
+  addLeaveGuard(() => (isDirty() ? LEAVE : null));
+  if (typeof window !== 'undefined') window.addEventListener('beforeunload', ev => { if (isDirty()) { ev.preventDefault(); ev.returnValue = ''; } });
+  const mayLeave = () => !isDirty() || confirm(LEAVE);
+  const backToList = () => { if (mayLeave()) { dirty = null; showList(); } };
+  /** Komunikat nad kartą bez przerysowania formularza (wpisana treść zostaje w edytorze). */
+  const showMsg = node => { if (!root) return; const old = root.querySelector('#natMsg'); if (old) old.remove(); const t = root.querySelector('.page-toolbar'); if (t) t.after(node); else root.prepend(node); };
 
   function mount(host) {
-    root = host; S.q = {}; S.page = 1; S.sort = null; S.data = null;
+    root = host; S.q = {}; S.page = 1; S.sort = null; S.data = null; dirty = null;
     showList();
   }
-  function unmount() { seq++; root = null; }
+  function unmount() { seq++; root = null; dirty = null; }
 
   const RO_TIP = 'Ten ekran w panelu OSA służy tylko do podglądu — niczego tu nie zmienisz. Zmiany wprowadzisz w Selly.';
   const isRO = () => !!(S.data && S.data.readOnly);
@@ -76,7 +89,7 @@ export function createNative(cfg) {
 
   // ─── Lista ──────────────────────────────────────────────────────────────
   async function showList() {
-    const my = ++seq;
+    const my = ++seq; dirty = null;
     root.replaceChildren(toolbar('Dane na żywo z Selly — z Twoimi uprawnieniami w Selly'), loadingBox('Pobieram listę z Selly…'));
     const query = { ...S.q }; if (S.page > 1) query.p = String(S.page);
     const r = await sellyCall({ op: 'read', screen: cfg.screen, view: 'list', query });
@@ -158,7 +171,7 @@ export function createNative(cfg) {
 
   // ─── Karta rekordu / nowy rekord (ten sam formularz) ────────────────────
   async function showRecord(id) {
-    const my = ++seq;
+    const my = ++seq; dirty = null;
     root.replaceChildren(toolbar(''), loadingBox('Pobieram kartę z Selly…'));
     const r = await sellyCall({ op: 'read', screen: cfg.screen, view: 'record', id });
     if (my !== seq || !root) return;
@@ -166,7 +179,7 @@ export function createNative(cfg) {
     S.rec = r.data; paintRecord(id);
   }
   async function showCreate() {
-    const my = ++seq;
+    const my = ++seq; dirty = null;
     root.replaceChildren(toolbar(''), loadingBox('Pobieram formularz dodawania z Selly…'));
     const r = await sellyCall({ op: 'read', screen: cfg.screen, view: 'new' });
     if (my !== seq || !root) return;
@@ -182,17 +195,70 @@ export function createNative(cfg) {
     return el('input', { ...common, type: f.type === 'date' || f.type === 'time' ? f.type : 'text', value: f.value });
   };
 
+  // ─── Edytor treści HTML (pola `content`): źródło + podgląd oczyszczony na żywo; do Selly idzie DOKŁADNIE wpisany tekst ───
+  const PREVIEW_TIP = 'Podgląd w panelu jest oczyszczony (bez skryptów, ramek, zdarzeń i stylów; obrazy jako linki). Sklep dostanie treść dokładnie taką, jak w polu obok.';
+  function stripNotice(v, idSuffix) {
+    const r = stripReport(v);
+    if (!r.total) return null;
+    return el('div', { class: 'nat-strip' + (r.active.length ? ' nat-strip-active' : ''), id: 'natStrip' + (idSuffix || ''), role: 'status' },
+      r.active.length ? el('p', null, el('strong', null, 'Podgląd nie pokazuje elementów, które w sklepie zadziałają: '), reportText(r.active),
+        '. Selly zapisze je dokładnie tak, jak są wpisane — upewnij się, że to zamierzone.') : null,
+      r.other.length ? el('p', { class: 'muted' }, 'Podgląd pomija też: ' + reportText(r.other) + ' — w sklepie zostaną bez zmian.') : null);
+  }
+  function contentEditor(f, d, isNew, onChange) {
+    const max = d.contentMax || 0;
+    const ta = el('textarea', { 'data-field': f.name, id: 'natF_' + f.name, class: 'nat-code', rows: 18, spellcheck: 'false', autocomplete: 'off', autocapitalize: 'off',
+      'aria-label': lab(f) + ' — kod HTML', title: 'Kod HTML treści — trafi do Selly dokładnie w tej postaci (nic nie jest poprawiane ani usuwane)' });
+    ta.value = f.value;
+    const stats = el('span', { class: 'muted nat-cstats', id: 'natStats_' + f.name, title: max ? 'Limit panelu: ' + max.toLocaleString('pl-PL') + ' znaków (dłuższą treść zmienisz w Selly)' : null });
+    const prev = el('div', { class: 'nat-html nat-cprev', 'data-preview': f.name, title: PREVIEW_TIP });
+    const notice = el('div', { 'data-strip': f.name });
+    let timer = 0;
+    const refresh = () => {
+      timer = 0;
+      prev.replaceChildren(safePreview(ta.value));
+      notice.replaceChildren(stripNotice(ta.value, '_' + f.name) || '');
+      const st = contentStats(ta.value, max);
+      stats.textContent = st.chars.toLocaleString('pl-PL') + (max ? ' / ' + max.toLocaleString('pl-PL') : '') + ' znaków · ' + st.lines + ' wierszy' + (st.over ? ' — za długa' : '');
+      stats.classList.toggle('nat-over', st.over);
+    };
+    ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refresh, 200); });
+    refresh();
+    const reset = el('button', { type: 'button', class: 'secondary small', id: 'natReset_' + f.name, title: 'Wstawia z powrotem treść z chwili otwarcia karty (Twoje zmiany w treści znikną)', onclick: () => {
+      if (nl(ta.value) !== nl(f.value) && !confirm('Przywrócić treść z Selly? Twoje zmiany w treści znikną.')) return;
+      ta.value = f.value; refresh(); onChange();
+    } }, isNew ? 'Wyczyść' : 'Przywróć treść z Selly');
+    return el('details', { class: 'nat-opts nat-content', id: 'natContent_' + f.name, open: isNew || null },
+      el('summary', { title: 'Rozwiń, aby edytować kod HTML i zobaczyć podgląd' }, (cfg.contentTitle || lab(f)) + ' — edytor HTML'),
+      el('p', { class: 'muted' }, 'Edytujesz kod HTML. Po lewej kod, po prawej podgląd (bez skryptów i stylów). Do Selly trafi dokładnie to, co wpiszesz.'),
+      el('div', { class: 'nat-cgrid' },
+        el('label', { class: 'nat-field' }, el('span', { class: 'nat-lbl' }, 'Kod HTML'), ta),
+        el('div', { class: 'nat-field' }, el('span', { class: 'nat-lbl tip', title: PREVIEW_TIP }, 'Podgląd'), prev)),
+      el('div', { class: 'nat-actions' }, stats, reset), notice);
+  }
+  /** Karta treści tylko do podglądu (bez edycji): oczyszczony podgląd + powód (np. treść wygląda na sekret, encje, formularz skryptowy). */
+  function contentReadOnly(f, id, reason) {
+    const box = f.type === 'secret' || !f.value ? null : el('div', { class: 'nat-html', 'data-html': f.name, title: 'Podgląd treści z Selly (oczyszczony z niebezpiecznych elementów); treść edytujesz w Selly' });
+    if (box) box.append(safePreview(f.value));
+    return el('div', { class: 'card', 'data-content-ro': f.name }, el('h3', null, lab(f) + ' (tylko do odczytu)'),
+      reason ? el('p', { class: 'muted', id: 'natWhy_' + f.name }, reason) : null, box,
+      id == null ? null : el('p', { class: 'muted' }, el('a', { href: sellyRecord(id), target: '_blank', rel: 'noopener', class: 'btn-secondary', title: 'Treść HTML zmienisz w Selly' }, 'Edytuj w Selly ↗')));
+  }
+
   function paintRecord(id, message) {
     const d = S.rec, isNew = id == null, orig = Object.fromEntries(d.fields.map(f => [f.name, f.value]));
-    const edit = d.fields.filter(f => f.editable);
+    const cNames = d.content || [], isC = f => cNames.includes(f.name) || !!f.content;
+    const edit = d.fields.filter(f => f.editable && !isC(f)), cEdit = d.canSave ? d.fields.filter(f => f.editable && isC(f)) : [];
+    const basic = edit.filter(f => !isAdv(f.name)), adv = edit.filter(f => isAdv(f.name));
     const htmlNames = d.html || [];
-    const info = isNew ? [] : d.fields.filter(f => !f.editable && f.value !== '' && !htmlNames.includes(f.name) && (d.readOnly || f.type === 'secret' || (f.type !== 'checkbox' && f.type !== 'radio')));
+    const info = isNew ? [] : d.fields.filter(f => !f.editable && !isC(f) && f.value !== '' && !htmlNames.includes(f.name) && (d.readOnly || f.type === 'secret' || (f.type !== 'checkbox' && f.type !== 'radio')));
     const htmlCards = isNew ? [] : d.fields.filter(f => htmlNames.includes(f.name) && f.value).map(f => {
       const box = el('div', { class: 'nat-html', 'data-html': f.name, title: 'Podgląd treści z Selly (oczyszczony z niebezpiecznych elementów); treść edytujesz w Selly' });
       box.append(safePreview(f.value));
       return el('div', { class: 'card' }, el('h3', null, lab(f) + ' (tylko do odczytu)'), box,
         el('p', { class: 'muted' }, el('a', { href: sellyRecord(id), target: '_blank', rel: 'noopener', class: 'btn-link', title: 'Treść HTML edytujesz w Selly — panel nie zmienia jej, żeby nic nie zepsuć' }, 'Edytuj w Selly ↗')));
     });
+    const contentRO = d.fields.filter(f => isC(f) && !cEdit.includes(f) && (f.value || f.reason)).map(f => contentReadOnly(f, id, f.reason || (d.canSave ? '' : 'Edycja wyłączona — formularz w Selly wygląda inaczej niż oczekiwano.')));
     const shown = f => f.type === 'select' || f.type === 'radio' ? (((f.options || []).find(o => o.selected) || {}).text || f.value) : f.value;
     const tip0 = 'Najpierw ' + (isNew ? 'wypełnij' : 'zmień') + ' któreś z pól — przed ' + (isNew ? 'wysłaniem' : 'zapisem') + ' pokażemy dokładnie, co trafi do Selly';
     const save = el('button', { type: 'button', class: 'primary', id: 'natSave', disabled: true, title: tip0 }, isNew ? 'Dodaj w Selly…' : 'Zapisz w Selly…');
@@ -200,26 +266,38 @@ export function createNative(cfg) {
     const collect = () => {
       const ch = {};
       for (const i of root.querySelectorAll('#natEdit [data-field]')) {
-        const v = i.type === 'checkbox' ? (i.checked ? i.dataset.on : '') : i.value;
-        if (v !== orig[i.dataset.field]) ch[i.dataset.field] = v;
+        const n = i.dataset.field, v = i.type === 'checkbox' ? (i.checked ? i.dataset.on : '') : i.value;
+        if (cNames.includes(n) ? nl(v) !== nl(orig[n]) : v !== orig[n]) ch[n] = v;
       }
       return ch;
     };
-    const sync = () => { const n = Object.keys(collect()).length; save.disabled = !n; save.title = n ? 'Pokaże podsumowanie do potwierdzenia, potem wyśle do Selly' : tip0; };
+    const over = () => cEdit.some(f => { const i = root.querySelector('#natF_' + CSS.escape(f.name)); return i && contentStats(i.value, d.contentMax).over; });
+    const sync = () => {
+      const n = Object.keys(collect()).length, tooLong = over();
+      save.disabled = !n || tooLong;
+      save.title = tooLong ? 'Treść przekracza limit panelu (' + (d.contentMax || 0).toLocaleString('pl-PL') + ' znaków) — skróć ją albo zmień w Selly' : n ? 'Pokaże podsumowanie do potwierdzenia, potem wyśle do Selly' : tip0;
+    };
+    dirty = cEdit.length ? () => !!root && !!root.querySelector('#natEdit') && Object.keys(collect()).length > 0 : null;
     save.addEventListener('click', () => isNew ? confirmCreate(collect()) : confirmSave(id, collect(), orig));
+    const fieldEl = f => el('label', { class: 'nat-field' + (f.type === 'checkbox' ? ' nat-check' : '') },
+      el('span', { class: 'nat-lbl' + (cfg.fieldTips && cfg.fieldTips[f.name] ? ' tip' : ''), title: cfg.fieldTips && cfg.fieldTips[f.name] ? cfg.fieldTips[f.name] : null }, lab(f) + (isNew && (d.required || []).includes(f.name) ? ' *' : '')), ctl(f, isNew));
+    const editable = (edit.length || cEdit.length) && d.canSave;
     root.replaceChildren(
       toolbar(isNew ? ((cfg.create && cfg.create.title) || 'Nowa pozycja') : cfg.recordTitle(id)),
       message || null,
-      el('p', null, el('button', { type: 'button', class: 'secondary', id: 'natBack', onclick: showList, title: 'Wraca do listy' }, '← Wróć do listy'),
+      el('p', null, el('button', { type: 'button', class: 'secondary', id: 'natBack', onclick: backToList, title: 'Wraca do listy' }, '← Wróć do listy'),
         isNew || !cfg.recordRoute ? null : [' ', el('a', { href: sellyRecord(id), target: '_blank', rel: 'noopener', class: 'btn-link', title: 'Pełna karta w Selly (wszystkie pola, załączniki, wysyłka e-maila)' }, 'Pełna karta w Selly ↗')]),
       d.canSave || d.readOnly ? null : el('div', { class: 'card nat-err', id: 'natNoSave' }, el('p', null, 'Formularz w Selly wygląda inaczej niż oczekiwano — ' + (isNew ? 'dodawanie' : 'edycja') + ' wyłączona. Użyj Selly.')),
       info.length ? el('div', { class: 'card' }, el('h3', null, 'Dane'), el('dl', { class: 'ord-dl', id: 'natInfo' }, info.flatMap(f => [el('dt', null, lab(f)), el('dd', { class: f.type === 'secret' ? 'tip' : null, title: f.type === 'secret' ? 'Wartość poufna — ukryta przez serwer panelu; zobaczysz ją tylko w Selly' : null }, shown(f))]))) : null,
       ...htmlCards,
-      edit.length && d.canSave ? el('div', { class: 'card', id: 'natEdit', oninput: sync, onchange: sync }, el('h3', null, isNew ? 'Nowa pozycja' : 'Edycja'),
+      editable ? el('div', { class: 'card', id: 'natEdit', oninput: sync, onchange: sync }, el('h3', null, isNew ? 'Nowa pozycja' : 'Edycja'),
         el('p', { class: 'muted' }, isNew ? 'Wypełnij pola (z gwiazdką — wymagane). Przed wysłaniem pokażemy podsumowanie.' : 'Zmieniasz tylko wybrane pola. Wysyłka e-maila i załączniki z tego ekranu są wyłączone.'),
-        el('div', { class: 'nat-form' }, edit.map(f => el('label', { class: 'nat-field' + (f.type === 'checkbox' ? ' nat-check' : '') },
-          el('span', { class: 'nat-lbl' + (cfg.fieldTips && cfg.fieldTips[f.name] ? ' tip' : ''), title: cfg.fieldTips && cfg.fieldTips[f.name] ? cfg.fieldTips[f.name] : null }, lab(f) + (isNew && (d.required || []).includes(f.name) ? ' *' : '')), ctl(f, isNew)))),
+        basic.length ? el('div', { class: 'nat-form' }, basic.map(fieldEl)) : null,
+        adv.length ? el('details', { class: 'nat-opts', id: 'natAdv' }, el('summary', { title: 'Pola rzadziej zmieniane — rozwiń, aby je zobaczyć i edytować' }, cfg.advancedTitle || 'Ustawienia zaawansowane'),
+          el('div', { class: 'nat-form' }, adv.map(fieldEl))) : null,
+        cEdit.map(f => contentEditor(f, d, isNew, sync)),
         el('div', { class: 'nat-actions' }, save, quick.map(q => el('button', { type: 'button', class: 'secondary', 'data-quick': q.key || null, title: q.tip, onclick: () => confirmSave(id, q.changes, orig) }, q.label)))) : null,
+      ...contentRO,
       (d.tables || []).map((t, i) => t.rows.length ? el('div', { class: 'card' }, el('h3', null, i === 0 && d.tables.length > 1 ? 'Pozycje' : 'Historia zdarzeń'),
         el('div', { class: 'table-wrap' }, el('table', null, el('thead', null, el('tr', null, t.headers.map(h => el('th', { title: h }, h)))),
           el('tbody', null, t.rows.map(r => el('tr', null, r.map(c => el('td', null, c)))))))) : null));
@@ -238,18 +316,43 @@ export function createNative(cfg) {
   const diffTable = (diff, head) => el('table', { id: 'natDiff' }, el('thead', null, el('tr', null, el('th', null, 'Pole'), head.map(h => el('th', null, h)))),
     el('tbody', null, diff.map(x => el('tr', null, el('td', null, (cfg.labels && cfg.labels[x.name]) || x.label),
       head.length > 1 ? el('td', { class: 'nat-before' }, x.beforeText || '—') : null, el('td', null, el('strong', null, x.afterText || '—'))))));
+  /** Zmiany treści HTML w oknie potwierdzenia: różnica wierszy (zwinięta) + ostrzeżenie o elementach aktywnych. Liczone z wpisanego tekstu w przeglądarce. */
+  function contentDiffs(changes, before) {
+    const names = Object.keys(changes).filter(n => (S.rec.content || []).includes(n));
+    return names.map(n => {
+      const ld = lineDiff(before ? before[n] : '', changes[n]), h = hunks(ld.ops);
+      const f = S.rec.fields.find(x => x.name === n) || { name: n };
+      const rows = h.items.map(o => o.gap ? el('div', { class: 'nat-ld-gap' }, '… ' + o.gap + ' niezmienionych wierszy …')
+        : el('div', { class: 'nat-ld nat-ld-' + (o.t === '+' ? 'add' : o.t === '-' ? 'del' : 'eq') }, el('span', { class: 'nat-ld-sign', 'aria-hidden': 'true' }, o.t), o.s || ' '));
+      return el('div', { 'data-cdiff': n },
+        before ? el('details', { class: 'nat-opts', id: 'natLineDiff_' + n }, el('summary', { title: 'Pokazuje dodane (+) i usunięte (−) wiersze kodu HTML' }, lab(f) + ': zmienione wiersze (+' + ld.added + ' / −' + ld.removed + ')' + (ld.approx ? ' — w przybliżeniu' : '')),
+          el('div', { class: 'nat-ldiff' }, rows, h.cut ? el('div', { class: 'nat-ld-gap' }, '… dalsze zmiany pominięte (zobacz w edytorze) …') : null)) : null,
+        stripNotice(changes[n], 'Dlg_' + n));
+    });
+  }
 
   async function confirmSave(id, changes, orig) {
-    const expect = Object.fromEntries(Object.keys(changes).map(k => [k, orig[k]]));
+    const hasContent = !!(S.rec.content && S.rec.content.length);
+    // ekran z treścią: oczekiwany stan WSZYSTKICH edytowalnych pól z chwili otwarcia — zmiana czegokolwiek w Selly od tamtej pory = odmowa (konflikt)
+    const keys = hasContent ? S.rec.fields.filter(f => f.editable).map(f => f.name) : Object.keys(changes);
+    const expect = Object.fromEntries(keys.map(k => [k, orig[k]]));
+    const fail = (node) => hasContent ? showMsg(node) : paintRecord(id, node);
+    const conflictBox = msg => el('div', { class: 'card nat-err', id: 'natMsg' }, el('p', null, msg),
+      el('p', { class: 'muted' }, 'Twoje zmiany są nadal w formularzu — skopiuj treść, jeśli chcesz ją zachować, a potem pobierz aktualną wersję z Selly.'),
+      el('div', { class: 'nat-actions' }, el('button', { type: 'button', class: 'secondary', id: 'natReload', title: 'Pobiera kartę z Selly od nowa (niezapisane zmiany znikną)', onclick: () => { if (mayLeave()) { dirty = null; showRecord(id); } } }, 'Pobierz aktualną wersję')));
+    const errBox = (r, pre) => r.code === 'conflict' && hasContent ? conflictBox(r.error) : el('div', { class: 'card nat-err', id: 'natMsg' }, (r.code === 'conflict' || pre ? '' : 'Zapis nie powiódł się: ') + (r.error || (pre ? 'Nie udało się przygotować zapisu' : 'błąd')));
     const pre = await sellyCall({ op: 'save', screen: cfg.screen, id, changes, expect, dryRun: true });
-    if (!pre.ok) { paintRecord(id, el('div', { class: 'card nat-err', id: 'natMsg' }, pre.error || 'Nie udało się przygotować zapisu')); return; }
-    if (!pre.data.diff.length) { paintRecord(id, el('div', { class: 'card', id: 'natMsg' }, 'Bez zmian — wartości są już takie w Selly.')); return; }
-    const body = el('div', null, el('p', null, 'Do Selly zostanie zapisane:'), diffTable(pre.data.diff, ['Było', 'Będzie']), pre.data.warn ? el('p', { class: 'muted' }, pre.data.warn) : null);
+    if (!root) return;
+    if (!pre.ok) { fail(errBox(pre, true)); return; }
+    if (!pre.data.diff.length) { fail(el('div', { class: 'card', id: 'natMsg' }, 'Bez zmian — wartości są już takie w Selly.')); return; }
+    const body = el('div', null, el('p', null, 'Do Selly zostanie zapisane:'), diffTable(pre.data.diff, ['Było', 'Będzie']), contentDiffs(changes, orig), pre.data.warn ? el('p', { class: 'muted' }, pre.data.warn) : null);
     modal('Zapisać zmiany w Selly?', body, 'Zapisz w Selly', async close => {
       const r = await sellyCall({ op: 'save', screen: cfg.screen, id, changes, expect });
       close();
-      if (!r.ok) { paintRecord(id, el('div', { class: 'card nat-err', id: 'natMsg' }, (r.code === 'conflict' ? '' : 'Zapis nie powiódł się: ') + (r.error || 'błąd'))); return; }
+      if (!root) return;
+      if (!r.ok) { fail(errBox(r, false)); return; }
       const v = r.data.verified;
+      dirty = null;
       await showRecord(id);
       const m = el('div', { class: 'card ' + (v ? 'nat-ok' : 'nat-err'), id: 'natMsg' }, v ? 'Zapisano w Selly i sprawdzono: wartości zgadzają się.' : 'Selly przyjęło zapis, ale nie potwierdziło wszystkich pól (' + r.data.mismatches.join(', ') + '). Sprawdź kartę w Selly.');
       if (root) root.querySelector('.page-toolbar').after(m);
@@ -257,17 +360,22 @@ export function createNative(cfg) {
   }
 
   async function confirmCreate(values) {
+    const hasContent = !!(S.rec.content && S.rec.content.length);
+    const fail = node => hasContent ? showMsg(node) : paintRecord(null, node);
     const pre = await sellyCall({ op: 'create', screen: cfg.screen, values, dryRun: true });
-    if (!pre.ok) { paintRecord(null, el('div', { class: 'card nat-err', id: 'natMsg' }, pre.error || 'Nie udało się przygotować dodawania')); return; }
-    const body = el('div', null, el('p', null, 'Do Selly zostanie wysłane:'), diffTable(pre.data.diff, ['Wartość']), pre.data.warn ? el('p', { class: 'muted' }, pre.data.warn) : null);
+    if (!root) return;
+    if (!pre.ok) { fail(el('div', { class: 'card nat-err', id: 'natMsg' }, pre.error || 'Nie udało się przygotować dodawania')); return; }
+    const body = el('div', null, el('p', null, 'Do Selly zostanie wysłane:'), diffTable(pre.data.diff, ['Wartość']), contentDiffs(values, null), pre.data.warn ? el('p', { class: 'muted' }, pre.data.warn) : null);
     modal('Dodać w Selly?', body, 'Dodaj w Selly', async close => {
       const r = await sellyCall({ op: 'create', screen: cfg.screen, values });
       close();
+      if (!root) return;
       if (!r.ok || r.data.failed) {
         const m = r.ok ? ((r.data.notices.find(n => n.kind === 'error') || {}).text || 'Selly odrzuciło dane') : r.error;
-        paintRecord(null, el('div', { class: 'card nat-err', id: 'natMsg' }, 'Dodawanie nie powiodło się: ' + (m || 'błąd'))); return;
+        fail(el('div', { class: 'card nat-err', id: 'natMsg' }, 'Dodawanie nie powiodło się: ' + (m || 'błąd'))); return;
       }
       const notes = (r.data.notices || []).map(n => n.text).join(' ');
+      dirty = null;
       await showList();
       if (root) root.querySelector('.page-toolbar').after(el('div', { class: 'card nat-ok', id: 'natMsg' }, 'Dodano w Selly.' + (notes ? ' Selly: ' + notes + '.' : '') + ' Sprawdź listę (nowa pozycja może być na innej stronie).'));
     });

@@ -1,7 +1,8 @@
 // Treści (CMS) — natywne ekrany Selly z jednego pliku: strony, aktualności, menu, bloki HTML, formularze online, przekierowania SEO, gwarancje, opisy zaawansowane.
 // Lista + karta rekordu na sesji zalogowanego użytkownika (docs/selly-embed.md, docs/auth.md); zapis tylko z allowlisty pól (extension/lib/sellyNative.js, blok „treści (CMS)”).
-// Treści HTML (strona, blok) są tylko do odczytu (oczyszczone) z linkiem „Edytuj w Selly ↗”. Usuwania nie ma — zawsze w Selly.
-import { createNative } from './sellyNative.js?v=28c8ac7';
+// Treść HTML stron, bloków i nowych aktualności: edytor kodu + podgląd oczyszczony (tresciEdytor.js); do Selly idzie dokładnie wpisany tekst.
+// Menu i formularze online — tylko podgląd listy (karty rekordu docs nie opisują). Usuwania nie ma — zawsze w Selly.
+import { createNative } from './sellyNative.js?v=ecaba1a';
 
 export const screens = {
   cms: createNative({
@@ -9,12 +10,22 @@ export const screens = {
     recordTitle: id => 'Strona nr ' + id,
     labels: { page: 'Nazwa strony', html_title: 'Tytuł (title)', page_h1: 'Nagłówek H1', page_htaccess: 'Adres (URL) strony', html_description: 'Opis dla wyszukiwarek (description)', html_keywords: 'Słowa kluczowe (keywords)',
       meta_noindex: 'Ukryj przed wyszukiwarkami (noindex)', template: 'Szablon', display: 'Strona wyświetlana', html_editor: 'Uruchamiaj edytor HTML przy edycji', for_logged_only: 'Dostępna dla', html_body: 'Treść strony' },
-    fieldTips: { meta_noindex: 'Dodaje znacznik noindex — wyszukiwarki nie pokażą tej strony', display: 'Czy strona jest widoczna w sklepie', for_logged_only: 'Czy stronę widzą wszyscy, czy tylko zalogowani klienci', page_htaccess: 'Końcówka adresu strony w sklepie — zmiana zmienia link' },
+    fieldTips: { meta_noindex: 'Dodaje znacznik noindex — wyszukiwarki nie pokażą tej strony', display: 'Czy strona jest widoczna w sklepie', for_logged_only: 'Czy stronę widzą wszyscy, czy tylko zalogowani klienci', page_htaccess: 'Końcówka adresu strony w sklepie — zmiana zmienia link',
+      html_editor: 'Tylko wygoda w Selly (edytor wizualny przy edycji w Selly) — nie zmienia wyglądu sklepu', template: 'Plik szablonu strony w Selly (puste = domyślny)' },
+    advanced: ['html_title', 'page_h1', 'page_htaccess', 'html_description', 'html_keywords', 'meta_noindex', 'template', 'html_editor'],
+    advancedTitle: 'SEO, adres i szablon strony',
     headerTips: { 'Id': 'Numer strony w Selly', 'Nazwa strony': 'Nazwa strony informacyjnej', 'Podgląd': 'Link do strony w sklepie', 'Wyświetlanie': 'Czy strona jest widoczna w sklepie', 'Zmodyfikowano': 'Data ostatniej zmiany', 'Działanie': 'Dostępne czynności w Selly' },
   }),
   aktualnosci: createNative({
     id: 'aktualnosci', title: 'Aktualności', screen: 'aktualnosci', a: 'news', recordRoute: null, noun: 'aktualności',
     recordTitle: id => 'Aktualność ' + id,
+    create: { title: 'Nowa aktualność', label: 'Dodaj aktualność', tip: 'Dodaje aktualność w Selly (przed wysłaniem pokażemy podsumowanie). Zdjęcie dodasz potem w Selly.' },
+    labels: { tytul: 'Tytuł', skrot: 'Krótki opis (zajawka)', tresc: 'Treść aktualności', publikacjaDzien: 'Publikacja — dzień', publikacjaMiesiac: 'Publikacja — miesiąc', publikacjaRok: 'Publikacja — rok',
+      wycofanieDzien: 'Wycofanie — dzień', wycofanieMiesiac: 'Wycofanie — miesiąc', wycofanieRok: 'Wycofanie — rok', wycofanieBrak: 'Bez daty wycofania' },
+    labelOf: f => /^wyswietlanie_\d+$/.test(f.name) ? 'Pokaż w: ' + (f.label || 'sklep ' + f.name.slice(13)) : '',
+    fieldTips: { skrot: 'Krótki tekst widoczny na liście aktualności', wycofanieBrak: 'Zaznaczone = aktualność nie zniknie sama (data wycofania jest pomijana)', publikacjaRok: 'Rok publikacji, np. 2026' },
+    advanced: ['publikacjaDzien', 'publikacjaMiesiac', 'publikacjaRok', 'wycofanieDzien', 'wycofanieMiesiac', 'wycofanieRok', 'wycofanieBrak'],
+    advancedTitle: 'Daty publikacji i wycofania (domyślne z Selly)',
     headerTips: { 'Id': 'Numer aktualności', 'Data publikacji': 'Od kiedy aktualność jest widoczna', 'Data wycofania': 'Do kiedy jest widoczna (puste = bez końca)', 'Status *': 'Widoczna albo wycofana', 'Autor': 'Kto dodał aktualność', 'Działanie': 'Dostępne czynności w Selly' },
   }),
   'menu-ed': createNative({
@@ -27,6 +38,7 @@ export const screens = {
     recordTitle: id => 'Blok nr ' + id,
     labels: { znacznik: 'Znacznik', sklep_id: 'Sklep', opis: 'Opis bloku', tresc: 'Treść bloku', status_aktywny: 'Blok widoczny na stronie', status_edytor: 'Uruchamiaj edytor HTML przy edycji' },
     fieldTips: { status_aktywny: 'Gdy odznaczone, blok znika ze sklepu', status_edytor: 'Tylko wygoda w Selly — nie zmienia wyglądu sklepu' },
+    advanced: ['status_edytor'],
     headerTips: { 'Znacznik': 'Nazwa znacznika, którą szablon sklepu zamienia na treść bloku', 'Opis': 'Do czego służy blok', 'Widoczny': 'Czy blok jest włączony w sklepie', 'Zmodyfikowano': 'Data ostatniej zmiany', 'Działanie': 'Dostępne czynności w Selly' },
   }),
   formularze: createNative({

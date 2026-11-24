@@ -42,3 +42,27 @@ function changed() { try { if (typeof window !== 'undefined') window.dispatchEve
 /** Zapisuje wejście (ekran albo rekord) i powiadamia menu boczne. */
 export function noteVisit(entry, storage) { saveRecents(addRecent(loadRecents(storage), entry), storage); changed(); }
 export function clearRecents(storage) { saveRecents([], storage); changed(); }
+
+export const RECENT_OWNER_KEY = 'osa-recent-who';
+/**
+ * „Ostatnie” należą do jednego loginu: lista zawiera nazwy klientów i numery zamówień, więc po zalogowaniu INNEGO konta w tej samej przeglądarce
+ * (wspólny komputer, konto bez dostępu do Klientów) jest czyszczona. Wołane po starcie panelu z loginem z serwera. → true, gdy wyczyszczono.
+ */
+export function bindRecents(login, storage) {
+  const who = String(login || '').trim().toLowerCase();
+  if (!who) return false;
+  try {
+    const s = storage || ls(); if (!s) return false;
+    const prev = s.getItem(RECENT_OWNER_KEY);
+    if (prev === who) return false;
+    const had = !!s.getItem(RECENT_KEY) && s.getItem(RECENT_KEY) !== '[]';
+    // wpisy bez właściciela (sprzed tej zmiany) też znikają — nie wiadomo, czyje są
+    s.setItem(RECENT_KEY, '[]'); s.setItem(RECENT_OWNER_KEY, who);
+    if (had) changed();
+    return had;
+  } catch (e) { return false; }
+}
+/** Wylogowanie: lista znika z przeglądarki razem z sesją. */
+export function forgetRecents(storage) {
+  try { const s = storage || ls(); if (s) { s.removeItem(RECENT_KEY); s.removeItem(RECENT_OWNER_KEY); } } catch (e) { /* brak magazynu */ }
+}

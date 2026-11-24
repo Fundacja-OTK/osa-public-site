@@ -11,7 +11,6 @@
 .ship-done, .ord-fails { max-height: 220px; overflow: auto; padding-left: var(--s4); }
 .ship-status-row { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; margin-top: var(--s3); }
 #shipTable tr.sel { background: var(--accent-soft); }
-.small-btn { padding: 0 8px; font-size: var(--fs-xs); }
 .ship-locker.bad { border-color: var(--no); box-shadow: 0 0 0 2px var(--no-soft); }
 /* Telefon: pasek akcji — przyciski na pełną szerokość, parametry jeden pod drugim */
 @media (max-width: 640px) {

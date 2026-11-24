@@ -38,8 +38,8 @@
 /* Kafelki i różnice */
 .rp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s3); margin-top: var(--s3); }
 .rp-tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r3); padding: var(--s4); box-shadow: var(--shadow-card); }
-.rp-tile-label { align-self: flex-start; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
-.rp-big { font-size: var(--fs-kpi); font-weight: 700; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rp-tile-label { align-self: flex-start; } /* typografia: base.css (kafelki) */
+.rp-big { overflow-wrap: anywhere; }
 .rp-prevline { font-size: var(--fs-xs); color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .rp-delta { align-self: flex-start; display: inline-flex; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: 700; background: var(--surface-2); max-width: 100%; font-variant-numeric: tabular-nums; }
 .rp-delta.up { color: var(--ok); background: var(--ok-soft); } .rp-delta.down { color: var(--no); background: var(--no-soft); }
