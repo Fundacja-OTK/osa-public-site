@@ -1,7 +1,8 @@
 // Pulpit: sprzedaż z 30 dni (wykres wartość / ilość), liczniki z trendem, „Do zrobienia” (otwarte statusy),
 // najnowsze zamówienia, ostatnie zmiany i szybkie skróty. Dane: jedna akcja dashboard:get (tylko odczyt).
-import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=ff05c52';
-import { api } from '../core/client.js?v=ff05c52';
+import { el, loadingBox, money, isUnavailable, syncedLabel, store } from '../core/ui.js?v=c46bdf1';
+import { api } from '../core/client.js?v=c46bdf1';
+import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=c46bdf1';
 
 const MODE_KEY = 'osa-pulpit-mode';
 const TODO_KEY = 'osa-pulpit-todo';
@@ -79,7 +80,8 @@ function niceMax(v) {
 function chart(d, m) {
   const W = 720, H = 250, L = 56, R = 8, T = 10, B = 28, iw = W - L - R, ih = H - T - B;
   const vals = d.days.map(x => (m === 'value' ? x.value : x.count));
-  const max = niceMax(Math.max(...vals, 0));
+  const withCost = m === 'value' && costShown() && d.days.some(x => x.cost);   // koszt zakupu w słupku wartości (chartCost.js)
+  const max = niceMax(Math.max(...vals, ...(withCost ? d.days.map(x => costValue(x.cost)) : []), 0));
   const fmt = m === 'value' ? zl0 : v => String(Math.round(v));
   const s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'pl-svg', role: 'img', 'aria-label': 'Wykres sprzedaży z ostatnich 30 dni' });
   for (let i = 0; i <= 4; i++) {
@@ -89,14 +91,17 @@ function chart(d, m) {
   const bw = iw / d.days.length;
   const tip = document.createElement('div');
   tip.className = 'pl-tip'; tip.hidden = true;
-  const wrap = el('div', { class: 'pl-chart-wrap' }, s, tip);
+  const wrap = el('div', { class: 'pl-chart-wrap' }, s, tip), hatch = withCost ? costDefs(svg) : null;
+  if (hatch) s.append(hatch.defs);
   d.days.forEach((x, i) => {
     const v = vals[i], h = max ? ih * v / max : 0, bx = L + i * bw;
     const g = svg('g', { class: 'pl-barg', 'data-date': x.date });
     g.append(svg('rect', { x: bx, y: T, width: bw, height: ih, class: 'pl-hit' }),
-      svg('rect', { x: bx + bw * 0.16, y: T + ih - h, width: bw * 0.68, height: Math.max(h, v > 0 ? 1.5 : 0), rx: 2, class: 'pl-bar' + (x.date === d.today ? ' today' : '') + (v ? '' : ' zero') }));
+      svg('rect', { x: bx + bw * 0.16, y: T + ih - h, width: bw * 0.68, height: Math.max(h, v > 0 ? 1.5 : 0), rx: 2, class: 'pl-bar' + (x.date === d.today ? ' today' : '') + (v ? '' : ' zero') }),
+      withCost ? costBar(svg, { x: bx + bw * 0.16, w: bw * 0.68, base: T + ih, k: max ? ih / max : 0, barH: h, top: T, cost: x.cost, hatch: hatch.fill }) : null);
     const show = () => {
-      tip.replaceChildren(el('strong', null, dayLabel(x.date)), el('div', null, x.count + ' ' + (x.count === 1 ? 'zamówienie' : 'zamówień')), el('div', null, 'wartość: ' + zl(x.value)));
+      tip.replaceChildren(el('strong', null, dayLabel(x.date)), el('div', null, x.count + ' ' + (x.count === 1 ? 'zamówienie' : 'zamówień')), el('div', null, 'wartość: ' + zl(x.value) + ' brutto'),
+        ...(withCost ? costTip(x.cost, { value: x.value, withShipping: true }) : []));
       tip.hidden = false;
       tip.style.left = Math.min(Math.max((bx + bw / 2) / W * 100, 12), 88) + '%';
     };
@@ -110,7 +115,8 @@ function chart(d, m) {
 
 function chartCard(d) {
   const body = el('div', { id: 'plChartBody' });
-  const draw = () => { body.replaceChildren(chart(d, mode)); };
+  const legend = el('div', { class: 'pl-legend' });
+  const draw = () => { body.replaceChildren(chart(d, mode)); legend.replaceChildren(...[mode === 'value' ? costLegend(d.days.map(x => x.cost), draw, 'plCostLegend') : null].filter(Boolean)); legend.hidden = !legend.childElementCount; };
   const segs = el('div', { class: 'pl-segs', role: 'group', 'aria-label': 'Co pokazać na wykresie' });
   const seg = (m, label, tip) => el('button', { type: 'button', class: 'pl-seg', 'data-mode': m, 'aria-pressed': String(mode === m), title: tip,
     onclick: () => { mode = m; store(MODE_KEY, m); for (const b of segs.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.mode === m)); draw(); } }, label);
@@ -119,7 +125,7 @@ function chartCard(d) {
   draw();
   return el('section', { class: 'card pl-card pl-chart' },
     el('div', { class: 'pl-head' }, el('h2', null, 'Sprzedaż — ostatnie 30 dni'), segs,
-      el('a', { class: 'pl-more', href: '#/raporty', title: 'Raporty sprzedaży: sprzedaż w czasie, produkty, klienci, regiony' }, 'Raporty sprzedaży ›')), body);
+      el('a', { class: 'pl-more', href: '#/raporty', title: 'Raporty sprzedaży: sprzedaż w czasie, produkty, klienci, regiony' }, 'Raporty sprzedaży ›')), legend, body);
 }
 
 // ─── Listy ──────────────────────────────────────────────────────────────────

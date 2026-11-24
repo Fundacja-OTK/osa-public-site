@@ -1,9 +1,9 @@
 // Wspólny klient API panelu (konfiguracja z config.js + sesja z logowania kontem Selly — core/auth.js) i kontekst sesji.
-import { createApi } from './api.js?v=ff05c52';
-import { freshToken } from './auth.js?v=ff05c52';
-import { reportApiFailure } from './errorHook.js?v=ff05c52';
-import { bindWriteState } from './ui.js?v=ff05c52';
-import { denyReason, isWriteAction, GRANTABLE } from '../lib/panelAuth.js?v=ff05c52';
+import { createApi } from './api.js?v=c46bdf1';
+import { freshToken } from './auth.js?v=c46bdf1';
+import { reportApiFailure } from './errorHook.js?v=c46bdf1';
+import { bindWriteState } from './ui.js?v=c46bdf1';
+import { denyReason, isWriteAction, GRANTABLE } from '../lib/panelAuth.js?v=c46bdf1';
 
 export const ENV = window.OSA_CONFIG || {}; // { backendUrl, version, backends } — config.js
 const client = createApi({ config: ENV, getToken: freshToken, onFailure: reportApiFailure });

@@ -32,6 +32,7 @@ a.pl-tile:hover::before { background: var(--accent); }
 .pl-axis { fill: var(--muted); font-size: 11px; }
 .pl-bar { fill: var(--bar); } .pl-bar.today { fill: var(--accent); } .pl-bar.zero { opacity: 0; }
 .pl-hit { fill: transparent; }
+.pl-legend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); font-size: var(--fs-sm); margin: calc(-1 * var(--s2)) 0 var(--s2); } .pl-legend[hidden] { display: none; }
 .pl-barg:hover .pl-bar { fill: var(--accent-strong); }
 .pl-barg:hover .pl-hit { fill: var(--hover); }
 .pl-tip { position: absolute; top: 0; transform: translateX(-50%); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--r1);

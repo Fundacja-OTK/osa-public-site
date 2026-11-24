@@ -2,16 +2,17 @@
 // Dwa widoki: „Okres” (okres kontra poprzedni okres albo ten sam okres rok temu) i „Lata” (kilka lat obok siebie: wykres rok do roku, mapa miesięcy, produkty).
 // Cały stan raportu siedzi w adresie (#/raporty?od=…&do=…&cmp=…): link można wysłać dalej, a „wstecz / dalej” w przeglądarce działa.
 // Na górze zawsze pasek „co oglądasz”: zakres, porównanie, statusy, grupowanie — każdy element to przycisk otwierający odpowiednie ustawienie.
-import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu } from '../core/ui.js?v=ff05c52';
-import { api, ctx } from '../core/client.js?v=ff05c52';
-import { go } from '../core/router.js?v=ff05c52';
-import { wojLabel } from '../core/osa.js?v=ff05c52';
-import { shortcuts } from '../core/shortcuts.js?v=ff05c52';
-import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=ff05c52';
-import { zyskRender } from './raportyZysk.js?v=ff05c52';
-import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=ff05c52';
-import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=ff05c52';
-import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=ff05c52';
+import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu } from '../core/ui.js?v=c46bdf1';
+import { api, ctx } from '../core/client.js?v=c46bdf1';
+import { go } from '../core/router.js?v=c46bdf1';
+import { wojLabel } from '../core/osa.js?v=c46bdf1';
+import { shortcuts } from '../core/shortcuts.js?v=c46bdf1';
+import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=c46bdf1';
+import { zyskRender } from './raportyZysk.js?v=c46bdf1';
+import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=c46bdf1';
+import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=c46bdf1';
+import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=c46bdf1';
+import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=c46bdf1';
 
 /** Domyślne wartości ustawień — w adresie zapisujemy tylko to, co się od nich różni. */
 const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '10', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '', fam: '', set: '', fm: '', sum: '' };
@@ -175,7 +176,8 @@ function chart(d, metric) {
   const valOf = (s, prev) => (metric === 'orders' ? (prev ? s.prevOrders : s.orders) : metric === 'avg' ? (prev ? (s.prevOrders ? s.prevValue / s.prevOrders : 0) : s.avg) : (prev ? s.prevValue : s.value));
   const cmp = d.range.compare, g = d.range.group;
   const vals = d.series.map(s => valOf(s)), pv = d.series.map(s => valOf(s, true));
-  const max = niceMax(Math.max(...vals, ...(cmp ? pv : []), 0));
+  const withCost = metric === 'value' && costShown() && d.series.some(s => s.cost);   // słupek kosztu zakupu w słupku wartości (chartCost.js)
+  const max = niceMax(Math.max(...vals, ...(cmp ? pv : []), ...(withCost ? d.series.map(s => costValue(s.cost)) : []), 0));
   const fmt = metric === 'orders' ? v => String(Math.round(v)) : zl0;
   const label = METRICS.find(m => m[0] === metric)[1];
   const s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'rp-svg', role: 'img', 'aria-label': 'Wykres: ' + label + ' w okresie bieżącym ' + rangeText(d.range.from, d.range.to) + (cmp ? ', z porównaniem do ' + rangeText(d.range.prevFrom, d.range.prevTo) : '') + '. Te same dane są w tabeli „Sprzedaż w czasie”.' });
@@ -183,17 +185,19 @@ function chart(d, metric) {
     const y = T + ih - ih * i / 4;
     s.append(svg('line', { x1: L, x2: W - R, y1: y, y2: y, class: 'rp-grid' }), svg('text', { x: L - 6, y: y + 4, class: 'rp-axis', 'text-anchor': 'end' }, fmt(max * i / 4)));
   }
-  const n = d.series.length, bw = iw / n, tip = el('div', { class: 'rp-tip', hidden: true });
+  const n = d.series.length, bw = iw / n, tip = el('div', { class: 'rp-tip', hidden: true }), hatch = withCost ? costDefs(svg) : null;
+  if (hatch) s.append(hatch.defs);
   const wrap = el('div', { class: 'rp-chart-wrap', id: 'rpChart' }, s, tip);
   const every = Math.max(1, Math.ceil(n / 12)), pts = [];
   d.series.forEach((x, i) => {
     const v = vals[i], h = max ? ih * v / max : 0, bx = L + i * bw;
     const gEl = svg('g', { class: 'rp-barg', 'data-key': x.key });
     gEl.append(svg('rect', { x: bx, y: T, width: bw, height: ih, class: 'rp-hit' }),
-      svg('rect', { x: bx + bw * 0.14, y: T + ih - h, width: Math.max(bw * 0.72, 1), height: Math.max(h, v > 0 ? 1.5 : 0), rx: Math.min(3, bw * 0.2), class: 'rp-bar' + (v ? '' : ' zero') }));
+      svg('rect', { x: bx + bw * 0.14, y: T + ih - h, width: Math.max(bw * 0.72, 1), height: Math.max(h, v > 0 ? 1.5 : 0), rx: Math.min(3, bw * 0.2), class: 'rp-bar' + (v ? '' : ' zero') }),
+      withCost ? costBar(svg, { x: bx + bw * 0.14, w: Math.max(bw * 0.72, 1), base: T + ih, k: max ? ih / max : 0, barH: h, top: T, cost: x.cost, hatch: hatch.fill }) : null);
     const show = () => {
       tip.replaceChildren(el('strong', null, 'bieżący: ' + bucketLabel(x.key, g) + (g === 'day' ? '.' + x.key.slice(0, 4) : '')),
-        el('div', null, int(x.orders) + ' zam. · ' + zl(x.value)), el('div', null, 'średni koszyk: ' + zl(x.avg)),
+        el('div', null, int(x.orders) + ' zam. · ' + zl(x.value)), ...(withCost ? costTip(x.cost, { value: x.value, withShipping: true }) : []), el('div', null, 'średni koszyk: ' + zl(x.avg)),
         cmp ? el('div', { class: 'rp-tip-cmp' }, 'porównanie (' + bucketLabel(x.prevKey, g) + '): ' + int(x.prevOrders) + ' zam. · ' + zl(x.prevValue)) : null);
       tip.hidden = false;
       tip.style.left = Math.min(Math.max((bx + bw / 2) / W * 100, 14), 86) + '%';
@@ -212,7 +216,11 @@ function chart(d, metric) {
 function chartCard(d) {
   const segs = el('div', { class: 'rp-segs', role: 'group', 'aria-label': 'Co pokazać na wykresie' });
   for (const [k, label, tip] of METRICS) segs.append(el('button', { type: 'button', class: 'rp-seg', 'data-metric': k, 'aria-pressed': String(S.Q.met === k), title: tip, onclick: () => setQ({ met: k }, true) }, label));
-  return el('section', { class: 'card rp-card' }, el('div', { class: 'rp-head' }, el('h2', null, 'Sprzedaż w czasie'), segs), legendNode(d, null), el('div', { id: 'rpChartBody' }, chart(d, S.Q.met)));
+  const legend = legendNode(d, null);
+  const card = el('section', { class: 'card rp-card' }, el('div', { class: 'rp-head' }, el('h2', null, 'Sprzedaż w czasie'), segs), legend, el('div', { id: 'rpChartBody' }, chart(d, S.Q.met)));
+  const cl = S.Q.met === 'value' ? costLegend(d.series.map(x => x.cost), () => card.replaceWith(chartCard(d)), 'rpCostLegend') : null;
+  if (cl) legend.append(cl);
+  return card;
 }
 
 /** Definicje zakładek: kolumny (klucz, nagłówek, tooltip, typ) i wiersze z odpowiedzi serwera. */

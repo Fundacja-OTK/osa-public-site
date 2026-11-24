@@ -5,9 +5,9 @@
 //    edycja i dodawanie (GET/POST/PUT /api/warehouses — products:warehouses / warehouseSave; zapis wymaga prawa do sekcji „Magazyny”),
 //  - usuwanie produktu (DELETE /api/products/{id} — products:delete, tylko administrator panelu).
 // Każdy zapis: walidacja → podgląd zmian → potwierdzenie. Fizyczne stany i ruchy prowadzi osobny moduł Magazyny (js/modules/magazyny.js).
-import { el, flash, money, filterSection, loadingBox, sellyLink, isUnavailable } from '../core/ui.js?v=ff05c52';
-import { api, ctx } from '../core/client.js?v=ff05c52';
-import { previewModal } from './produktPodglad.js?v=ff05c52';
+import { el, flash, money, filterSection, loadingBox, sellyLink, isUnavailable } from '../core/ui.js?v=c46bdf1';
+import { api, ctx } from '../core/client.js?v=c46bdf1';
+import { previewModal } from './produktPodglad.js?v=c46bdf1';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const sellyRoute = route => ((ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK) + '?a=' + route;

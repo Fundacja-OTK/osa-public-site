@@ -1,9 +1,10 @@
 // Widok „Rodziny” raportów sprzedaży: ten sam produkt „kanoniczny” w kolejnych latach (np. „Śpiewnik OTK 2021 … 2026” to osobne produkty w Selly).
 // Lista rodzin (grupowanie automatyczne po nazwie bez roku — Worker, lib/families.js) → wybór rodziny → porównanie rok do roku: wykres, tabela, produkty-członkowie.
 // Zaawansowane (ukryte, tylko administrator): scalanie, podział, dodawanie / usuwanie produktów, zmiana nazwy rodziny — zapis w D1, wspólny dla wszystkich.
-import { el, loadingBox, sortTh, downloadMenuButton, debounce, flash } from '../core/ui.js?v=ff05c52';
-import { svg, zl, zl0, int, qty, pctText, pctFmt, deltaEl, niceMax, tile } from './raportyKit.js?v=ff05c52';
-import { lineChart, sortState, sortRows, slotLabels, periodReq } from './raportyLata.js?v=ff05c52';
+import { el, loadingBox, sortTh, downloadMenuButton, debounce, flash } from '../core/ui.js?v=c46bdf1';
+import { svg, zl, zl0, int, qty, pctText, pctFmt, deltaEl, niceMax, tile } from './raportyKit.js?v=c46bdf1';
+import { lineChart, sortState, sortRows, slotLabels, periodReq } from './raportyLata.js?v=c46bdf1';
+import { costShown, costValue, costDefs, costBar, costTipText, costLegend } from './chartCost.js?v=c46bdf1';
 
 const MEAS = {
   qty: { label: 'Sprzedane sztuki', short: 'Sztuki', i: 0, fmt: qty, tip: 'Suma sztuk wszystkich produktów rodziny w liczonych zamówieniach' },
@@ -46,12 +47,16 @@ function listView(c, d) {
 }
 
 function barChart(P, m, fmt, id, aria) {
-  const W = 560, H = 220, L = 64, R = 10, T = 14, B = 34, iw = W - L - R, ih = H - T - B, vals = P.map(p => totalOf(m, p)), max = niceMax(Math.max(0, ...vals)), bw = Math.min(64, iw / P.length * 0.62);
-  const s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'rp-svg', role: 'img', 'aria-label': aria });
+  const withCost = m === 'value' && costShown() && P.some(p => p.cost);   // koszt zakupu w słupku wartości (wartość pozycji brutto bez dostawy = towar)
+  const W = 560, H = 220, L = 64, R = 10, T = 14, B = 34, iw = W - L - R, ih = H - T - B, vals = P.map(p => totalOf(m, p)), bw = Math.min(64, iw / P.length * 0.62);
+  const max = niceMax(Math.max(0, ...vals, ...(withCost ? P.map(p => costValue(p.cost)) : [])));
+  const s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'rp-svg', role: 'img', 'aria-label': aria }), hatch = withCost ? costDefs(svg) : null;
+  if (hatch) s.append(hatch.defs);
   for (let i = 0; i <= 4; i++) s.append(svg('line', { x1: L, x2: W - R, y1: T + ih - ih * i / 4, y2: T + ih - ih * i / 4, class: 'rp-grid' }), svg('text', { x: L - 6, y: T + ih - ih * i / 4 + 4, class: 'rp-axis', 'text-anchor': 'end' }, fmt(max * i / 4)));
   P.forEach((p, i) => {
     const cx = L + iw * (i + 0.5) / P.length, h = max ? ih * vals[i] / max : 0, cur = i === P.length - 1;
-    s.append(svg('rect', { x: cx - bw / 2, y: T + ih - h, width: bw, height: h, class: 'rp-fbar', fill: cur ? 'var(--accent)' : 'var(--tone-' + (i % 4 + 3) + ')', 'data-p': p.label }, svg('title', null, p.label + ': ' + fmt(vals[i]))),
+    s.append(svg('rect', { x: cx - bw / 2, y: T + ih - h, width: bw, height: h, class: 'rp-fbar', fill: cur ? 'var(--accent)' : 'var(--tone-' + (i % 4 + 3) + ')', 'data-p': p.label }, svg('title', null, p.label + ': ' + fmt(vals[i]) + (withCost ? costTipText(p.cost) : ''))),
+      withCost ? costBar(svg, { x: cx - bw / 2, w: bw, base: T + ih, k: max ? ih / max : 0, barH: h, top: T, cost: p.cost, hatch: hatch.fill }) : null,
       svg('text', { x: cx, y: T + ih - h - 4, class: 'rp-axis', 'text-anchor': 'middle' }, fmt(vals[i])), svg('text', { x: cx, y: H - 10, class: 'rp-axis', 'text-anchor': 'middle' }, p.label));
   });
   return el('div', { class: 'rp-chart-wrap', id }, s);
@@ -71,7 +76,10 @@ function yearsView(c, d) {
   const kt = (k, label, tip, cur, pv, f) => tile('f-' + k, label + ' · ' + P[last].label, tip, f(cur), [cmp ? el('div', { class: 'rp-prevline' }, el('i', { class: 'rp-sw cmp' }), 'porównanie ' + P[prev].label + ': ' + (pv == null ? '—' : f(pv))) : null, dl(cur, cmp ? pv : null, f)]);
   const kpis = el('div', { class: 'rp-tiles', id: 'famKpi' }, ...Object.entries(MEAS).map(([k, v]) => kt(k, v.short, v.tip, totalOf(k, P[last]), cmp ? totalOf(k, P[prev]) : null, v.fmt)));
   if (none) return [head, kpis, el('div', { class: 'card' }, el('div', { class: 'empty', id: 'rpEmpty' }, 'Brak sprzedaży tej rodziny w okresach ' + P.map(p => p.label).join(', ') + ' przy ustawieniu „statusy: ' + c.statusPhrase().text + '”.'))];
-  const bars = el('section', { class: 'card rp-card', id: 'famBars' }, el('div', { class: 'rp-head' }, el('h2', null, M.label + ' — rok do roku')), barChart(P, m, M.fmt, 'famBarChart', 'Wykres słupkowy: ' + M.label + ' rodziny ' + fam.name + ' w okresach ' + P.map(p => p.label).join(', ')), note);
+  const barsCard = () => el('section', { class: 'card rp-card', id: 'famBars' }, el('div', { class: 'rp-head' }, el('h2', null, M.label + ' — rok do roku'), el('span', { class: 'rp-grow' }),
+    m === 'value' ? costLegend(P.map(p => p.cost), () => { const nb = barsCard(); bars.replaceWith(nb); bars = nb; }, 'famCostLegend') : null),
+  barChart(P, m, M.fmt, 'famBarChart', 'Wykres słupkowy: ' + M.label + ' rodziny ' + fam.name + ' w okresach ' + P.map(p => p.label).join(', ')), note);
+  let bars = barsCard();
   // wykres przebiegu (dni / tygodnie / miesiące) — linia na rok
   const longest = P.reduce((a, p, i) => (p.buckets.length > P[a].buckets.length ? i : a), 0), ref = E.periods[longest], SL = slotLabels(d.group, ref), N = P[longest].buckets.length;
   const labels = Array.from({ length: N }, (_, k) => SL.short(k));

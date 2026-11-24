@@ -70,6 +70,21 @@
   box-shadow: var(--shadow-pop); padding: var(--s2) var(--s3); font-size: var(--fs-sm); pointer-events: none; white-space: nowrap; z-index: 2; max-width: 92vw; }
 .rp-tip-cmp { color: var(--tone-2); font-weight: 600; }
 
+/* Koszt zakupu w słupkach sprzedaży (chartCost.js — raporty i pulpit). Kreskowanie = koszt niepełny / nieznany. */
+.cc-bar { fill: var(--cost); pointer-events: none; }
+.cc-bar.part { stroke: var(--cost); stroke-width: 1.2; stroke-dasharray: 3 2; }
+.cc-bar.unk { stroke: var(--cost); stroke-width: 1; stroke-dasharray: 3 2; opacity: .55; }
+.cc-hatch-line { stroke: var(--cost); stroke-width: 2.2; }
+.cc-sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: var(--cost); vertical-align: -2px; margin-right: 6px; flex: none; }
+.cc-sw.part { background: repeating-linear-gradient(45deg, var(--cost) 0 2px, transparent 2px 5px); box-shadow: inset 0 0 0 1px var(--cost); }
+.cc-legend { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
+.cc-toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.cc-toggle .cc-sw { margin-right: 0; }
+.cc-tip-line { display: flex; align-items: center; }
+.cc-tip-sub { color: var(--muted); }
+.cc-tip-margin { font-weight: 600; }
+.cc-tip-warn { margin-top: 4px; color: var(--warn); font-size: 12px; max-width: 260px; white-space: normal; }
+
 /* Tabele */
 .rp-tabs { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .rp-wrap { max-height: 60vh; }
