@@ -118,12 +118,12 @@
     'cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy',
     'kupony', 'koszyki', 'klient-blokada',
     'konf', 'panel-konf', 'wyglad-konf', 'znaki', 'jezyki', 'dostepnosc',
-    'allegro', 'allegro-aukcje', 'empik', 'int-porownywarki', 'int-przesylki', 'int-fk', 'int-dodatkowe', 'ai', 'slajdy', 'ksztalty', 'dostawy-konf', 'statusy-konf',
+    'allegro', 'allegro-aukcje', 'empik', 'allegro-aukcje-lista', 'allegro-zdarzenia', 'allegro-wysylka', 'allegro-operatorzy', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-porownywarki', 'int-przesylki', 'int-fk', 'int-dodatkowe', 'ai', 'slajdy', 'ksztalty', 'dostawy-konf', 'statusy-konf',
   ];
   const NATIVE_READ_ONLY = [
     'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki',
     'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus',
-    'aktualnosci', 'menu-ed', 'formularze', 'koszyki', 'konf', 'panel-konf', 'allegro', 'empik', 'int-przesylki', 'int-fk',
+    'aktualnosci', 'menu-ed', 'formularze', 'koszyki', 'konf', 'panel-konf', 'allegro', 'empik', 'allegro-aukcje-lista', 'allegro-zdarzenia', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-przesylki', 'int-fk',
   ];
   const NATIVE = 'native';
 

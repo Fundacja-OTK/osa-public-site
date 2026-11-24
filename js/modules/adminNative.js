@@ -2,11 +2,13 @@
 // zgłoszenia, płatności, zlecenia, usługi, rozszerzenia, wizyty, pliki, automatyzacje, integrator, Rest API / Front API (bez wartości kluczy), przesyłki
 // Furgonetka i Suus. Dane: serwer główny czyta Selly sesją użytkownika; sekrety są maskowane po stronie serwera (extension/lib/sellyNative.js).
 // Konfiguracja: screen = id ekranu (SCREENS), headerTips = wyjaśnienia kolumn. Nowy ekran: wpis tu + SCREENS + nav.js + shell.js (LAZY).
-import { createNative } from './sellyNative.js?v=79172be';
+import { createNative } from './sellyNative.js?v=6e1bea7';
 
 const ro = (id, title, a, noun, headerTips, extra) => createNative({ id, title, screen: id, a, noun, recordTitle: i => title + ' nr ' + i, headerTips: headerTips || {}, ...extra });
 
 export const views = {
+  'allegro-aukcje-lista': ro('allegro-aukcje-lista', 'Allegro — aukcje', 'allegro.auctionsDB', 'aukcje', { 'Podstawowe dane o aukcji': 'Numer aukcji, tytuł i status oferty na Allegro', 'Ilość w magazynie': 'Stan produktu w sklepie' }),
+  'allegro-zdarzenia': ro('allegro-zdarzenia', 'Allegro — zdarzenia aukcji', 'allegro.events', 'zdarzenia', { 'Rodzaj zdarzenia': 'Co się wydarzyło z aukcją (wystawienie, zakończenie, błąd) i ile to trwało' }),
   admini: ro('admini', 'Konta administratorów Selly', 'users', 'konta', {
     'ID': 'Numer konta w Selly',
     'LoginImię i nazwisko': 'Login i imię konta administratora',

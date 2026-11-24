@@ -1,6 +1,6 @@
 // Wspólne drobiazgi ekranu „Raporty sprzedaży” (raporty.js = powłoka i widok „Okres”, raportyLata.js = widok „Lata”): formaty liczb i dat,
 // różnica między okresem bieżącym a porównawczym, wykresy SVG w kolorach motywu.
-import { el, money } from '../core/ui.js?v=79172be';
+import { el, money } from '../core/ui.js?v=6e1bea7';
 
 const SVG = 'http://www.w3.org/2000/svg';
 export const svg = (tag, attrs, ...kids) => {
@@ -18,8 +18,8 @@ export const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', '
 export const MONTHS_LONG = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
 
 // ─── Daty (yyyy-MM-dd, południe UTC — bez przesunięć strefy) ────────────────
-export { isoOf, addDays, daysBetween, addYears, validIso } from './raportyDaty.js?v=79172be';
-import { isoOf, addDays, daysBetween, addYears, validIso } from './raportyDaty.js?v=79172be';
+export { isoOf, addDays, daysBetween, addYears, validIso } from './raportyDaty.js?v=6e1bea7';
+import { isoOf, addDays, daysBetween, addYears, validIso } from './raportyDaty.js?v=6e1bea7';
 const pad = n => String(n).padStart(2, '0');
 const parse = s => new Date(s + 'T12:00:00Z');
 export const ddmm = d => d.slice(8, 10) + '.' + d.slice(5, 7);

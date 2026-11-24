@@ -1,6 +1,6 @@
 // Konfiguracja sklepu — natywne ekrany „strona ustawień” (extension/lib/sellyNative.js, blok `// === konfiguracja sklepu ===`).
 // Każdy eksport to moduł jednej pozycji menu (shell.js → LAZY). Edytowalne tylko proste, niskiego ryzyka ustawienia; reszta to podgląd + „Zmień w Selly ↗”.
-import { createSettings } from './sellyNativeSettings.js?v=79172be';
+import { createSettings } from './sellyNativeSettings.js?v=6e1bea7';
 
 export const konf = createSettings({ id: 'konf', title: 'Konfiguracja podstawowa', screen: 'konf', a: 'configuration' });
 export const panelKonf = createSettings({ id: 'panel-konf', title: 'Konfiguracja panelu', screen: 'panel-konf', a: 'configuration.panelOptions' });
@@ -19,6 +19,11 @@ export const extra = Object.fromEntries([
   S('allegro', 'Allegro — synchronizacja', 'allegro', 'Co sklep synchronizuje z Allegro (ceny, stany, kończenie aukcji). Tylko podgląd: zmiana masowo zmienia oferty.'),
   S('allegro-aukcje', 'Allegro — domyślne ustawienia aukcji', 'allegro', 'Wartości domyślne dla nowo wystawianych aukcji.'),
   S('empik', 'Empik — konfiguracja konta', 'marketplace'),
+  S('allegro-wysylka', 'Allegro — mapowanie czasu wysyłki', 'allegro.shippingTime', 'Jaki czas wysyłki z sklepu trafia do ofert Allegro.'),
+  S('allegro-operatorzy', 'Allegro — operatorzy przesyłek', 'allegro.packageOperators', 'Którego operatora Allegro odpowiada każda forma dostawy w sklepie.'),
+  S('allegro-szablony', 'Allegro — szablony aukcji', 'allegro.templates', 'Szablony aukcji (tylko podgląd).'),
+  S('ceneo-opinie', 'Ceneo — ankieta po zakupie', 'scripts.integracjaCeneo', 'Integracja z Ceneo: ankieta po zakupie (tylko podgląd).'),
+  S('ceneo-mapa', 'Ceneo — mapowanie kategorii', 'configuration.ceneoMap', 'Mapowanie kategorii sklepu na kategorie Ceneo (tylko podgląd).'),
   S('int-porownywarki', 'Integracje — porównywarki cen', 'configuration.integracje', 'Eksporty produktów do porównywarek. Z panelu zmienisz tylko eksport opisów.'),
   S('int-przesylki', 'Integracje — przesyłki (Apaczka)', 'configuration.shipping'),
   S('int-fk', 'Integracje — programy F/K (wFirma)', 'configuration.programsFK'),
