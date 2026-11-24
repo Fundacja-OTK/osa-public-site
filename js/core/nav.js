@@ -7,6 +7,8 @@
 //   a — trasa panelu Selly (?a=...), do linku „otwórz w Selly” i przekierowań z rozszerzenia
 // Widoczność sekcji OSA zależy od uprawnień konta Selly (shared/panelAuth.js → canSee; docs/auth.md).
 // '-' w liście pozycji = separator grupy.
+// Układ menu bocznego (krótka lista codzienna, zwijane grupy, synonimy do szukania) — PRIMARY / GROUPS / GROUP_OF / SYNONYMS niżej;
+// pozycje dopisuj tu jak dotąd (jedna na linię) — nowa pozycja trafia sama do grupy swojej sekcji.
 
 export const SECTIONS = [
   { id: 'sprzedaz', title: 'Sprzedaż', icon: 'bag', items: [
@@ -169,8 +171,118 @@ export function routeForSelly(a) {
   return i ? '/' + i.id : null;
 }
 
+// ─── Układ menu bocznego: krótka lista codzienna + zwijane grupy ────────────
+// SECTIONS (wyżej) zostaje katalogiem 1:1 z Selly; tu tylko UKŁAD. Nowa pozycja w SECTIONS trafia sama do grupy swojej
+// sekcji (GROUPS[].from) — nie trzeba nic dopisywać. Do głównego menu: dopisz id do PRIMARY; inna grupa niż sekcja: GROUP_OF.
+
+/** Główne menu: codzienna praca w małym sklepie, w kolejności częstości użycia (Pulpit jest zawsze nad nimi). label = krótsza nazwa w menu (pełna w tooltipie). */
+export const PRIMARY = [
+  { id: 'zamowienia', icon: 'receipt' },
+  { id: 'speedmail', icon: 'send' },
+  { id: 'przesylki', icon: 'truck', label: 'Przesyłki' },
+  { id: 'produkty', icon: 'box' },
+  { id: 'magazyny', icon: 'warehouse' },
+  { id: 'klienci', icon: 'users' },
+  { id: 'wplaty', icon: 'bank', label: 'Import wpłat' },
+  { id: 'raporty', icon: 'chart' },
+  { id: 'licencje', icon: 'badge' },
+];
+
+/** Zwijane grupy (kolejność w menu); from = sekcje SECTIONS, których pozycje trafiają do grupy (w tej kolejności). */
+export const GROUPS = [
+  { id: 'sprzedaz', title: 'Sprzedaż', icon: 'bag', from: ['sprzedaz'], tip: 'Oferty, subskrypcje, dropshipping, przesyłki Furgonetki i Suus, reklamacje, zwroty' },
+  { id: 'katalog', title: 'Katalog', icon: 'tag', from: ['asortyment'], tip: 'Kategorie, zestawy, producenci, warianty, tagi, gwarancje i masowe zmiany produktów' },
+  { id: 'marketing', title: 'Marketing', icon: 'megaphone', from: ['marketing'], tip: 'Kupony, koszyki, newsletter, SMS, opinie, statystyki sklepu' },
+  { id: 'marketplace', title: 'Marketplace', icon: 'store', from: ['marketplace'], tip: 'Allegro, Empik, Erli, Ceneo, Kaufland, TikTok' },
+  { id: 'tresci', title: 'Wygląd i treści', icon: 'palette', from: ['wyglad'], tip: 'Wygląd sklepu, strony, blog, slajdy, menu, bloki HTML, formularze, SEO' },
+  { id: 'integracje', title: 'Integracje i importy', icon: 'plug', from: ['narzedzia'], tip: 'Integrator XML/CSV, importy, eksport, porównywarki, przesyłki, księgowość, Rest API' },
+  { id: 'konfiguracja', title: 'Konfiguracja', icon: 'sliders', from: ['konfiguracja'], tip: 'Ustawienia sklepu: statusy, płatności, dostawy, języki, e-mail, automatyzacje' },
+  { id: 'administracja', title: 'Konto i administracja', icon: 'shield', from: ['konto', 'dodatki'], tip: 'Konta i uprawnienia, płatności i zlecenia u Selly, usługi dodatkowe, administracja panelu OSA' },
+];
+
+/** Wyjątki: pozycja w innej grupie niż jej sekcja w Selly (dopisywane na końcu grupy). */
+export const GROUP_OF = {
+  'zmiana-cen': 'katalog', 'zmiana-danych': 'katalog', 'zmiana-kategorii': 'katalog', usuwanie: 'katalog', ai: 'katalog',
+  'ceny-auto': 'marketing',
+  pliki: 'tresci', przekierowania: 'tresci', indeksacja: 'tresci',
+  automatyzacje: 'konfiguracja', cache: 'konfiguracja', ip: 'konfiguracja',
+  'int-porownywarki': 'integracje', 'int-przesylki': 'integracje', 'int-fk': 'integracje', 'int-dodatkowe': 'integracje', api: 'integracje', frontapi: 'integracje',
+};
+
+/** Synonimy do wyszukiwania w menu: słowa, których ktoś może szukać, i nazwy z panelu Selly (bez polskich znaków też zadziała). */
+export const SYNONYMS = {
+  zamowienia: 'sprzedaż lista zamówień', speedmail: 'magazyn zewnętrzny SM komplety wydanie wysyłka', przesylki: 'InPost DPD DHL UPS Orlen paczka paczkomat etykiety nadanie kurier list przewozowy',
+  furgonetka: 'kurier przesyłki', suus: 'Rohlig kurier przesyłki', produkty: 'asortyment towary ceny stany', magazyny: 'stany magazynowe inwentaryzacja przesunięcia wydania',
+  klienci: 'kontrahenci kupujący odbiorcy', wplaty: 'przelewy bank wyciąg płatności opłacone CSV', raporty: 'statystyki wykresy obroty sprzedaż', licencje: 'członkowie przedłużenia orszaki składki',
+  oferty: 'zapytania ofertowe wyceny', subskrypcje: 'abonament cykliczne', dropshipping: 'hurtownia dostawca paczki', reklamacje: 'RMA gwarancja reklamacja', zwroty: 'odstąpienie zwrot towaru',
+  kupony: 'rabaty promocje kody rabatowe vouchery zniżki', hurt: 'grupy rabatowe rabaty hurtownia ceny hurtowe', koszyki: 'porzucone koszyki', newsletter: 'mailing subskrybenci e-mail',
+  sms: 'kampania SMS wiadomości', partnerzy: 'afiliacja lojalność punkty', opinie: 'recenzje oceny komentarze', powiadomienia: 'dostępność powiadom mnie', ankieta: 'sondy',
+  wyszukiwarka: 'frazy szukane statystyki', wizyty: 'odwiedziny ruch statystyki', 'ceny-auto': 'promocje ceny promocyjne',
+  kategorie: 'drzewo kategorii', atrybuty: 'atrybuty rozmiary kolory opcje', opisy: 'cechy parametry wzorce cech', gpsr: 'bezpieczeństwo produktu producent odpowiedzialny',
+  dostepnosc: 'dostępny niedostępny', tagi: 'etykiety', gwarancje: 'rękojmia', 'zmiana-cen': 'ceny podwyżka obniżka masowo', 'zmiana-danych': 'masowo widoczność dostępność',
+  'zmiana-kategorii': 'masowo przenieś kategorie', usuwanie: 'masowo usuń produkty', ai: 'sztuczna inteligencja opisy generowanie',
+  allegro: 'aukcje', 'allegro-aukcje': 'aukcje', 'allegro-aukcje-lista': 'aukcje oferty allegro', 'ceneo-mapa': 'kategorie porównywarka', 'ceneo-opinie': 'opinie zaufane',
+  'wyglad-konf': 'cookies zgody RODO wygląd', szablon: 'szata graficzna motyw', cms: 'strony regulamin polityka prywatności', blog: 'artykuły wpisy', aktualnosci: 'news wiadomości',
+  slajdy: 'slider karuzela', 'menu-ed': 'nawigacja sklepu', 'email-ed': 'szablony wiadomości maile', tlumaczenia: 'języki teksty', bloki: 'znaczniki HTML',
+  formularze: 'zgłoszenia formularz kontaktowy', przekierowania: 'redirect 301 SEO adresy', indeksacja: 'SEO Google robots sitemap', pliki: 'zdjęcia obrazki upload',
+  konf: 'ustawienia sklepu dane firmy faktury VAT', smtp: 'poczta e-mail serwer', domena: 'adres sklepu DNS', 'panel-konf': 'ustawienia panelu',
+  statusy: 'statusy zamówień', 'statusy-konf': 'kolory statusów', 'platnosci-formy': 'płatności przelew pobranie PayU Przelewy24', dostawy: 'kurier koszty wysyłki metody dostawy',
+  'dostawy-konf': 'kurier koszty wysyłki metody dostawy', 'sms-pow': 'SMS powiadomienia klienta', znaki: 'watermark zdjęcia', jezyki: 'waluty kursy tłumaczenia',
+  automatyzacje: 'reguły automat zadania', cache: 'pamięć podręczna odśwież', ip: 'blokada IP',
+  integrator: 'import XML CSV hurtownia', 'integracje-ind': 'import XML', 'import-allegro': 'import', migracja: 'przeniesienie sklepu', eksport: 'eksport XML CSV',
+  'int-porownywarki': 'Ceneo porównywarki eksport', 'int-przesylki': 'Apaczka kurier', 'int-fk': 'faktury wFirma księgowość', 'int-dodatkowe': 'Google Analytics GA4 GTM remarketing',
+  api: 'klucze API tokeny', frontapi: 'agentic commerce',
+  uzytkownicy: 'logowania konta panel OSA', 'selly-zmiany': 'aktualizacje Selly', 'zgloszenia-osa': 'uwagi błędy feedback', zgloszenia: 'support pomoc wsparcie',
+  platnosci: 'faktury Selly abonament rachunki', zlecenia: 'godziny pracy rozliczenia', admini: 'użytkownicy konta pracownicy', grupy: 'grupy kont', uprawnienia: 'dostęp role',
+  odo: 'RODO dane osobowe', grafika: 'szablon graficzny', rozszerzenia: 'dodatki moduły', uslugi: 'dodatki', 'uslugi-partnerow': 'partnerzy Selly',
+};
+
+const SEC_GROUP = Object.fromEntries(GROUPS.flatMap(g => g.from.map(s => [s, g.id])));
+const isPrimary = id => PRIMARY.some(p => p.id === id);
+/** Grupa pozycji (id grupy) — null dla pozycji głównego menu i nieznanych. */
+export const groupOf = id => { const i = itemById(id); return !i || isPrimary(id) ? null : GROUP_OF[id] || SEC_GROUP[i.section] || GROUPS[GROUPS.length - 1].id; };
+export const groupById = id => GROUPS.find(g => g.id === id) || null;
+/** Słowa do wyszukiwania pozycji (oprócz nazwy): synonimy, nazwa sekcji w Selly, trasa Selly. */
+export const keywordsOf = i => [SYNONYMS[i.id] || '', (SECTIONS.find(s => s.id === i.section) || {}).title || '', i.a || ''].join(' ');
+
+/**
+ * Model menu (bez DOM — testy jednostkowe): { primary: [pozycja + { icon, label? }], groups: [grupa + { items: [pozycja | '-'] }] }.
+ * visible(pozycja) → bool (uprawnienia). Pozycje „w planie” (kind 'soon') są na końcu swojej grupy, nigdy w głównym menu.
+ */
+export function menuModel(visible) {
+  const vis = i => !!i && (!visible || visible(i));
+  const primary = PRIMARY.map(p => itemById(p.id) && { ...itemById(p.id), icon: p.icon, ...(p.label ? { label: p.label } : {}) }).filter(i => vis(i) && i.kind !== 'soon');
+  const taken = new Set(primary.map(i => i.id));
+  const groups = GROUPS.map(g => {
+    const rows = [];
+    for (const sid of g.from) {
+      const s = SECTIONS.find(x => x.id === sid);
+      if (s) { rows.push('-'); for (const i of s.items) rows.push(i === '-' ? '-' : { ...i, section: s.id }); }
+    }
+    rows.push('-');
+    for (const i of ITEMS) if (GROUP_OF[i.id] === g.id) rows.push(i);
+    const mine = i => vis(i) && !taken.has(i.id) && groupOf(i.id) === g.id;
+    const soon = rows.filter(i => i !== '-' && mine(i) && i.kind === 'soon');
+    const items = rows.filter(i => i === '-' || (mine(i) && i.kind !== 'soon')).concat(soon.length ? ['-', ...soon] : [])
+      .filter((i, k, a) => i !== '-' || (a.slice(0, k).some(x => x !== '-') && a[k + 1] && a[k + 1] !== '-'));
+    return { ...g, items };
+  }).filter(g => g.items.length);
+  return { primary, groups };
+}
+
 // Ikony (własne, obrys 1.75 px, 24×24) — ścieżki SVG
 export const ICONS = {
+  receipt: 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h4',
+  send: 'M21 3L10 14M21 3l-7 18-4-7-7-4z',
+  truck: 'M2 6h12v10H2zM14 9h4l3 3v4h-7M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  warehouse: 'M3 21V8l9-5 9 5v13M7 21v-8h10v8M7 17h10',
+  users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 7.5M22 21a7 7 0 0 0-4-6.3',
+  bank: 'M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18',
+  chart: 'M4 20h16M7 16v-4M12 16V7M17 16v-6',
+  badge: 'M3 5h18v14H3zM9 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5.5 16a3.5 3.5 0 0 1 7 0M15 9h3M15 13h3',
+  tag: 'M3 12V4h8l10 10-8 8zM7.5 8.5h.01',
+  plug: 'M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0zM12 16v5',
+  shield: 'M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z',
   home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
   star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
   clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',

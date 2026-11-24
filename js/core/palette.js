@@ -1,16 +1,17 @@
 // Szybkie wyszukiwanie (Ctrl+K): okno w środku ekranu — ekrany panelu, ostatnio otwarte miejsca i rekordy na żywo
 // (zamówienia, klienci, produkty z istniejących akcji API), prefiksy zam: kli: prod: ekran:. Oraz okno pomocy „?” ze skrótami.
-import { el } from './ui.js?v=a73af4a';
-import { api } from './client.js?v=a73af4a';
-import { go } from './router.js?v=a73af4a';
-import { ITEMS, SECTIONS, itemById, icon } from './nav.js?v=a73af4a';
-import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=a73af4a';
-import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=a73af4a';
-import { shortcuts, GOTO } from './shortcuts.js?v=a73af4a';
+import { el } from './ui.js?v=2b127e1';
+import { api } from './client.js?v=2b127e1';
+import { go } from './router.js?v=2b127e1';
+import { ITEMS, itemById, icon, menuModel, groupOf, groupById, keywordsOf } from './nav.js?v=2b127e1';
+import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=2b127e1';
+import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=2b127e1';
+import { shortcuts, GOTO } from './shortcuts.js?v=2b127e1';
 
 const MIN_Q = 2, DEBOUNCE = 250, TOP = 5;
 const GOTO_KEY = Object.fromEntries(Object.entries(GOTO).map(([k, id]) => [id, 'G ' + k.toUpperCase()]));
 let cfg = { sellyHref: () => '#', isAdmin: () => false, canSee: () => true };
+const RECENT_TOP = 5;   // „Ostatnio otwierane” w oknie szukania
 let open = null;   // { close } — bieżące okno (paleta albo pomoc)
 
 const hl = (text, q) => highlightParts(text, q).map(p => (p.hit ? el('mark', null, p.t) : p.t));
@@ -36,11 +37,13 @@ const REC = {
 };
 
 function screenRows(q, limit) {
-  const vis = ITEMS.filter(i => (!i.admin || cfg.isAdmin()) && cfg.canSee(i.id));
-  const sec = i => (SECTIONS.find(s => s.id === i.section) || {}).title || '';
-  const list = q ? matchScreens(vis, q, sec, limit) : vis.slice(0, limit);
-  return list.map(i => ({ type: 'screen', label: i.title, sub: sec(i), icon: i.kind === 'selly' ? 'external' : 'sliders', ext: i.kind === 'selly',
-    href: i.kind === 'selly' ? cfg.sellyHref(i.a) : '#/' + i.id, hint: GOTO_KEY[i.id] || '', tip: i.tip || '', _id: i.id }));
+  const ok = i => (!i.admin || cfg.isAdmin()) && cfg.canSee(i.id);
+  const vis = ITEMS.filter(ok);
+  const sec = i => { const g = groupById(groupOf(i.id)); return g ? g.title : 'Menu główne'; };
+  // bez zapytania: menu główne; z zapytaniem: nazwa, grupa, synonimy i nazwy z Selly
+  const list = q ? matchScreens(vis, q, sec, limit, keywordsOf) : menuModel(ok).primary.slice(0, limit);
+  return list.map(i => ({ type: 'screen', label: i.title, sub: sec(i) + (i.kind === 'soon' ? ' · wkrótce' : ''), icon: i.kind === 'selly' ? 'external' : 'sliders', ext: i.kind === 'selly',
+    href: i.kind === 'selly' ? cfg.sellyHref(i.a) : '#/' + i.id, hint: GOTO_KEY[i.id] || '', tip: i.tip || (i.kind === 'soon' ? 'W planie w panelu OSA — na razie strona z linkiem do panelu Selly' : ''), _id: i.id }));
 }
 
 export function openPalette(initial) {
@@ -91,16 +94,16 @@ export function openPalette(initial) {
   const tips = () => el('div', { class: 'pal-tips' }, ...PREFIXES.map(p => el('button', { type: 'button', class: 'pal-tip tip', title: p.tip + '. Kliknij, aby wstawić prefiks.',
     onclick: () => { input.value = p.key + ': '; input.focus(); update(); } }, el('code', null, p.key + ':'), ' ' + p.title)));
 
-  const recentRows = () => loadRecents().map(e => ({ type: e.t, label: e.label, sub: TYPES[e.t].name, icon: TYPES[e.t].icon, href: hashOf(e), recent: e, q: '' }));
+  const recentRows = () => loadRecents().slice(0, RECENT_TOP).map(e => ({ type: e.t, label: e.label, sub: TYPES[e.t].name, icon: TYPES[e.t].icon, href: hashOf(e), recent: e, q: '' }));
 
   let recGroups = {};   // wyniki rekordów z ostatniego zapytania: scope → { rows, state }
   function render() {
     const { scope, q } = parseQuery(input.value);
     const groups = [];
     if (!q && !scope) {
-      groups.push({ title: 'Ostatnie', rows: recentRows() });
+      groups.push({ title: 'Ostatnio otwierane', rows: recentRows() });
       groups.push({ title: 'Wskazówki', rows: [], tips: el('div', null, el('div', { class: 'pal-group' }, 'Wskazówki'), tips(), el('div', { class: 'pal-note' }, 'Wpisz prefiks, aby szukać tylko w jednej grupie. Skrót ? pokazuje wszystkie skróty klawiszowe.')) });
-      groups.push({ title: 'Ekrany', rows: screenRows('', 6).map(r => ({ ...r, q: '' })) });
+      groups.push({ title: 'Menu główne', rows: screenRows('', 12).map(r => ({ ...r, q: '' })) });
     } else {
       if (!scope || scope === 'screens') groups.push({ title: 'Ekrany', rows: screenRows(q, 8).map(r => ({ ...r, q })) });
       for (const k of ['orders', 'clients', 'products']) {
@@ -185,6 +188,7 @@ export function initPalette(o) {
   shortcuts.scope('global', [
     { keys: ['ctrl+k'], label: 'Ctrl K', desc: 'Szukaj w panelu (ekrany, zamówienia, klienci, produkty)', run: () => openPalette() },
     { keys: ['?'], label: '?', desc: 'Pokaż skróty klawiszowe', run: () => openHelp() },
+    { keys: ['/'], label: '/', desc: 'Szukaj w panelu (na ekranach z listą: pole szukania listy)', run: () => openPalette() },
     ...Object.entries(GOTO).map(([k, id]) => ({ keys: ['g ' + k], label: 'G ' + k.toUpperCase(), desc: 'Przejdź do: ' + (itemById(id) || { title: id }).title, run: () => { go('/' + id); } })),
   ]);
 }

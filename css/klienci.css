@@ -19,3 +19,15 @@
 .fold-inline { margin-top: var(--s3); }
 .fold-inline > summary { cursor: pointer; color: var(--accent-strong); }
 @media (max-width: 640px) { .kf-grid { grid-template-columns: 1fr; } }
+/* Import CSV i masowe przypisanie do grupy */
+.imp-tiles { display: flex; flex-wrap: wrap; gap: var(--s2); margin: var(--s2) 0 var(--s3); }
+.imp-tile { display: grid; gap: 2px; min-width: 120px; padding: var(--s2) var(--s3); text-align: left; border: 1px solid var(--border); border-radius: var(--r2); background: var(--surface); color: var(--text); cursor: pointer; font: inherit; }
+.imp-tile strong { font-size: var(--fs-lg); }
+.imp-tile span { font-size: var(--fs-sm); color: var(--muted); }
+.imp-tile:hover { background: var(--hover); }
+.imp-tile.on { border-color: var(--accent); background: var(--accent-soft); }
+#impMapTable select { max-width: 100%; }
+.ord-fails li.ok { color: var(--ok); }
+.ord-fails li.bad { color: var(--no); }
+#cliTable th.c, #cliTable td.c { width: 32px; text-align: center; }
+@media (max-width: 640px) { .imp-tile { min-width: calc(50% - var(--s2)); box-sizing: border-box; } }

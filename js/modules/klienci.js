@@ -1,14 +1,17 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
-import { el, tapOpen, debounce, store, flash, menuButton, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=a73af4a';
-import { api, ctx } from '../core/client.js?v=a73af4a';
-import { go, setLeaveGuard } from '../core/router.js?v=a73af4a';
-import { noteVisit } from '../core/recents.js?v=a73af4a';
-import { registerListKeys } from '../core/listKeys.js?v=a73af4a';
-import { clientForm } from './klienciForm.js?v=a73af4a';
-import { mountBlockToggle } from './klienciBlokada.js?v=a73af4a';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock, renderGroups } from './klienciExtra.js?v=a73af4a';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=a73af4a';
+// Grupy (ekran, zmiana na karcie, masowo z listy) i limit zamówień: klienciGrupy.js; import CSV (#/klienci/import): klienciImport.js.
+import { el, tapOpen, debounce, store, flash, menuButton, cnt, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=2b127e1';
+import { api, ctx } from '../core/client.js?v=2b127e1';
+import { go, setLeaveGuard } from '../core/router.js?v=2b127e1';
+import { noteVisit } from '../core/recents.js?v=2b127e1';
+import { registerListKeys } from '../core/listKeys.js?v=2b127e1';
+import { clientForm } from './klienciForm.js?v=2b127e1';
+import { mountBlockToggle } from './klienciBlokada.js?v=2b127e1';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=2b127e1';
+import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=2b127e1';
+import { renderImport } from './klienciImport.js?v=2b127e1';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=2b127e1';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'email', 'created', 'modified', 'orders', 'id', 'login', 'city'];
@@ -20,7 +23,7 @@ const SIZES = [25, 50, 100, 200];
 const EXPORT_MAX = 50000;
 const MSG_UNAVAILABLE = 'Moduł Klienci wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
 
-const S = { facets: null, root: null, listBox: null, detailBox: null, ui: {}, Q: null, data: null, err: '', listHash: '#/klienci', seq: 0, routeSeq: 0, route: null };
+const S = { sel: new Map(), groupOpts: null, facets: null, root: null, listBox: null, detailBox: null, ui: {}, Q: null, data: null, err: '', listHash: '#/klienci', seq: 0, routeSeq: 0, route: null };
 
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
 const sellyClientUrl = id => adminUrl() + '?a=klienci.view&id=' + encodeURIComponent(id);
@@ -98,18 +101,21 @@ function buildList() {
     const tip = 'Wszyscy klienci pasujący do wyszukiwania, nie tylko ta strona';
     return [{ label: 'Cały wynik — Excel (.xlsx)', count: tot, title: tip, run: () => exportAll('xlsx') }, { label: 'Cały wynik — CSV (.csv)', count: tot, title: tip, run: () => exportAll('csv') }];
   } });
-  u.moreBtn = menuButton({ id: 'cliMore', label: 'Więcej', cls: 'secondary', title: 'Grupy klientów i funkcje dostępne tylko w panelu Selly', items: () => [
-    { label: 'Grupy klientów', title: 'Lista grup z liczbą klientów i nazwami własnymi', run: () => go('/klienci/grupy') },
-    { label: 'Importuj klientów z pliku CSV w Selly ↗', title: 'Import klientów z pliku jest dostępny tylko w panelu Selly', run: () => window.open(adminUrl() + '?a=klienci', '_blank', 'noopener') },
+  u.moreBtn = menuButton({ id: 'cliMore', label: 'Więcej', cls: 'secondary', title: 'Grupy klientów, import z pliku CSV i funkcje dostępne tylko w panelu Selly', items: () => [
+    { label: 'Grupy klientów', title: 'Grupy z Selly: nazwy, liczba klientów, dodawanie nowej grupy', run: () => go('/klienci/grupy') },
+    { label: 'Importuj klientów z pliku CSV', title: 'Plik czytany w przeglądarce → sprawdzenie bez zapisu (błędy, duplikaty) → dodanie po potwierdzeniu', run: () => go('/klienci/import') },
+    { label: 'Import CSV w Selly ↗', title: 'Oryginalny import Selly (inny układ pliku, bez podglądu przed zapisem)', run: () => window.open(adminUrl() + '?a=klienci', '_blank', 'noopener') },
     { label: 'Eksport CSV w Selly ↗', title: 'Oryginalny eksport Selly (z polami, których panel nie pokazuje)', run: () => window.open(adminUrl() + '?a=klienci', '_blank', 'noopener') }] });
   u.addBtn = el('a', { write: 'klienci', href: '#/klienci/nowy', class: 'btn primary', id: 'cliAdd', title: 'Dodaj nowego klienta (konto w sklepie)' }, '+ Dodaj klienta');
   u.osa = osaBar({ prefix: 'cliOsa', withLicense: false, getQ: () => S.Q, apply: patch => setQ(patch), facets: () => S.facets });
   u.info = el('div', { class: 'muted small ord-info' });
   u.notice = el('div');
+  u.dlg = el('div', { id: 'cliDlg' });
+  u.bulk = el('div', { class: 'ord-bulk', id: 'cliBulk', hidden: true });
   u.results = el('div', { id: 'cliResults' });
   S.listBox = el('div', { class: 'ord-list' }, el('div', { class: 'card' },
     el('div', { class: 'card-head' }, el('h2', null, 'Klienci'), el('div', { class: 'sub' }, 'Klienci sklepu (kopia odświeżana w tle). Kliknij klienta, aby zobaczyć dane, zamówienia i notatkę.')),
-    el('div', { class: 'toolbar' }, u.search, u.filtersBtn, u.cols.node, u.exportBtn, u.moreBtn, u.addBtn, el('span', { class: 'spacer' }), u.info), u.osa.node, u.filters, u.notice, u.results));
+    el('div', { class: 'toolbar' }, u.search, u.filtersBtn, u.cols.node, u.exportBtn, u.moreBtn, u.addBtn, el('span', { class: 'spacer' }), u.info), u.osa.node, u.filters, u.notice, u.dlg, u.bulk, u.results));
   S.root.append(S.listBox);
 }
 function toggleFilters(force) {
@@ -141,6 +147,7 @@ async function loadList() {
   S.err = '';
   if (!S.facets && !S.facetsLoading) { S.facetsLoading = true; api('clients:meta').then(m => { S.meta = m || {}; S.facets = (m && m.facets) || {}; if (S.ui.osa) { syncFacets(); S.ui.osa.sync(); }}).catch(() => {}).then(() => { S.facetsLoading = false; }); }
   syncList();
+  loadGroupOpts();
   if (!S.data) u.results.replaceChildren(loadingBox('Pobieram klientów…'));
   else u.results.classList.add('fade');
   try {
@@ -164,13 +171,20 @@ const COLS = [
   { key: 'phone', label: 'Telefon', tip: 'Numer telefonu klienta' },
   { key: 'city', label: 'Miasto', sort: 'city', tip: 'Miasto z adresu wysyłki klienta' },
   { key: 'nip', label: 'NIP', def: false, tip: 'NIP z danych do faktury' },
-  { key: 'group', label: 'Grupa', def: false, tip: 'Numer grupy klienta w Selly (nazwy własne grup: Więcej ▾ → Grupy klientów)' },
+  { key: 'group', label: 'Grupa', def: false, tip: 'Grupa klienta (nazwa z Selly albo nazwa własna panelu; grupy: Więcej ▾ → Grupy klientów)' },
   { key: 'country', label: 'Państwo', def: false, tip: 'Państwo z adresu klienta' },
   { key: 'login', label: 'Ostatnie logowanie', sort: 'login', firstDir: 'desc', def: false, tip: 'Kiedy klient ostatnio zalogował się do sklepu' },
   { key: 'orders', label: 'Zamówień', sort: 'orders', num: true, tip: 'Liczba zamówień klienta w kopii zamówień panelu (dopasowanie po koncie klienta lub e-mailu)', tipHeader: true },
   { key: 'created', label: 'Utworzony', sort: 'created', firstDir: 'desc', tip: 'Data założenia konta klienta w sklepie' },
 ];
-const groupLabel = r => { const g = ((S.meta && S.meta.groups) || []).find(x => String(x.id) === String(r.groupId)); return g && g.name ? g.name : (r.groupId && String(r.groupId) !== '0' ? 'nr ' + r.groupId : ''); };
+const groupOpts = () => mergeGroups((S.meta && S.meta.groups) || [], S.groupOpts || []);
+const groupLabel = r => (r.groupId && String(r.groupId) !== '0' ? groupName(groupOpts(), r.groupId) : '');
+/** Nazwy grup z Selly (natywna lista, raz na 5 min) — do kolumny „Grupa” i menu „Przypisz do grupy”. Błąd = zostają numery / nazwy własne. */
+function loadGroupOpts() {
+  if (S.groupOptsLoading || S.groupOpts) return;
+  S.groupOptsLoading = true;
+  sellyGroups().then(r => { S.groupOpts = r.ok ? r.groups : []; if (S.data && S.listBox && !S.listBox.hidden) renderList(); }).finally(() => { S.groupOptsLoading = false; });
+}
 
 function renderList() {
   const u = S.ui, d = S.data, Q = S.Q;
@@ -184,7 +198,10 @@ function renderList() {
   u.info.replaceChildren(el('span', { class: 'tip', title: 'Lista pochodzi z kopii klientów synchronizowanej z Selly w tle — najświeższe zmiany mogą pojawić się z opóźnieniem.' }, 'dane z: ' + syncedLabel(d.syncedMs)));
   u.notice.replaceChildren(d.loading ? el('div', { class: 'notice warn', id: 'cliLoading', role: 'status' }, 'Trwa pierwsze pobieranie klientów ze sklepu — lista może być niepełna. Odśwież stronę za chwilę.') : null);
   const cols = COLS.filter(c => u.cols.isOn(c.key));
-  const head = el('tr', null, cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
+  const head = el('tr', null,
+    el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'cliSelAll', 'aria-label': 'Zaznacz wszystkich na tej stronie', title: 'Zaznacz lub odznacz wszystkich klientów na tej stronie (np. żeby przypisać ich do grupy)',
+      onchange: ev => { for (const r of d.rows) { if (ev.target.checked) S.sel.set(String(r.id), r); else S.sel.delete(String(r.id)); } refreshSel(); } })),
+    cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
   const body = el('tbody');
   const cell = (c, r) => {
     switch (c.key) {
@@ -207,15 +224,50 @@ function renderList() {
     }
   };
   for (const r of d.rows) {
-    body.append(el('tr', { class: 'pick', 'data-id': r.id, onclick: tapOpen(() => openClient(r.id)) }, cols.map(c => cell(c, r))));
+    const rid = String(r.id);
+    body.append(el('tr', { class: 'pick' + (S.sel.has(rid) ? ' sel' : ''), 'data-id': r.id, onclick: tapOpen(() => openClient(r.id)) },
+      el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz klienta ' + (r.name || r.id), checked: S.sel.has(rid), onchange: ev => { if (ev.target.checked) S.sel.set(rid, r); else S.sel.delete(rid); refreshSel(); } })),
+      cols.map(c => cell(c, r))));
   }
   const filtered = Q.q || osaActive(Q) || FILTERS.some(k => Q[k]);
-  if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length), class: 'empty' },
+  if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length + 1), class: 'empty' },
     filtered ? 'Brak klientów pasujących do wyszukiwania i filtrów.' : 'Brak klientów.', ' ',
     filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ q: '', ...OSA_CLEAR, ...FILTER_CLEAR }) }, 'Wyczyść filtry') : null)));
   u.results.replaceChildren(S.err ? el('div', { class: 'notice error' }, S.err) : null,
     el('div', { class: 'table-wrap' }, el('table', { id: 'cliTable' }, el('thead', null, head), body)),
     pager({ prefix: 'cli', page: Q.page, pages, total: d.total, noun: ['klient', 'klienci', 'klientów'], onPage: p => setQ({ page: p }) }));
+  refreshSel();
+}
+
+// ─── Zaznaczenie i przypisanie do grupy ─────────────────────────────────────
+
+function refreshSel() {
+  const u = S.ui, d = S.data;
+  if (d) {
+    for (const tr of u.results.querySelectorAll('tbody tr[data-id]')) {
+      const on = S.sel.has(tr.dataset.id);
+      tr.classList.toggle('sel', on);
+      const cb = tr.querySelector('input[type=checkbox]'); if (cb) cb.checked = on;
+    }
+    const all = u.results.querySelector('#cliSelAll');
+    if (all) { const n = d.rows.filter(r => S.sel.has(String(r.id))).length; all.checked = d.rows.length > 0 && n === d.rows.length; all.indeterminate = n > 0 && n < d.rows.length; }
+  }
+  renderBulk();
+}
+
+function renderBulk() {
+  const u = S.ui, n = S.sel.size;
+  u.bulk.hidden = n === 0;
+  if (!n) { u.bulk.replaceChildren(); return; }
+  const rows = () => [...S.sel.values()].map(r => ({ id: String(r.id), name: r.name || r.email || 'Klient ' + r.id, groupId: r.groupId }));
+  const start = (id, name) => bulkGroupDialog(u.dlg, rows(), { id, name }, { groups: groupOpts(), onDone: ids => { for (const x of ids) S.sel.delete(x); S.data = null; loadList(); } });
+  u.bulk.replaceChildren(
+    el('strong', { id: 'cliSelCount' }, 'Zaznaczono: ' + cnt(n, 'klienta', 'klientów', 'klientów')),
+    menuButton({ id: 'cliGroupMenu', label: 'Przypisz do grupy', cls: 'primary', write: 'klienci', title: 'Ustaw grupę wszystkim zaznaczonym klientom (najpierw pokażemy podgląd zmiany do potwierdzenia)',
+      items: () => [...groupOpts().map(g => ({ label: g.name, count: g.count || null, title: 'Przypisz zaznaczonych klientów do grupy „' + g.name + '”', run: () => start(g.id, g.name) })),
+        { label: 'Usuń z grupy (bez grupy)', title: 'Zaznaczeni klienci nie będą należeć do żadnej grupy', run: () => start('0', 'bez grupy') }] }),
+    el('a', { href: '#/klienci/grupy', class: 'btn-link', title: 'Brakuje grupy? Utwórz ją na ekranie „Grupy klientów”' }, 'Nowa grupa…'),
+    el('button', { type: 'button', class: 'ghost', id: 'cliSelClear', title: 'Odznacz wszystkich zaznaczonych klientów (na wszystkich stronach)', onclick: () => { S.sel.clear(); u.dlg.replaceChildren(); refreshSel(); } }, 'Wyczyść zaznaczenie'));
 }
 function openClient(id) { S.listHash = location.hash; go('/klienci/' + encodeURIComponent(id)); }
 
@@ -304,7 +356,7 @@ async function renderDetail(id) {
       el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Dane kontaktowe')),
         dl([['E-mail', c.email ? el('a', { href: 'mailto:' + c.email }, c.email) : ''], ['Telefon', c.phone ? el('a', { href: 'tel:' + String(c.phone).replace(/[^\d+]/g, '') }, c.phone) : ''],
           ['Konto utworzone', dateStr(c.created_at)], ['Ostatnie logowanie', dateStr(c.last_login_at)], ['Newsletter', c.newsletter != null && c.newsletter !== '' ? (isOn(c.newsletter) ? 'tak' : 'nie') : '', 'Czy klient zapisał się na newsletter'],
-          ['Grupa klienta', c.group_id != null && c.group_id !== '' && String(c.group_id) !== '0' ? el('span', { id: 'cliGroup' }, 'nr ' + c.group_id) : '', 'Grupa klienta w Selly (nazwa własna z panelu pojawi się po chwili; grupy: Więcej ▾ na liście)'],
+          ['Grupa klienta', cardGroup(id, c.group_id, { meta: (S.meta && S.meta.groups) || [], onSaved: () => { S.data = null; S.groupOpts = null; renderDetail(id); } }), 'Grupa klienta w Selly — „Zmień” przypisuje klienta do innej grupy (zapis w Selly). Nowe grupy: Więcej ▾ → Grupy klientów'],
           ['Poziom cen', c.price_level != null && c.price_level !== '' ? (Number(c.price_level) === 0 ? 'detaliczny' : 'rabaty — poziom ' + c.price_level) : '', 'Cennik stosowany wobec klienta'],
           ['Indywidualny rabat', Number(c.discount) > 0 ? String(c.discount).replace('.', ',') + '%' : '', 'Rabat procentowy klienta na zamówienia'],
           ['Opiekun (ID)', Number(c.salesperson_id) > 0 ? String(c.salesperson_id) : '', 'Numer pracownika opiekującego się klientem w Selly'],
@@ -313,7 +365,7 @@ async function renderDetail(id) {
       el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Adresy')),
         dl([['Dane do faktury', addressBlock(c, 'invoice')], ['Adres wysyłki', addressBlock(c, 'ship')]]))),
     el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Notatka'), el('div', { class: 'sub tip', title: 'W sklepie notatka klienta to zwykle opis orszaku: województwo, miejscowość itp. Zapis trafia do Selly.' }, 'Opis orszaku i uwagi — widoczne w panelu')), noteHost),
-    osaCard, relHost, addressesFold(id, adminUrl()), pricesFold(id, adminUrl()), affiliateFold(id), sellyOnlyBlock(id, adminUrl()), ordersCard);
+    osaCard, relHost, addressesFold(id, adminUrl()), pricesFold(id, adminUrl()), limitFold(id, adminUrl()), affiliateFold(id), sellyOnlyBlock(id, adminUrl()), ordersCard);
   fillExtra(id, my, relHost);
 }
 
@@ -324,8 +376,8 @@ async function fillExtra(id, my, relHost) {
   if (my !== S.routeSeq || !x) return;
   const b = relatedBlock(x);
   if (b) relHost.replaceChildren(b);
-  const g = document.getElementById('cliGroup');
-  if (g && x.groupName) g.textContent = x.groupName;
+  const gb = document.getElementById('cliGroupBox');
+  if (gb && gb.update && x.groups) gb.update(x.groups);
 }
 
 /** Sekcja „Orszak (z notatki)”: pola wyliczone z notatki (wiersz listy klientów, wyszukany po ID). */
@@ -407,7 +459,13 @@ function mountRoute() {
     extra: [{ keys: ['n'], label: 'N', desc: 'Dodaj klienta', id: 'cliAdd' }, { keys: ['r'], label: 'R', desc: 'Edytuj dane klienta (na karcie)', id: 'cliEdit' }, { keys: ['b'], label: 'B', desc: 'Zablokuj lub odblokuj konto (na karcie)', id: 'cliBlockBtn' }] });
   S.listBox.hidden = !!route.id; S.detailBox.hidden = !route.id;
   dropGuard();
-  if (route.id === 'grupy') { S.routeSeq++; renderGroups(S.detailBox, { sellyUrl: adminUrl(), back: S.listHash }); return; }
+  if (route.id === 'grupy') { const my = ++S.routeSeq; renderGroups(S.detailBox, { sellyUrl: adminUrl(), back: S.listHash, isCurrent: () => my === S.routeSeq }); return; }
+  if (route.id === 'import') {
+    const my = ++S.routeSeq;
+    const meta = S.meta ? Promise.resolve(S.meta) : api('clients:meta').then(m => (S.meta = m || {})).catch(() => ({}));
+    meta.then(m => { if (my === S.routeSeq) renderImport(S.detailBox, { back: S.listHash, meta: m, isCurrent: () => my === S.routeSeq }); });
+    return;
+  }
   if (route.id === 'nowy' || (route.id && route.sub === 'edytuj')) { renderForm(route.id === 'nowy' ? '' : route.id); return; }
   if (route.id) { renderDetail(route.id); return; }
   S.routeSeq++;
@@ -419,7 +477,7 @@ function mountRoute() {
 export default {
   id: 'klienci',
   title: 'Klienci',
-  routes: ['', '<id>', '<id>/edytuj', 'nowy', 'grupy'],
+  routes: ['', '<id>', '<id>/edytuj', 'nowy', 'grupy', 'import'],
   mount(el0, params) {
     applyBadgePrefs();
     if (!S.root) { S.root = el0; S.detailBox = el('div'); S.detailBox.hidden = true; el0.append(S.detailBox); }

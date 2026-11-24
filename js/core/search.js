@@ -1,4 +1,4 @@
-// Czyste funkcje szybkiego wyszukiwania (paleta Ctrl+K): dopasowanie bez polskich znaków i wielkości liter, podświetlanie, prefiksy.
+// Czyste funkcje szybkiego wyszukiwania (paleta Ctrl+K i szukanie w menu): dopasowanie bez polskich znaków i wielkości liter, podświetlanie, prefiksy.
 // Bez zależności od DOM (testy jednostkowe). Wzór `norm` jak w core/ui.js (ł→l, bez znaków diakrytycznych; długość tekstu bez zmian).
 
 export const norm = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036F]/g, '');
@@ -49,12 +49,15 @@ export function highlightParts(text, q) {
   return out.length ? out : [{ t: s, hit: false }];
 }
 
-/** Ekrany pasujące do zapytania (najlepsze pierwsze). items: [{ id, title, section?, ... }], sectionTitle(item) → nazwa sekcji. */
-export function matchScreens(items, q, sectionTitle, limit) {
+/**
+ * Ekrany pasujące do zapytania (najlepsze pierwsze). items: [{ id, title, section?, ... }], sectionTitle(item) → nazwa sekcji / grupy,
+ * keywords(item) → synonimy i nazwy z Selly (np. „rabaty” → Kupony rabatowe); dopasowanie nazwy waży najwięcej.
+ */
+export function matchScreens(items, q, sectionTitle, limit, keywords) {
   const out = [];
   for (const it of items) {
-    const a = score(it.title, q), b = sectionTitle ? score(sectionTitle(it), q) * .3 : 0;
-    const sc = Math.max(a, b);
+    const a = score(it.title, q), b = sectionTitle ? score(sectionTitle(it), q) * .3 : 0, c = keywords ? score(keywords(it), q) * .6 : 0;
+    const sc = Math.max(a, b, c);
     if (sc > 0) out.push({ it, sc });
   }
   out.sort((x, y) => y.sc - x.sc || x.it.title.localeCompare(y.it.title, 'pl'));

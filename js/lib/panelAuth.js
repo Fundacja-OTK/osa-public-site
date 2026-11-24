@@ -60,8 +60,8 @@
   // Uwaga: mag:moves DODAJE ruchy magazynowe (Warehouses.gs addMoves) — to zapis; historia ruchów przychodzi w mag:init.
   const READ_ACTIONS = [
     'init', 'whoami', 'report', 'orszaki', 'changes', 'refresh', 'auth:refresh', 'auth:perms',
-    'orders:list', 'orders:get', 'orders:meta', 'orders:invoices',
-    'clients:list', 'clients:get', 'clients:meta', 'clients:addresses', 'clients:affiliate', 'clients:extra', 'clients:groups', 'clients:prices',
+    'orders:list', 'orders:get', 'orders:meta', 'orders:invoices', 'orders:invoiceList', 'orders:invoiceScan',
+    'clients:list', 'clients:get', 'clients:meta', 'clients:addresses', 'clients:affiliate', 'clients:extra', 'clients:groups', 'clients:prices', 'clients:emailsExist',
     'products:list', 'products:get', 'products:facets', 'products:dicts', 'products:extra', 'products:warehouses',
     'shipping:meta', 'shipping:queue', 'shipping:label',
     'dropshipping:list', 'dropshipping:get',
@@ -76,7 +76,7 @@
   ];
   const WRITE_ACTIONS = [
     'auth:logout', 'feedback:send', 'feedback:status', 'client:errors', 'client:exits', 'grants:set', 'map:report', 'map:retry',
-    'orders:setStatus', 'orders:update', 'orders:addItem', 'orders:updateItem', 'orders:create',
+    'orders:setStatus', 'orders:update', 'orders:addItem', 'orders:updateItem', 'orders:create', 'orders:invoiceUpdate',
     'clients:save', 'clients:create', 'clients:update', 'clients:setBlock', 'clients:addressSave', 'clients:addressDelete', 'clients:affiliateAdd',
     'clients:affiliateDelete', 'clients:groupName', 'clients:priceSave', 'clients:priceDelete',
     'products:create', 'products:update', 'products:duplicate', 'products:setCategories', 'products:setFeatures', 'products:setMeta', 'products:setStock',
@@ -118,7 +118,7 @@
     'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki',
     'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus',
     'cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy',
-    'kupony', 'koszyki', 'klient-blokada',
+    'kupony', 'koszyki', 'klient-blokada', 'klient-limit', 'klienci-grupy',
     'konf', 'panel-konf', 'wyglad-konf', 'znaki', 'jezyki', 'dostepnosc',
     'allegro', 'allegro-aukcje', 'empik', 'allegro-aukcje-lista', 'allegro-zdarzenia', 'allegro-wysylka', 'allegro-operatorzy', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-porownywarki', 'int-przesylki', 'int-fk', 'int-dodatkowe', 'ai', 'slajdy', 'ksztalty', 'dostawy-konf', 'statusy-konf',
   ];

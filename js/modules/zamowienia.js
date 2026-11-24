@@ -1,17 +1,18 @@
-// Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..) oraz szczegóły (#/zamowienia/<id>).
+// Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=a73af4a';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=a73af4a';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=a73af4a';
-import { api, ctx } from '../core/client.js?v=a73af4a';
-import { go, setLeaveGuard } from '../core/router.js?v=a73af4a';
-import { noteVisit } from '../core/recents.js?v=a73af4a';
-import { registerListKeys } from '../core/listKeys.js?v=a73af4a';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=a73af4a';
-import { showNewOrder } from './zamowienieNowe.js?v=a73af4a';
-import { createFilterUi } from './zamowieniaFiltry.js?v=a73af4a';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=a73af4a';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=a73af4a';
+import { photoSrc } from '../core/photo.js?v=2b127e1';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=2b127e1';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=2b127e1';
+import { api, ctx } from '../core/client.js?v=2b127e1';
+import { go, setLeaveGuard } from '../core/router.js?v=2b127e1';
+import { noteVisit } from '../core/recents.js?v=2b127e1';
+import { registerListKeys } from '../core/listKeys.js?v=2b127e1';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=2b127e1';
+import { showNewOrder } from './zamowienieNowe.js?v=2b127e1';
+import { showInvoices } from './zamowieniaFaktury.js?v=2b127e1';
+import { createFilterUi } from './zamowieniaFiltry.js?v=2b127e1';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=2b127e1';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=2b127e1';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -174,7 +175,9 @@ function buildList() {
   S.listBox = el('div', { class: 'ord-list' },
     el('div', { class: 'card' },
       pageToolbar({ title: 'Zamówienia', sub: 'Lista zamówień ze sklepu (kopia odświeżana co minutę). Kliknij numer zamówienia, aby zobaczyć szczegóły.',
-        actions: [u.filtersBtn, el('a', { class: 'btn-secondary', id: 'ordSpeedMail', href: '#/speedmail',
+        actions: [u.filtersBtn, el('a', { class: 'btn-secondary', id: 'ordInvoicesLink', href: '#/zamowienia/faktury',
+          title: 'Faktury ze wszystkich zamówień: filtry (okres, numer, rozliczone / do zapłaty), rozliczenia, wydruk i eksport' }, 'Faktury'),
+          el('a', { class: 'btn-secondary', id: 'ordSpeedMail', href: '#/speedmail',
           title: 'Kreator wysyłki do magazynu SpeedMail: wybór zamówień, sprawdzenie stanu SM, podział, plik dla SpeedMail i zmiana statusów w Selly. Środkowy przycisk myszy albo Ctrl+klik otwiera w nowej karcie.' }, 'Wysyłka SpeedMail'),
           el('a', { class: 'btn-primary', id: 'ordAdd', href: '#/zamowienia/nowe', write: 'zamowienia',
           title: 'Dodaj zamówienie ręcznie: klient, produkty, dostawa i płatność (formularz w panelu)' }, '+ Nowe zamówienie')] }),
@@ -598,6 +601,8 @@ export default {
       el0.append(S.metaBox, S.detailBox);
     }
     S.route = { id: params && params.parts && params.parts[0] || '', Q: readQ(params && params.query) };
+    showInvoices(el0, S.route.id === 'faktury');   // #/zamowienia/faktury → zamowieniaFaktury.js
+    if (S.route.id === 'faktury') { S.routeSeq++; S.guard = null; showNewOrder(el0, false); show(''); return; }
     if (showNewOrder(el0, S.route.id === 'nowe') && S.route.id === 'nowe') { S.routeSeq++; S.guard = null; show(''); return; }   // #/zamowienia/nowe → zamowienieNowe.js
     mountRoute();
   },

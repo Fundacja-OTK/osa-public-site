@@ -1,0 +1,51 @@
+/* Faktury zamówień: lista #/zamowienia/faktury (zamowieniaFaktury.js), rozliczenie i wydruk (zamowieniaFakturyKit.js) — tylko tokeny z base.css */
+.inv-root > .card { margin: 0; }
+.inv-toolbar { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: center; margin-top: var(--s3); }
+.inv-toolbar input[type=search] { flex: 1 1 260px; min-width: 0; max-width: 420px; }
+.inv-opts { margin-top: var(--s3); }
+.inv-opts > summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.inv-opts-body { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; margin-top: var(--s2); }
+.inv-opts-body select { max-width: 100%; }
+.inv-cover { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: center; margin-top: var(--s3); }
+.inv-cover.notice { padding: var(--s2) var(--s3); border-radius: var(--r2); }
+.inv-sum { margin: var(--s3) 0 var(--s2); }
+.inv-table td { vertical-align: middle; }
+.inv-buyer { max-width: 260px; overflow-wrap: anywhere; }
+.inv-acts { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.inv-acts .small-btn { margin-top: 0; }
+.inv-late { color: var(--no); font-weight: 700; }
+.inv-edit-row > td { background: var(--surface-2); }
+#invResults.is-loading { opacity: .6; }
+/* Formularz rozliczenia (karta zamówienia i lista) */
+.inv-edit { margin-top: var(--s3); padding: var(--s3); border: 1px solid var(--border); border-radius: var(--r2); background: var(--surface); }
+.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s2) var(--s3); }
+.inv-f { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); color: var(--muted); min-width: 0; }
+.inv-f input, .inv-f select, .inv-f textarea { color: var(--text); max-width: 100%; }
+.inv-wide { grid-column: 1 / -1; }
+.inv-paid { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s2); align-items: center; }
+.inv-paid input { width: 120px; }
+.inv-paid .small-btn { margin-top: 0; }
+@media (max-width: 640px) {
+  .inv-toolbar input[type=search] { max-width: none; }
+  .inv-buyer { max-width: 160px; }
+}
+/* Wydruk faktury: w tej samej karcie, tylko dokument (body.inv-printing) */
+.inv-print { display: none; }
+@media print {
+  body.inv-printing > *:not(#invPrint) { display: none !important; }
+  body.inv-printing { background: #fff !important; }
+  body.inv-printing #invPrint { display: block; color: #000; font: 11pt/1.4 var(--font); }
+  .ip-doc h1 { font-size: 18pt; margin: 0 0 4pt; }
+  .ip-doc h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 4pt; color: #444; }
+  .ip-head { display: flex; justify-content: space-between; gap: 16pt; margin-bottom: 14pt; }
+  .ip-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16pt; margin-bottom: 14pt; }
+  .ip-doc table { width: 100%; border-collapse: collapse; margin-bottom: 10pt; }
+  .ip-doc th, .ip-doc td { border: 1px solid #999; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  .ip-doc th { background: #eee; font-size: 9pt; }
+  .ip-doc .n { text-align: right; white-space: nowrap; }
+  .ip-doc .small { font-size: 9pt; color: #444; }
+  .ip-vat { width: auto !important; margin-left: auto; }
+  .ip-sum { text-align: right; margin: 6pt 0 12pt; }
+  .ip-note, .ip-sign { margin-top: 10pt; }
+  .ip-foot { margin-top: 18pt; font-size: 8pt; color: #666; }
+}

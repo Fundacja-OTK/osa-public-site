@@ -23,7 +23,7 @@ export const MSG_TIMEOUT_WRITE = 'Serwer nie odpowiedział na czas. Zmiana mogł
 export const TIMEOUT_MS = { cloudflare: 20000, gas: 60000 };
 // Odczyty (bezpieczne do powtórzenia na innym backendzie po przekroczeniu czasu); reszta to zapisy — bez powtórzenia.
 // Podzbiór READ_ACTIONS z shared/panelAuth.js (test: actionClassification.test.js); mag:moves to ZAPIS (dodaje ruchy) — bez powtórzeń.
-export const READ_ACTION = /^(init|whoami|report|orszaki|changes)$|:(list|get|meta|facets|queue|options|latest|history|init|orders|invoices|addresses|prices|affiliate|extra|groups|dicts)$/;
+export const READ_ACTION = /^(init|whoami|report|orszaki|changes)$|:(list|get|meta|facets|queue|options|latest|history|init|orders|invoices|addresses|prices|affiliate|extra|groups|dicts|emailsExist)$/;
 // Zapisy, które wolno powtórzyć na innym backendzie po błędzie sieci: ustawiają wartość (PUT w Selly), więc powtórka daje ten sam stan.
 // Reszta (np. dodanie pozycji, tworzenie przesyłki) nie jest powtarzana na drugim backendzie — każdy backend pamięta opId osobno.
 export const WRITE_RETRY_SAFE = /^(orders:(setStatus|update|updateItem)|products:(update|setStock)|clients:update)$/;

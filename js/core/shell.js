@@ -1,20 +1,21 @@
-// Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu sekcji z wysuwanymi listami
-// (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K), okruszki i tytuł strony, logowanie/start, stopka.
-import { $, el, store, pageError, refreshWriteGates } from './ui.js?v=a73af4a';
-import { api, ctx, ENV, apiInfo, onApiInfo, canWriteSection, READONLY_TIP } from './client.js?v=a73af4a';
-import { signOut, freshToken, hasToken, sessionLogin, adoptBoot, completePerms } from './auth.js?v=a73af4a';
-import { canSee } from '../lib/panelAuth.js?v=a73af4a';
-import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=a73af4a';
-import { initErrorReporting } from './errors.js?v=a73af4a';
-import { initSellyExits } from './sellyExits.js?v=a73af4a';
-import { setReporter } from './errorHook.js?v=a73af4a';
-import { initFeedback } from './feedback.js?v=a73af4a';
-import { watchVersion, showNewVersion } from './update.js?v=a73af4a';
-import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=a73af4a';
-import { SECTIONS, ITEMS, itemById, icon } from './nav.js?v=a73af4a';
-import { initPalette, openPalette } from './palette.js?v=a73af4a';
-import { installShortcuts, shortcuts } from './shortcuts.js?v=a73af4a';
-import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=a73af4a';
+// Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu: Pulpit, krótka lista codzienna,
+// zwijane grupy z resztą ekranów (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K lub „/”),
+// okruszki i tytuł strony, logowanie/start, stopka.
+import { $, el, store, pageError, refreshWriteGates } from './ui.js?v=2b127e1';
+import { api, ctx, ENV, apiInfo, onApiInfo, canWriteSection, READONLY_TIP } from './client.js?v=2b127e1';
+import { signOut, freshToken, hasToken, sessionLogin, adoptBoot, completePerms } from './auth.js?v=2b127e1';
+import { canSee } from '../lib/panelAuth.js?v=2b127e1';
+import { register, getModule, go, startRouter, parseHash, leaveMessage } from './router.js?v=2b127e1';
+import { initErrorReporting } from './errors.js?v=2b127e1';
+import { initSellyExits } from './sellyExits.js?v=2b127e1';
+import { setReporter } from './errorHook.js?v=2b127e1';
+import { initFeedback } from './feedback.js?v=2b127e1';
+import { watchVersion, showNewVersion } from './update.js?v=2b127e1';
+import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=2b127e1';
+import { ITEMS, itemById, icon, menuModel, groupOf, groupById } from './nav.js?v=2b127e1';
+import { initPalette, openPalette } from './palette.js?v=2b127e1';
+import { installShortcuts, shortcuts } from './shortcuts.js?v=2b127e1';
+import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS } from './recents.js?v=2b127e1';
 
 const ROUTE_KEY = 'osa-route';
 const RECORD_MODS = new Set(['zamowienia', 'klienci', 'produkty']);   // karta rekordu zapisuje się sama (z nazwą)
@@ -26,29 +27,29 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
 
 /** Moduły ładowane przy pierwszym wejściu (nowe ekrany; brak pliku → strona „w planie”). */
 const LAZY = {
-  pulpit: () => import('../modules/pulpit.js?v=a73af4a'),
-  speedmail: () => import('../modules/speedmail.js?v=a73af4a'),
-  przesylki: () => import('../modules/przesylki.js?v=a73af4a'),
-  dropshipping: () => import('../modules/dropshipping.js?v=a73af4a'),
-  wplaty: () => import('../modules/wplaty.js?v=a73af4a'),
-  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=a73af4a'),
-  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=a73af4a'),
-  raporty: () => import('../modules/raporty.js?v=a73af4a'),
+  pulpit: () => import('../modules/pulpit.js?v=2b127e1'),
+  speedmail: () => import('../modules/speedmail.js?v=2b127e1'),
+  przesylki: () => import('../modules/przesylki.js?v=2b127e1'),
+  dropshipping: () => import('../modules/dropshipping.js?v=2b127e1'),
+  wplaty: () => import('../modules/wplaty.js?v=2b127e1'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=2b127e1'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=2b127e1'),
+  raporty: () => import('../modules/raporty.js?v=2b127e1'),
   // konfiguracja sklepu — natywne ekrany „strona ustawień” (modules/konfSklepu.js)
-  konf: () => import('../modules/konfSklepu.js?v=a73af4a').then(m => ({ default: m.konf })), 'panel-konf': () => import('../modules/konfSklepu.js?v=a73af4a').then(m => ({ default: m.panelKonf })),
-  'wyglad-konf': () => import('../modules/konfSklepu.js?v=a73af4a').then(m => ({ default: m.wygladKonf })), znaki: () => import('../modules/konfSklepu.js?v=a73af4a').then(m => ({ default: m.znaki })),
-  jezyki: () => import('../modules/konfSklepu.js?v=a73af4a').then(m => ({ default: m.jezyki })), dostepnosc: () => import('../modules/konfSklepu.js?v=a73af4a').then(m => ({ default: m.dostepnosc })),
+  konf: () => import('../modules/konfSklepu.js?v=2b127e1').then(m => ({ default: m.konf })), 'panel-konf': () => import('../modules/konfSklepu.js?v=2b127e1').then(m => ({ default: m.panelKonf })),
+  'wyglad-konf': () => import('../modules/konfSklepu.js?v=2b127e1').then(m => ({ default: m.wygladKonf })), znaki: () => import('../modules/konfSklepu.js?v=2b127e1').then(m => ({ default: m.znaki })),
+  jezyki: () => import('../modules/konfSklepu.js?v=2b127e1').then(m => ({ default: m.jezyki })), dostepnosc: () => import('../modules/konfSklepu.js?v=2b127e1').then(m => ({ default: m.dostepnosc })),
   // marketplace, integracje, treści, konfiguracja zamówień — natywne ekrany „strona ustawień” (modules/konfSklepu.js)
   ...Object.fromEntries(['allegro', 'allegro-aukcje', 'empik', 'allegro-wysylka', 'allegro-operatorzy', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-porownywarki', 'int-przesylki', 'int-fk', 'int-dodatkowe', 'ai', 'slajdy', 'ksztalty', 'dostawy-konf', 'statusy-konf']
-    .map(id => [id, () => import('../modules/konfSklepu.js?v=a73af4a').then(m => ({ default: m.extra[id] }))])),
-  reklamacje: () => import('../modules/reklamacje.js?v=a73af4a'), oferty: () => import('../modules/oferty.js?v=a73af4a'),
+    .map(id => [id, () => import('../modules/konfSklepu.js?v=2b127e1').then(m => ({ default: m.extra[id] }))])),
+  reklamacje: () => import('../modules/reklamacje.js?v=2b127e1'), oferty: () => import('../modules/oferty.js?v=2b127e1'),
   // === administracja i system (podgląd): ekrany tylko do odczytu, jeden moduł (modules/adminNative.js) ===
-  ...Object.fromEntries(['allegro-aukcje-lista', 'allegro-zdarzenia', 'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki', 'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus'].map(id => [id, () => import('../modules/adminNative.js?v=a73af4a').then(m => ({ default: m.views[id] }))])),
+  ...Object.fromEntries(['allegro-aukcje-lista', 'allegro-zdarzenia', 'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki', 'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus'].map(id => [id, () => import('../modules/adminNative.js?v=2b127e1').then(m => ({ default: m.views[id] }))])),
   // treści (CMS): natywne ekrany z jednego pliku
-  ...Object.fromEntries(['cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy'].map(id => [id, () => import('../modules/tresci.js?v=a73af4a').then(m => ({ default: m.screens[id] }))])),
+  ...Object.fromEntries(['cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy'].map(id => [id, () => import('../modules/tresci.js?v=2b127e1').then(m => ({ default: m.screens[id] }))])),
   // === sprzedaż (kupony, koszyki) ===
-  kupony: () => import('../modules/kupony.js?v=a73af4a'), koszyki: () => import('../modules/koszyki.js?v=a73af4a'),
-  'zmiana-cen': () => import('../modules/masowe.js?v=a73af4a'), 'zmiana-danych': () => import('../modules/masowe.js?v=a73af4a').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=a73af4a').then(m => ({ default: m.modes.kat })),
+  kupony: () => import('../modules/kupony.js?v=2b127e1'), koszyki: () => import('../modules/koszyki.js?v=2b127e1'),
+  'zmiana-cen': () => import('../modules/masowe.js?v=2b127e1'), 'zmiana-danych': () => import('../modules/masowe.js?v=2b127e1').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=2b127e1').then(m => ({ default: m.modes.kat })),
 };
 
 // ─── Błędy strony ───────────────────────────────────────────────────────────
@@ -95,38 +96,90 @@ function setupTopbar(data) {
   $('tbSearch').hidden = false;
 }
 
-// ─── Boczne menu: sekcje + wysuwane listy pozycji ───────────────────────────
+// ─── Boczne menu: Szukaj (Ctrl+K), Pulpit, krótka lista codzienna, zwijane grupy, „Ostatnie” ───
+// Układ (główne / grupy / synonimy) — core/nav.js (PRIMARY, GROUPS, GROUP_OF, SYNONYMS, menuModel).
 
+const isAdminNow = () => !!(ctx.boot && ctx.boot.isAdmin);
 /** Pozycja widoczna: sekcje OSA wg uprawnień z Selly (shared/panelAuth.js), administracyjne tylko dla administratora; linki do Selly zawsze. */
-const visible = i => i !== '-' && canSee({ perms: (ctx.boot && ctx.boot.perms) || [], admin: !!(ctx.boot && ctx.boot.isAdmin) }, i.id);
+const visible = i => i !== '-' && (!i.admin || isAdminNow()) && canSee({ perms: (ctx.boot && ctx.boot.perms) || [], admin: isAdminNow() }, i.id);
 
 const KIND_TIP = {
   soon: 'W planie w panelu OSA — na razie strona z linkiem do panelu Selly',
   selly: 'Tylko w panelu Selly (brak API) — otwiera Selly w nowej karcie',
 };
+const PULPIT_TIP = 'Pulpit — sprzedaż, zamówienia do zrobienia i najnowsze zmiany';
 
 /** Link pozycji menu: ekran OSA → #/id; tylko Selly → Selly w nowej karcie; w planie → #/id (strona z linkiem do Selly). */
-function itemLink(i) {
+function itemLink(i, cls, ico) {
+  const text = el('span', { class: cls === 'fly-item' ? 'fly-text' : 'sb-text' }, i.label || i.title);
+  const tip = (i.label && i.label !== i.title ? i.title + ' — ' : '') + (i.tip || KIND_TIP[i.kind] || (i.label ? '' : i.title));
   if (i.kind === 'selly') {
-    return el('a', { href: sellyHref(i.a), target: '_blank', rel: 'noopener', class: 'fly-item ext', 'data-nav': i.id, title: i.tip || KIND_TIP.selly },
-      el('span', { class: 'fly-text' }, i.title), el('span', { class: 'fly-badge', 'aria-hidden': 'true' }, '↗'));
+    return el('a', { href: sellyHref(i.a), target: '_blank', rel: 'noopener', class: cls + ' ext', 'data-nav': i.id, title: tip },
+      ico ? icon(ico) : null, text, el('span', { class: 'fly-badge sb-text', 'aria-hidden': 'true' }, '↗'));
   }
-  return el('a', { href: '#/' + i.id, class: 'fly-item' + (i.kind === 'soon' ? ' soon' : ''), 'data-nav': i.id, title: i.tip || KIND_TIP[i.kind] || i.title, 'aria-current': 'false' },
-    el('span', { class: 'fly-text' }, i.title), i.kind === 'soon' ? el('span', { class: 'fly-badge soon', 'aria-hidden': 'true' }, 'wkrótce') : null);
+  return el('a', { href: '#/' + i.id, class: cls + (i.kind === 'soon' ? ' soon' : ''), 'data-nav': i.id, title: tip, 'aria-current': 'false' },
+    ico ? icon(ico) : null, text, i.kind === 'soon' ? el('span', { class: 'fly-badge soon', 'aria-hidden': 'true' }, 'wkrótce') : null);
 }
 
 let isAdminNav = false;
 
 const RC_OPEN_KEY = 'osa-rc-open';
+const OPEN_KEY = 'osa-nav-open';   // rozwinięte grupy (id)
+const loadOpen = () => { const v = store(OPEN_KEY); return new Set(Array.isArray(v) ? v.filter(x => typeof x === 'string') : []); };
+
+let autoGrp = null;   // grupa rozwinięta sama, bo zawiera bieżący ekran (niezapamiętywana)
+let lastGrp;          // grupa bieżącego ekranu przy ostatnim markNav
+let flyGrp = null;    // zwinięte menu (same ikony): grupa wysunięta obok paska
+const drawerMode = () => typeof matchMedia === 'function' && matchMedia('(max-width: 900px)').matches;
+const iconMode = () => document.documentElement.classList.contains('sb-collapsed') && !drawerMode();
+
+/** Rozwinięcie grup: zapamiętane + grupa bieżącego ekranu; w zwiniętym menu — jedna wysunięta grupa. */
+function applyGroups() {
+  const open = loadOpen(), icons = iconMode();
+  for (const b of $('modNav').querySelectorAll('[data-sec]')) {
+    const g = b.dataset.sec, on = icons ? flyGrp === g : open.has(g) || autoGrp === g;
+    b.setAttribute('aria-expanded', String(on));
+    const list = $('grp-' + g);
+    if (list) list.hidden = !on;
+  }
+}
+
+function toggleGroup(g) {
+  if (iconMode()) { flyGrp = flyGrp === g ? null : g; applyGroups(); return; }
+  const open = loadOpen(), was = open.has(g) || autoGrp === g;
+  if (was) { open.delete(g); if (autoGrp === g) autoGrp = null; } else open.add(g);
+  store(OPEN_KEY, [...open]);
+  applyGroups();
+}
 
 function renderNav(isAdmin) {
   isAdminNav = isAdmin;
   const nav = $('modNav');
+  const model = menuModel(visible);
 
-  const home = el('div', { class: 'sb-group sb-home' }, el('a', { href: '#/pulpit', class: 'sb-label sb-home-link', 'data-nav': 'pulpit', title: 'Pulpit — sprzedaż, zamówienia do zrobienia i najnowsze zmiany', 'aria-current': 'false' }, icon('home'), el('span', { class: 'sb-text' }, 'Pulpit')));
-  const search = el('button', { type: 'button', class: 'sb-search', id: 'sbSearch', 'aria-haspopup': 'dialog', title: 'Szukaj ekranów, zamówień, klientów i produktów (Ctrl+K)', onclick: () => openPalette() },
+  const search = el('button', { type: 'button', class: 'sb-search', id: 'sbSearch', 'aria-haspopup': 'dialog', title: 'Szukaj ekranów (także po słowach, np. „rabaty”, „InPost”), zamówień, klientów i produktów (Ctrl+K lub /)', onclick: () => openPalette() },
     icon('search'), el('span', { class: 'sb-text sb-search-text' }, 'Szukaj…'), el('kbd', { class: 'sb-text sb-kbd' }, 'Ctrl K'));
-  // „Ostatnie” — zwijane/rozwijane W MIEJSCU (jak w Cloudflare): nagłówek ze strzałką, lista pod nim; stan pamiętany.
+
+  const home = el('div', { class: 'sb-group sb-home' }, el('a', { href: '#/pulpit', class: 'sb-label sb-home-link', 'data-nav': 'pulpit', title: PULPIT_TIP, 'aria-current': 'false' }, icon('home'), el('span', { class: 'sb-text' }, 'Pulpit')));
+
+  const primary = el('div', { class: 'sb-primary', id: 'sbPrimary', role: 'group', 'aria-label': 'Menu główne' },
+    ...model.primary.map(i => el('div', { class: 'sb-row' }, itemLink(i, 'sb-item', i.icon))));
+
+  const groups = model.groups.map(g => {
+    const n = g.items.filter(i => i !== '-').length;
+    const btn = el('button', { type: 'button', class: 'sb-sec', 'data-sec': g.id, id: 'grpBtn-' + g.id, 'aria-expanded': 'false', 'aria-controls': 'grp-' + g.id,
+      title: g.title + ': ' + g.tip + ' (' + n + ' ' + (n === 1 ? 'pozycja' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'pozycje' : 'pozycji') + '). Kliknij, aby rozwinąć lub zwinąć.' },
+      icon(g.icon), el('span', { class: 'sb-text' }, g.title), el('span', { class: 'sb-text grp-chev', 'aria-hidden': 'true' }, '›'));
+    btn.addEventListener('click', e => { e.stopPropagation(); toggleGroup(g.id); });
+    const list = el('div', { class: 'grp-list flyout', id: 'grp-' + g.id, 'data-fly': g.id, role: 'group', 'aria-label': g.title, hidden: true },
+      el('div', { class: 'fly-head' }, g.title),
+      ...g.items.map(i => (i === '-' ? el('hr', { class: 'fly-sep' }) : el('div', { class: 'fly-row' }, itemLink(i, 'fly-item')))));
+    return el('div', { class: 'sb-group', 'data-group': g.id }, btn, list);
+  });
+  const moreTip = 'Pozostałe ekrany panelu OSA i panelu Selly, w grupach. Kliknij grupę, aby ją rozwinąć (zapamiętamy to). Każdy ekran znajdziesz też przez „Szukaj…” (Ctrl+K).';
+  const more = el('div', { class: 'sb-more sb-text tip', title: moreTip }, 'Więcej');
+
+  // „Ostatnie” — zwijane/rozwijane W MIEJSCU: nagłówek ze strzałką, lista pod nim; stan pamiętany.
   // Bez ręcznego czyszczenia: max RECENT_MAX pozycji z ostatnich RECENT_DAYS dni.
   const rcOpen = store(RC_OPEN_KEY) !== 0;
   const rcList = el('div', { class: 'rc-list', id: 'rcList', hidden: !rcOpen });
@@ -136,20 +189,10 @@ function renderNav(isAdmin) {
     icon('clock'), el('span', { class: 'sb-text' }, 'Ostatnie'), el('span', { class: 'sb-text rc-chev', 'aria-hidden': 'true' }, '›'));
   const recent = el('div', { class: 'sb-group sb-recent', id: 'sbRecent' }, rcBtn, rcList);
 
-  const secs = SECTIONS.map(s => {
-    const items = s.items.filter(i => i === '-' || visible(i)).filter((i, k, arr) => i === '-' ? k > 0 && arr[k - 1] !== '-' && k < arr.length - 1 : true);
-    const ours = items.filter(i => i !== '-' && i.kind !== 'selly').length;
-    const btn = el('button', { type: 'button', class: 'sb-sec', 'data-sec': s.id, 'aria-expanded': 'false',
-      title: s.title + ' — ' + ours + ' z ' + items.filter(i => i !== '-').length + ' pozycji w panelu OSA, reszta otwiera panel Selly' },
-      icon(s.icon), el('span', { class: 'sb-text' }, s.title));
-    const fly = el('div', { class: 'flyout', 'data-fly': s.id, hidden: true },
-      el('div', { class: 'fly-head' }, s.title),
-      ...items.map(i => i === '-' ? el('hr', { class: 'fly-sep' }) : el('div', { class: 'fly-row' }, itemLink(i))));
-    btn.addEventListener('click', e => { e.stopPropagation(); openSection(fly.hidden ? s.id : null); });
-    return el('div', { class: 'sb-group', 'data-group': s.id }, btn, fly);
-  });
-  nav.replaceChildren(search, home, recent, ...secs);
+  const main = el('div', { class: 'sb-main', id: 'sbMain' }, home, primary, more, ...groups, recent);
+  nav.replaceChildren(search, main);
   renderRecents();
+  applyGroups();
   if (navId) markNav(navId);
 }
 
@@ -163,25 +206,22 @@ function renderRecents() {
     : [el('div', { class: 'rc-empty muted small', title: 'Tu pojawią się ostatnio otwarte ekrany, zamówienia, klienci i produkty' }, 'Brak — otwórz coś, a pojawi się tutaj')]));
 }
 
-let openSec = null;
-function openSection(id) {
-  openSec = id;
-  for (const f of $('modNav').querySelectorAll('[data-fly]')) f.hidden = f.dataset.fly !== id;
-  for (const b of $('modNav').querySelectorAll('[data-sec]')) b.setAttribute('aria-expanded', String(b.dataset.sec === id));
-}
+// ─── Szuflada (telefon), zwijanie paska ─────────────────────────────────────
 
 function setupSidebar() {
   const sb = $('sidebar'), toggle = $('navToggle');
   const setDrawer = open => { sb.classList.toggle('open', open); toggle.setAttribute('aria-expanded', String(open)); };
   toggle.addEventListener('click', e => { e.stopPropagation(); setDrawer(!sb.classList.contains('open')); });
-  // Klik w pozycję zamyka wysuniętą listę (i szufladę na telefonie); klik poza menu — też
-  sb.addEventListener('click', e => { if (e.target.closest('a')) { openSection(null); setDrawer(false); } });
-  document.addEventListener('click', e => { if (!sb.contains(e.target)) { openSection(null); if (!toggle.contains(e.target)) setDrawer(false); } });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { openSection(null); setDrawer(false); } });
+  const closeFly = () => { if (flyGrp) { flyGrp = null; applyGroups(); } };
+  // Klik w pozycję zamyka wysuniętą grupę (zwinięte menu) i szufladę na telefonie; klik poza menu — też
+  sb.addEventListener('click', e => { if (e.target.closest('a')) { closeFly(); setDrawer(false); } });
+  document.addEventListener('click', e => { if (!sb.contains(e.target)) { closeFly(); if (!toggle.contains(e.target)) setDrawer(false); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeFly(); setDrawer(false); } });
   const col = $('sbCollapse');
-  const applyCol = c => { document.documentElement.classList.toggle('sb-collapsed', c); col.setAttribute('aria-pressed', String(c)); };
+  const applyCol = c => { document.documentElement.classList.toggle('sb-collapsed', c); col.setAttribute('aria-pressed', String(c)); flyGrp = null; if ($('modNav').firstChild) applyGroups(); };
   applyCol(!!store(COLLAPSE_KEY));
   col.addEventListener('click', () => { const c = !document.documentElement.classList.contains('sb-collapsed'); store(COLLAPSE_KEY, c); applyCol(c); });
+  if (typeof matchMedia === 'function') { const mq = matchMedia('(max-width: 900px)'); const re = () => { flyGrp = null; if ($('modNav').firstChild) applyGroups(); }; if (mq.addEventListener) mq.addEventListener('change', re); }
 }
 
 let navId = null;  // pozycja menu bieżącej trasy
@@ -189,11 +229,15 @@ let navId = null;  // pozycja menu bieżącej trasy
 function markNav(modId) {
   const item = itemById(modId);
   for (const a of $('modNav').querySelectorAll('a[data-nav]')) a.setAttribute('aria-current', a.dataset.nav === modId ? 'page' : 'false');
-  for (const b of $('modNav').querySelectorAll('[data-sec]')) b.classList.toggle('on', !!item && b.dataset.sec === item.section);
-  const sec = item && SECTIONS.find(s => s.id === item.section);
+  // grupa bieżącego ekranu: wyróżniona i rozwinięta sama (pozycja w menu głównym / przypięta — bez grupy)
+  const inMain = !!$('modNav').querySelector('#sbPrimary [data-nav="' + modId + '"]');
+  const grp = item && !inMain ? groupOf(modId) : null;
+  if (grp !== lastGrp) { lastGrp = grp; autoGrp = grp; applyGroups(); }
+  for (const b of $('modNav').querySelectorAll('[data-sec]')) b.classList.toggle('on', !!grp && b.dataset.sec === grp);
+  const g = item && groupById(groupOf(modId));
   const mod = getModule(modId);
   $('pageHead').hidden = !item && !mod;
-  $('modSub').textContent = sec ? sec.title + ' ›' : '';
+  $('modSub').textContent = g ? g.title + ' ›' : '';
   $('pageTitle').textContent = item ? item.title : mod ? mod.title || '' : '';
   // sekcja bez prawa zmian: znacznik „tylko podgląd” w nagłówku strony (zapisy i tak zablokuje serwer; client.api odpowiada od razu)
   let ro = $('roNotice');
@@ -265,7 +309,7 @@ export function startShell(modules) {
   setupErrors();
   setupTheme();
   setupSidebar();
-  initPalette({ sellyHref, isAdmin: () => !!(ctx.boot && ctx.boot.isAdmin), canSee: id => visible({ id }) });
+  initPalette({ sellyHref, isAdmin: () => !!(ctx.boot && ctx.boot.isAdmin), canSee: id => visible(itemById(id) || { id }) });
   installShortcuts();
   window.addEventListener('osa-recents', renderRecents);
   $('tbSearch').addEventListener('click', () => openPalette());
@@ -274,7 +318,7 @@ export function startShell(modules) {
   for (const m of modules) register(m);
   for (const [id, load] of Object.entries(LAZY)) if (!getModule(id)) register({ id, title: (itemById(id) || {}).title || '', load: () => load().then(m => m.default) });
   // Ekrany uniwersalne (lista → karta → formularz ze specyfikacji API): kind 'resource'
-  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=a73af4a').then(m => m.createResource(i.id)) });
+  for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register({ id: i.id, title: i.title, load: () => import('../modules/zasob.js?v=2b127e1').then(m => m.createResource(i.id)) });
   // Pozycje bez własnego ekranu: strona „w planie / tylko w Selly” z linkiem
   for (const i of ITEMS) if (!getModule(i.id)) register(createPlaceholder({ id: i.id, title: i.title, sellyQuery: i.a ? '?a=' + i.a : '', adminUrl, kind: i.kind, tip: i.tip }));
   $('signOut').addEventListener('click', signOut);

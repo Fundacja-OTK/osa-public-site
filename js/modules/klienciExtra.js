@@ -1,8 +1,8 @@
 // Klienci — sekcje karty ładowane na żądanie (adresy dodatkowe, ceny indywidualne, program partnerski, subkonta, rozwiązania „tylko w Selly”)
-// oraz ekran „Grupy klientów”. Sekcje pobierają dane dopiero po rozwinięciu (oszczędność limitu Selly).
-import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=a73af4a';
-import { api } from '../core/client.js?v=a73af4a';
-import { nipError, postcodeError } from './klienciForm.js?v=a73af4a';
+// (ekran „Grupy klientów”, zmiana grupy i limit zamówień: klienciGrupy.js). Sekcje pobierają dane dopiero po rozwinięciu (oszczędność limitu Selly).
+import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=2b127e1';
+import { api } from '../core/client.js?v=2b127e1';
+import { nipError, postcodeError } from './klienciForm.js?v=2b127e1';
 
 const errBox = (host, e) => host.replaceChildren(el('div', { class: 'notice error' }, (e && e.message) || 'Nie udało się pobrać danych.'));
 
@@ -162,29 +162,4 @@ export function sellyOnlyBlock(id, sellyUrl) {
       li('klienci.erpInvoices', 'Otwórz w Selly ↗ — faktury ERP klienta', 'Faktury z systemu ERP przypisane klientowi (brak w API)'),
       li('klienci.notatki', 'Edytuj w Selly ↗ — historia notatek (data, status)', 'Wiele notatek ze statusem otwarte/zamknięte; panel edytuje główną notatkę klienta'),
       li('klienci.subkonta', 'Edytuj w Selly ↗ — subkonta', 'Zarządzanie subkontami w panelu Selly')));
-}
-
-// ─── Ekran „Grupy klientów” ─────────────────────────────────────────────────
-
-export async function renderGroups(box, { sellyUrl, back }) {
-  box.replaceChildren(el('div', { class: 'card' }, loadingBox('Pobieram grupy…')));
-  let g;
-  try { g = await api('clients:groups', {}); } catch (e) { box.replaceChildren(el('div', { class: 'card' }, el('div', { class: 'empty error' }, e.message || 'Nie udało się pobrać grup.'))); return; }
-  const rows = (g && g.groups) || [];
-  box.replaceChildren(el('div', { class: 'card' },
-    el('div', { class: 'ord-detail-top' }, el('a', { href: back, class: 'btn-link', id: 'grpBack' }, '← Wróć do listy klientów'), el('span', { class: 'spacer' }),
-      sellyLink('Utwórz / edytuj grupy w Selly ↗', sellyUrl + '?a=klienci.klienciGrupy', 'Tworzenie grup, ich nazw i limitów zamówień jest możliwe tylko w panelu Selly (API sklepu nie udostępnia grup)')),
-    el('div', { class: 'card-head' }, el('h2', { id: 'grpTitle' }, 'Grupy klientów'),
-      el('div', { class: 'sub' }, 'Grupy odczytane z kopii klientów. Selly nie podaje nazw grup przez API, więc nazwę własną (widoczną tylko w tym panelu) możesz nadać tutaj.')),
-    el('div', { class: 'table-wrap' }, el('table', { id: 'grpTable' }, el('thead', null, el('tr', null,
-      el('th', null, el('span', { title: 'Numer grupy w Selly' }, 'Nr')), el('th', null, el('span', { title: 'Nazwa własna w panelu OSA (nie zmienia nazwy w Selly)' }, 'Nazwa w panelu')),
-      el('th', { class: 'n' }, el('span', { title: 'Liczba klientów z tej grupy w kopii panelu' }, 'Klientów')), el('th', null, el('span', { title: 'Skróty' }, 'Działania')))),
-      el('tbody', null, rows.map(r => {
-        const name = el('input', { type: 'text', value: r.name, maxlength: '80', placeholder: 'Grupa nr ' + r.id, 'aria-label': 'Nazwa grupy ' + r.id, 'data-gid': r.id });
-        return el('tr', null, el('td', { class: 'nw' }, r.id), el('td', null, name), el('td', { class: 'n' }, String(r.count)),
-          el('td', { class: 'nw' }, el('button', { type: 'button', class: 'secondary', write: 'klienci', title: 'Zapisz nazwę grupy w panelu OSA', onclick: async () => {
-            try { await api('clients:groupName', { groupId: r.id, name: name.value }); flash('', 'Nazwa grupy zapisana'); } catch (e) { flash('', e.message || 'Nie udało się zapisać'); }
-          } }, 'Zapisz nazwę'), ' ', el('a', { class: 'btn-link', href: '#/klienci?group=' + encodeURIComponent(r.id), title: 'Pokaż klientów z tej grupy' }, 'Klienci grupy')));
-      }), rows.length ? null : el('tr', null, el('td', { colspan: '4', class: 'empty' }, 'Brak grup (żaden klient nie jest do grupy przypisany).'))))),
-    el('p', { class: 'muted small' }, 'Klientów bez grupy: ' + (g.noGroup == null ? '—' : g.noGroup) + '. Przypisanie klienta do grupy: edycja klienta → „Ceny, grupa i opiekun”.')));
 }

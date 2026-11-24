@@ -2,10 +2,10 @@
 // Węższy słupek na tej samej podstawie = koszt zakupu brutto sprzedanego towaru; widoczna reszta słupka ≈ marża (i dostawa).
 // Brak ceny zakupu części towaru → słupek kreskowany (koszt zaniżony), brak ceny dla całości → kreskowany obrys całego słupka („nieznany”).
 // Włącznik „Pokaż koszt zakupu” w legendzie, zapamiętany w przeglądarce (domyślnie włączony). Logika liczb: chartCostLogic.js.
-import { el, money, store } from '../core/ui.js?v=a73af4a';
-import { costInfo } from './chartCostLogic.js?v=a73af4a';
+import { el, money, store } from '../core/ui.js?v=2b127e1';
+import { costInfo } from './chartCostLogic.js?v=2b127e1';
 
-export { costInfo, costValue } from './chartCostLogic.js?v=a73af4a';
+export { costInfo, costValue } from './chartCostLogic.js?v=2b127e1';
 
 const KEY = 'osa-chart-cost';
 const zl = v => money(v) + ' zł';

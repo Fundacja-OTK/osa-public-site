@@ -2,9 +2,9 @@
 // Przebieg: 1) wybór produktów (filtry albo zaznaczenie) → 2) co zmienić → 3) OBOWIĄZKOWY podgląd „przed → po” → potwierdzenie z liczbą →
 // 4) wykonanie partiami z paskiem postępu (wstrzymaj / zatrzymaj, błędy per produkt) → 5) podsumowanie i „Cofnij” (do 7 dni).
 // Backend: akcje bulk:* (Worker, token READWRITE, tempo ≤ 120 zapisów/min do Selly).
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=a73af4a';
-import { api, ctx } from '../core/client.js?v=a73af4a';
-import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=a73af4a';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=2b127e1';
+import { api, ctx } from '../core/client.js?v=2b127e1';
+import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=2b127e1';
 
 const BULK_W = ['zmiana-cen', 'zmiana-danych', 'zmiana-kategorii'];   // jak reguła serwera (bulk:*): dowolna z trzech sekcji
 const zl = v => money(v) + ' zł';
