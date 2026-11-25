@@ -2,7 +2,7 @@
 // ISO 20022 camt.053 / camt.052 (XML), MT940 (SWIFT, w tym polskie podpola :86: ~20…~38) oraz rozpoznanie formatu po treści.
 // Parser XML jest własny i minimalny (bez DOMParser; encje DOCTYPE NIE są rozwijane — brak XXE / „billion laughs”).
 // Wyciąg zawiera dane osobowe: nic stąd nie jest wysyłane ani logowane.
-import { parseAmount, parseDate } from './wplatyCsv.js?v=d6bfd64';
+import { parseAmount, parseDate } from './wplatyCsv.js?v=889153d';
 
 /** Format po treści: 'camt' | 'mt940' | 'csv'. */
 export function sniffFormat(text) {
