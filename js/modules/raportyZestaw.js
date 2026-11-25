@@ -1,10 +1,10 @@
 // Widok „Zestaw” raportów sprzedaży: dowolny zestaw produktów (albo całych rodzin, kategorii, producentów) obok siebie w wybranym zakresie dat.
 // Wybór: wyszukiwarka + chipy; zestaw siedzi w adresie (set=p11,p12,c5,r3), więc link można wysłać; nazwane zestawy zapamiętuje przeglądarka (localStorage).
-import { el, downloadMenuButton, debounce, sortTh, store, flash, copyToClipboard } from '../core/ui.js?v=ed1e51c';
-import { zl, zl0, int, qty } from './raportyKit.js?v=ed1e51c';
-import { lineChart, sortState, sortRows } from './raportyLata.js?v=ed1e51c';
-import { partialWeek } from './raportyDaty.js?v=ed1e51c';
-import { MAX_SET, parseSet, setKeys, axisLabels } from './raportyZestawLogika.js?v=ed1e51c';
+import { el, downloadMenuButton, debounce, sortTh, store, flash, copyToClipboard } from '../core/ui.js?v=5a4d554';
+import { zl, zl0, int, qty } from './raportyKit.js?v=5a4d554';
+import { lineChart, sortState, sortRows } from './raportyLata.js?v=5a4d554';
+import { partialWeek } from './raportyDaty.js?v=5a4d554';
+import { MAX_SET, parseSet, setKeys, axisLabels } from './raportyZestawLogika.js?v=5a4d554';
 export { MAX_SET, parseSet, setKeys, axisLabels };
 
 const SETS_KEY = 'osa.raporty.zestawy';

@@ -2,7 +2,7 @@
 // które ekrany warto jeszcze wbudować w panel OSA. Jeden nasłuch kliknięć w całym dokumencie (nie trzeba zmieniać miejsc tworzenia linków).
 // Wysyłamy WYŁĄCZNIE: trasę Selly (wartość a=, np. zamowienia.add) i trasę panelu bez identyfikatorów (np. /zamowienia/:id).
 // Bez numerów rekordów, parametrów adresu, tekstu i danych użytkownika. Paczka co najwyżej raz na minutę i przy ukryciu strony; błędy są ciche.
-import { deliver } from './delivery.js?v=ed1e51c';
+import { deliver } from './delivery.js?v=5a4d554';
 
 export const FLUSH_MS = 60000;
 export const MAX_ROWS = 20;        // zgodnie z limitem Workera (modules/exits.js)
