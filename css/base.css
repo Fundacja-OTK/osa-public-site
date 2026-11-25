@@ -979,7 +979,7 @@ a.chip { display: inline-flex; align-items: center; }
 button.primary, .btn-primary, .btn.primary, .btn-primary-link, .zs-add,
 button.secondary, .btn-secondary, .btn.secondary, .btn-link,
 button.ghost, button.quiet, .btn-quiet, .btn.ghost, button.danger,
-.page-toolbar .pt-actions > button, .page-toolbar .pt-actions > .menu > button {
+:where(.page-toolbar .pt-actions) > button, :where(.page-toolbar .pt-actions > .menu) > button {
   box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); vertical-align: middle;
   min-height: var(--ctl-h); margin: 0; padding: 0 14px; border: 1px solid transparent; border-radius: var(--r1);
   font: 600 var(--fs-sm)/1.2 var(--font); letter-spacing: 0; text-align: center; text-decoration: none; cursor: pointer;

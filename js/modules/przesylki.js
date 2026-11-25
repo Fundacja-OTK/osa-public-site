@@ -2,10 +2,10 @@
 // Rohlig Suus, Poczta Polska — kolejka + link do Selly), filtry / strony / sortowanie w adresie, tworzenie listów w porcjach, etykiety,
 // zmiana statusu oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=866aaea';
-import { api, ctx } from '../core/client.js?v=866aaea';
-import { go } from '../core/router.js?v=866aaea';
-import { registerListKeys } from '../core/listKeys.js?v=866aaea';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=c270c3b';
+import { api, ctx } from '../core/client.js?v=c270c3b';
+import { go } from '../core/router.js?v=c270c3b';
+import { registerListKeys } from '../core/listKeys.js?v=c270c3b';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';

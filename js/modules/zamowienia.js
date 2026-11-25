@@ -1,20 +1,20 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=866aaea';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=866aaea';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=866aaea';
-import { api, ctx } from '../core/client.js?v=866aaea';
-import { go, setLeaveGuard } from '../core/router.js?v=866aaea';
-import { noteVisit } from '../core/recents.js?v=866aaea';
-import { registerListKeys } from '../core/listKeys.js?v=866aaea';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=866aaea';
-import { cachedRead } from '../core/cache.js?v=866aaea';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=866aaea';
-import { showNewOrder } from './zamowienieNowe.js?v=866aaea';
-import { showInvoices } from './zamowieniaFaktury.js?v=866aaea';
-import { createFilterUi } from './zamowieniaFiltry.js?v=866aaea';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=866aaea';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=866aaea';
+import { photoSrc } from '../core/photo.js?v=c270c3b';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=c270c3b';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=c270c3b';
+import { api, ctx } from '../core/client.js?v=c270c3b';
+import { go, setLeaveGuard } from '../core/router.js?v=c270c3b';
+import { noteVisit } from '../core/recents.js?v=c270c3b';
+import { registerListKeys } from '../core/listKeys.js?v=c270c3b';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=c270c3b';
+import { cachedRead } from '../core/cache.js?v=c270c3b';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=c270c3b';
+import { showNewOrder } from './zamowienieNowe.js?v=c270c3b';
+import { showInvoices } from './zamowieniaFaktury.js?v=c270c3b';
+import { createFilterUi } from './zamowieniaFiltry.js?v=c270c3b';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=c270c3b';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=c270c3b';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
