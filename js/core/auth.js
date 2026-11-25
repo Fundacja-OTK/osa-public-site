@@ -2,7 +2,7 @@
 // (#cardSignIn); hasło idzie wyłącznie do serwera głównego (Worker), który przekazuje je do Selly i nigdzie go nie zapisuje.
 // Po zalogowaniu: token sesji (256 bitów) w localStorage — wspólny dla kart (nowa karta otwiera panel od razu; zalogowanie / wylogowanie
 // w jednej karcie dociera do pozostałych przez zdarzenie „storage”) + krótki token dla serwera zapasowego (Apps Script), odświeżany w tle.
-import { $ } from './ui.js?v=e12e9cd';
+import { $ } from './ui.js?v=82b7f36';
 
 const ENV = () => window.OSA_CONFIG || {};
 export const SESSION_KEY = 'osa-sess';
@@ -18,6 +18,7 @@ function read(raw) {
 }
 function save(s) {
   sess = s;
+  if (!s) { try { localStorage.removeItem(ACT_KEY); } catch (e) { /* ok */ } }
   try { const st = store(); if (st) { if (s) st.setItem(SESSION_KEY, JSON.stringify(s)); else st.removeItem(SESSION_KEY); } } catch (e) { /* bez zapisu */ }
 }
 try {
@@ -29,8 +30,52 @@ if (typeof window !== 'undefined') window.addEventListener('storage', ev => {
   if (ev.key !== SESSION_KEY) return;
   const s = read(ev.newValue);
   if (s) { sess = s; hideLogin(); flush(); }           // inna karta się zalogowała
-  else if (sess) { sess = null; location.reload(); }   // inna karta się wylogowała
+  else if (sess) { sess = null; dropToLogin('Wylogowano w innej karcie — zaloguj się ponownie.'); }   // inna karta się wylogowała / sesja tam wygasła
 });
+
+const NOTE_KEY = 'osa-login-note', ACT_KEY = 'osa-act';
+const MSG_EXPIRED = 'Sesja wygasła — zaloguj się ponownie.';
+const IDLE_MS = () => Number(ENV().idleMs) || 12 * 3600e3;   // jak na serwerze: 12 h bezczynności
+
+/**
+ * Koniec sesji (401, termin sesji awaryjnej, bezczynność, wylogowanie w innej karcie): pełny ekran logowania jak przy pierwszej wizycie —
+ * bez menu i paska, bez stanu w pamięci (przeładowanie strony), z tą samą trasą w adresie (po zalogowaniu wracamy w to samo miejsce).
+ * Powód zostaje w sessionStorage i pokazuje go ekran logowania. Zwraca obietnicę, która się nie kończy (strona i tak się przeładowuje).
+ */
+function dropToLogin(reason) {
+  try { document.documentElement.classList.add('auth-screen'); } catch (e) { /* bez DOM */ }
+  wipeLocal();
+  try { sessionStorage.setItem(NOTE_KEY, reason || MSG_EXPIRED); } catch (e) { /* bez magazynu */ }
+  try { location.reload(); } catch (e) { /* bez przeglądarki */ }
+  return new Promise(() => {});
+}
+/** Zakończenie sesji z zewnątrz (np. 401 po stronie serwera). */
+export function expireSession(reason) { sess = null; save(null); return dropToLogin(reason); }
+
+function wipeLocal() {
+  try { for (const k of ['osa-recent', 'osa-recent-who', 'osa-boot']) localStorage.removeItem(k); } catch (e) { /* brak magazynu */ }
+  // pamięć odczytów (core/cache.js, klucze „osa-c:…”) — bez importu cache.js (cykl auth ↔ client)
+  try { for (let i = sessionStorage.length - 1; i >= 0; i--) { const k = sessionStorage.key(i); if (k && k.startsWith('osa-c:')) sessionStorage.removeItem(k); } } catch (e) { /* bez magazynu */ }
+}
+
+// Straże czasu: termin sesji awaryjnej i bezczynność (aktywność wspólna dla kart — localStorage)
+function guardSession() {
+  if (!sess) return;
+  if (sess.em > 1 && Date.now() > sess.em) { expireSession(MSG_EXPIRED); return; }
+  let last = 0;
+  try { last = Number(localStorage.getItem(ACT_KEY)) || 0; } catch (e) { /* bez magazynu */ }
+  if (last && Date.now() - last > IDLE_MS()) expireSession(MSG_EXPIRED);
+}
+function noteActivity() {
+  if (!sess) return;
+  try { const n = Date.now(); if (n - (Number(localStorage.getItem(ACT_KEY)) || 0) > 5000) localStorage.setItem(ACT_KEY, String(n)); } catch (e) { /* ok */ }
+}
+if (typeof window !== 'undefined') {
+  for (const ev of ['pointerdown', 'keydown', 'scroll']) window.addEventListener(ev, noteActivity, { passive: true, capture: true });
+  setInterval(guardSession, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) guardSession(); });
+  setTimeout(() => { guardSession(); noteActivity(); }, 0);
+}
 
 function flush() { const w = waiters; waiters = []; w.forEach(f => f(sess.t)); }
 
@@ -84,6 +129,7 @@ export async function completePerms(data, onStep) {
 /** Zapamiętanie sesji po zalogowaniu (data = odpowiedź auth:login). */
 export function adoptLogin(data) {
   // em: termin sesji awaryjnej (baner także wtedy, gdy dane startowe przyjdą z serwera zapasowego, który trybu awaryjnego nie zna)
+  try { localStorage.setItem(ACT_KEY, String(Date.now())); sessionStorage.removeItem(NOTE_KEY); } catch (e) { /* ok */ }
   save({ t: data.session, login: data.login || '', g: data.gasToken || '', gExp: gasExp(data), em: data.emergency === true ? Number(data.emergencyUntilMs) || 1 : 0 });
   hideLogin();
   flush();
@@ -119,8 +165,8 @@ export async function freshToken(force, kind) {
     return (sess && sess.g) || '';
   }
   if (sess && !force) return sess.t;
-  if (sess && force) save(null);
-  return waitLogin(force ? 'Sesja wygasła — zaloguj się ponownie.' : '');
+  if (sess && force) return expireSession(MSG_EXPIRED);
+  return waitLogin('');
 }
 
 function waitLogin(message) {
@@ -141,6 +187,7 @@ function hideLogin() {
   const c = $('cardSignIn');
   if (!c || c.hidden) return;
   c.hidden = true;
+  try { document.documentElement.classList.remove('auth-screen'); } catch (e) { /* ok */ }
   const m = $('modules'); if (m) m.hidden = false;   // ekran logowania je ukrył; start panelu (shell.begin) pokaże resztę
 }
 
@@ -152,7 +199,11 @@ export function showLogin(message) {
   wire();
   // link od właściciela panelu (…#awaryjne) otwiera od razu wejście awaryjne
   showStep(location.hash === '#awaryjne' ? 'em' : 'login');
-  showError('loginErr', message || '');
+  try { document.documentElement.classList.add('auth-screen'); } catch (e) { /* ok */ }
+  let note = message || '';
+  try { const n = sessionStorage.getItem(NOTE_KEY); if (n) note = note || n; /* zostaje do zalogowania (adoptLogin) — przeżywa ewentualne ponowne wczytanie */ } catch (e) { /* ok */ }
+  const ln = $('loginNote'); if (ln && note) { ln.textContent = note; ln.hidden = false; }   // kolejne wywołania (równoległe zapytania) nie zmazują powodu
+  showError('loginErr', '');
   const u = $('loginUser');
   if (u && !u.value) { try { u.value = localStorage.getItem('osa-last-login') || ''; } catch (e) { /* ok */ } }
   setTimeout(() => { const f = u && u.value ? $('loginPass') : u; if (f) f.focus(); }, 0);
@@ -248,9 +299,7 @@ export async function signOut() {
   const t = sess && sess.t;
   save(null);
   // dane startowe i „Ostatnie” (nazwy klientów, numery zamówień) nie zostają w przeglądarce po wylogowaniu
-  try { for (const k of ['osa-recent', 'osa-recent-who', 'osa-boot']) localStorage.removeItem(k); } catch (e) { /* brak magazynu */ }
-  // pamięć odczytów (core/cache.js, klucze „osa-c:…”) — bez importu cache.js (cykl auth ↔ client)
-  try { for (let i = sessionStorage.length - 1; i >= 0; i--) { const k = sessionStorage.key(i); if (k && k.startsWith('osa-c:')) sessionStorage.removeItem(k); } } catch (e) { /* bez magazynu */ }
+  wipeLocal();
   if (t) { try { await authCall('auth:logout', {}, t, { timeoutMs: 4000 }); } catch (e) { /* sesja i tak wygaśnie */ } }
   location.reload();
 }

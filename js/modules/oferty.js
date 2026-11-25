@@ -1,5 +1,5 @@
 // Oferty (Selly ?a=offersAdm) — natywny ekran: serwer główny czyta i zapisuje Selly sesją zalogowanego użytkownika (docs/selly-embed.md, docs/auth.md).
-import { createNative } from './sellyNative.js?v=e12e9cd';
+import { createNative } from './sellyNative.js?v=82b7f36';
 
 export default createNative({
   id: 'oferty', title: 'Oferty', screen: 'oferty', a: 'offersAdm', recordRoute: 'offersAdm.view', noun: 'oferty',

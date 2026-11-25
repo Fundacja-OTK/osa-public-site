@@ -6,53 +6,53 @@
   <!-- CSP: skrypty tylko z tej strony (bez inline), połączenia tylko do serwera głównego (Cloudflare Workers) i zapasowego (Apps Script) -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://osa-panel.osa-panel.workers.dev https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
   <title>Panel OSA</title>
-  <link rel="stylesheet" href="css/base.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/shell.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/pulpit.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/przesylki.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/zasob.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/zasoby.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/klienci.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/produkt.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/raporty.css?v=e12e9cd"><link rel="stylesheet" href="css/raporty-rodziny.css?v=e12e9cd"><link rel="stylesheet" href="css/masowe.css?v=e12e9cd"><link rel="stylesheet" href="css/dropshipping.css?v=e12e9cd"><link rel="stylesheet" href="css/wplaty.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/feedback.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/konfsklepu.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/palette.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/embed.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/natywne.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/faktury.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/speedmail.css?v=e12e9cd">
-  <link rel="stylesheet" href="css/mobile.css?v=e12e9cd">
+  <link rel="stylesheet" href="css/base.css?v=82b7f36">
+  <link rel="stylesheet" href="css/shell.css?v=82b7f36">
+  <link rel="stylesheet" href="css/pulpit.css?v=82b7f36">
+  <link rel="stylesheet" href="css/przesylki.css?v=82b7f36">
+  <link rel="stylesheet" href="css/zasob.css?v=82b7f36">
+  <link rel="stylesheet" href="css/zasoby.css?v=82b7f36">
+  <link rel="stylesheet" href="css/klienci.css?v=82b7f36">
+  <link rel="stylesheet" href="css/produkt.css?v=82b7f36">
+  <link rel="stylesheet" href="css/raporty.css?v=82b7f36"><link rel="stylesheet" href="css/raporty-rodziny.css?v=82b7f36"><link rel="stylesheet" href="css/masowe.css?v=82b7f36"><link rel="stylesheet" href="css/dropshipping.css?v=82b7f36"><link rel="stylesheet" href="css/wplaty.css?v=82b7f36">
+  <link rel="stylesheet" href="css/feedback.css?v=82b7f36">
+  <link rel="stylesheet" href="css/konfsklepu.css?v=82b7f36">
+  <link rel="stylesheet" href="css/palette.css?v=82b7f36">
+  <link rel="stylesheet" href="css/embed.css?v=82b7f36">
+  <link rel="stylesheet" href="css/natywne.css?v=82b7f36">
+  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=82b7f36">
+  <link rel="stylesheet" href="css/faktury.css?v=82b7f36">
+  <link rel="stylesheet" href="css/speedmail.css?v=82b7f36">
+  <link rel="stylesheet" href="css/mobile.css?v=82b7f36">
   <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, version, backends } -->
   <!-- modulepreload: scripts/preload.js -->
-  <link rel="preload" as="script" href="config.js?v=e12e9cd">
-  <link rel="preload" as="script" href="js/preboot.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/main.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/shell.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/ui.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/client.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/auth.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/lib/panelAuth.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/router.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/errors.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/sellyExits.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/errorHook.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/feedback.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/update.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/modules/_placeholder.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/nav.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/palette.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/shortcuts.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/recents.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/preload.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/datepicker.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/api.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/delivery.js?v=e12e9cd">
-  <link rel="modulepreload" href="js/core/search.js?v=e12e9cd">
-  <script src="config.js?v=e12e9cd"></script>
-  <script src="js/preboot.js?v=e12e9cd"></script>
-  <script type="module" src="js/main.js?v=e12e9cd"></script>
+  <link rel="preload" as="script" href="config.js?v=82b7f36">
+  <link rel="preload" as="script" href="js/preboot.js?v=82b7f36">
+  <link rel="modulepreload" href="js/main.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/shell.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/ui.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/client.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/auth.js?v=82b7f36">
+  <link rel="modulepreload" href="js/lib/panelAuth.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/router.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/errors.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/sellyExits.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/errorHook.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/feedback.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/update.js?v=82b7f36">
+  <link rel="modulepreload" href="js/modules/_placeholder.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/nav.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/palette.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/shortcuts.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/recents.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/preload.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/datepicker.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/api.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/delivery.js?v=82b7f36">
+  <link rel="modulepreload" href="js/core/search.js?v=82b7f36">
+  <script src="config.js?v=82b7f36"></script>
+  <script src="js/preboot.js?v=82b7f36"></script>
+  <script type="module" src="js/main.js?v=82b7f36"></script>
 </head>
 <body>
 <div class="app">
@@ -100,6 +100,7 @@
         <p class="muted small">Użyj tego samego loginu i hasła, co do panelu administracyjnego Selly. Zobaczysz te części panelu, do których masz dostęp w Selly.</p>
         <label class="login-field">Login Selly<input type="text" id="loginUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="100"></label>
         <label class="login-field">Hasło<input type="password" id="loginPass" name="password" autocomplete="current-password" required maxlength="200"></label>
+        <p class="muted small login-reason" id="loginNote" role="status" hidden></p>
         <div class="notice error" id="loginErr" role="alert" hidden></div>
         <button type="submit" class="primary" id="loginBtn">Zaloguj się</button>
         <p class="muted small login-note tip" title="Hasło jest przekazywane bezpośrednio do Selly i nie jest nigdzie zapisywane. Panel OSA pamięta tylko Twój login i to, które części panelu Selly są dla Ciebie dostępne. Po 12 godzinach bezczynności trzeba zalogować się ponownie.">Hasło trafia tylko do Selly — panel OSA go nie zapisuje.</p>
@@ -124,7 +125,7 @@
       <p class="muted small login-alt" id="emLinkRow"><button type="button" class="link tip" id="emLink" title="Gdy logowanie przez Selly nie działa: wejście jednorazowym kodem od właściciela panelu (kod działa raz, najwyżej 72 godziny).">Wejście awaryjne</button></p>
     </div>
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
-    <footer class="app-foot muted small"><span id="appFoot"></span><span id="beSep" hidden> · </span><span id="beInfo" hidden></span> · <a href="privacy.html">Prywatność</a></footer>
+    <footer class="app-foot muted small"><span id="appFoot"></span><span id="beSep" hidden> · </span><span id="beInfo" hidden></span> · <a href="privacy.html">Prywatność</a> · <a href="LICENSE" title="Panel OSA na licencji Apache 2.0 (tekst licencji)">Licencja Apache-2.0</a></footer>
   </main>
 </div>
 </body>

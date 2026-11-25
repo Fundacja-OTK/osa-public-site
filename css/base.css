@@ -113,7 +113,10 @@ code { font: var(--fs-xs) ui-monospace, SFMono-Regular, Consolas, monospace; col
 .login-field input { font: inherit; font-weight: 400; padding: 10px 12px; border: 1px solid var(--field-border); border-radius: 8px; background: var(--field-bg); color: var(--text); min-height: 44px; box-sizing: border-box; width: 100%; }
 .login-field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .login-form button { min-height: 44px; }
-.login-note { text-align: center; }
+.login-note, .login-reason { text-align: center; }
+/* Ekran logowania = pełna strona jak przy pierwszej wizycie: bez paska górnego i menu (klasa z preboot.js / auth.js) */
+.auth-screen .topbar, .auth-screen .sidebar, .auth-screen #pageHead, .auth-screen #emergencyBar, .auth-screen #modules { display: none !important; }
+.auth-screen .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr; }
 .login-form .notice { margin-top: 0; }
 .login-alt { text-align: center; margin: 0 var(--s4) var(--s4); }
 .emergency-bar { margin: 0 0 var(--s3); font-weight: 600; }
