@@ -3,7 +3,7 @@
 Opublikowana wersja **panelu OSA** (Orszak Selly Assist), czyli nowego frontendu do panelu sklepu Selly:
 raport licencji, orszaki wg województw, ewidencja magazynowa.
 
-**Strona:** https://wojcik-michal.github.io/osa-public-site/
+**Strona:** [Fundacja-OTK/Orszak-Selly-Assist](https://fundacja-otk.github.io/osa-public-site/))
 
 ## Tego repo nie edytuje się ręcznie
 
