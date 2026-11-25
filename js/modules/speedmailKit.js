@@ -1,11 +1,11 @@
 // „Wysyłka SpeedMail” — wspólny stan i klocki zakładek (speedmail.js + speedmailZam / Stan / Paczki / Tempo / Ust).
 // Dane (sm:init / sm:list / sm:pace) są trzymane w pamięci i w sessionStorage (same numery zamówień, daty, produkty i liczby —
 // żadnych danych klientów), więc strona rysuje się od razu z ostatniej kopii i odświeża w tle. Bez odpytywania w pętli.
-import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=c5a69db';
-import { api, ctx } from '../core/client.js?v=c5a69db';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=c5a69db';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=c5a69db';
-import { SM } from '../lib/speedmailLogic.js?v=c5a69db';
+import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=fb40452';
+import { api, ctx } from '../core/client.js?v=fb40452';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=fb40452';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=fb40452';
+import { SM } from '../lib/speedmailLogic.js?v=fb40452';
 
 export { SM };
 export const WRITE = ['magazyny'];                       // jak reguła sm:* (shared/panelAuth.js)
@@ -16,21 +16,38 @@ export const S = {
   view: 'zamowienia', query: new URLSearchParams(), err: '', rerender: () => {},
   d: null, list: null, pace: null,                       // wpisy pamięci: { t, v }
   loading: { init: false, list: false, pace: false }, errs: { init: '', list: '', pace: '' },
+  since: { init: 0, list: 0, pace: 0 }, retryAt: { init: 0, list: 0, pace: 0 }, mounted: false,   // początek pobierania; kiedy automatyczne ponowienie
   sel: new Set(), dlg: null, job: null, busy: false, lastBatch: null, flashIds: null,
 };
 
 // ─── Pamięć podręczna (stale-while-revalidate) ──────────────────────────────
+// SNAP — wersja układu kopii w sessionStorage; kopia innej wersji albo bez wymaganych pól (np. sprzed wdrożenia, które zmieniło sm:init)
+// jest pomijana — inaczej widok rysowany ze starej kopii rzucał wyjątkiem i ekran zostawał pusty (bez błędu, bez ponowienia).
+export const SNAP = 2;
+const SHAPE = {
+  init: v => !!(v && v.cfg && Array.isArray(v.cfg.products) && Array.isArray(v.orders) && Array.isArray(v.statuses) && v.use && Array.isArray(v.use.open) && typeof v.today === 'string'),
+  list: v => !!(v && Array.isArray(v.batches) && Array.isArray(v.moves)),
+  pace: v => !!(v && Array.isArray(v.rows)),
+};
+export const validSnapshot = (kind, e) => !!(e && e.t && e.s === SNAP && SHAPE[kind] && SHAPE[kind](e.v));
 const mem = new Map();
 const keyOf = k => 'osa-sm:' + ((ctx.boot && ctx.boot.email) || '') + ':' + k;
 /** Ostatnia kopia danych. Kopia sprzed przeładowania strony (stored) jest pokazywana, ale zawsze odświeżana w tle. */
 function cached(k) {
   const key = keyOf(k);
   if (mem.has(key)) return mem.get(key);
-  try { const raw = sessionStorage.getItem(key); if (raw) { const e = JSON.parse(raw); if (e && e.t && e.v) { e.stored = true; mem.set(key, e); return e; } } } catch (e) { /* brak pamięci sesji */ }
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (raw) {
+      const e = JSON.parse(raw);
+      if (validSnapshot(k, e)) { e.stored = true; mem.set(key, e); return e; }
+      sessionStorage.removeItem(key);   // stary układ — pobierzemy świeże dane
+    }
+  } catch (e) { /* brak pamięci sesji albo uszkodzony wpis */ }
   return null;
 }
 function remember(k, v) {
-  const key = keyOf(k), e = { t: Date.now(), v };
+  const key = keyOf(k), e = { t: Date.now(), s: SNAP, v };
   mem.set(key, e);
   try { const s = JSON.stringify(e); if (s.length < 1.5e6) sessionStorage.setItem(key, s); else sessionStorage.removeItem(key); } catch (x) { /* pełna pamięć — zostaje kopia w pamięci karty */ }
   return e;
@@ -39,6 +56,21 @@ function forget(k) { mem.delete(keyOf(k)); try { sessionStorage.removeItem(keyOf
 
 const ACTION = { init: 'sm:init', list: 'sm:list', pace: 'sm:pace' }, SLOT = { init: 'd', list: 'list', pace: 'pace' };
 const running = {};
+// Automatyczne ponowienie po błędzie pobrania (sieć, przekroczony czas, serwer zapasowy bez nadzoru SpeedMail): po 3 s, 10 s, potem co 30 s,
+// tylko gdy ekran jest otwarty. Ostatnia kopia (jeśli jest) zostaje na ekranie z komunikatem; „Spróbuj ponownie” — od razu.
+export const RETRY_MS = [3000, 10000, 30000];
+// Gdy pierwsze pobranie (bez kopii) trwa dłużej — komunikat „serwer odpowiada wolniej”, zamiast samego szkieletu
+export const SLOW_MS = 8000;
+const retries = { init: 0, list: 0, pace: 0 }, retryTimer = {};
+function scheduleRetry(kind) {
+  clearTimeout(retryTimer[kind]);
+  const ms = RETRY_MS[Math.min(retries[kind], RETRY_MS.length - 1)];
+  retries[kind]++;
+  S.retryAt[kind] = Date.now() + ms;
+  retryTimer[kind] = setTimeout(() => { S.retryAt[kind] = 0; if (S.mounted && S.errs[kind]) ensure(kind, true); }, ms);
+}
+/** Po wejściu na ekran: zaległe ponowienie (ekran był zamknięty, gdy minął jego czas) — od razu. */
+export function resumeRetries() { for (const k of Object.keys(retries)) if (S.errs[k] && !running[k] && !S.retryAt[k]) ensure(k, true); }
 /**
  * Dane zakładki: od razu ostatnia kopia (jeśli jest), a w tle świeże — chyba że kopia ma mniej niż minutę (force = zawsze pobierz).
  * Równoległe wywołania tej samej akcji łączą się w jedno zapytanie.
@@ -48,12 +80,18 @@ export function ensure(kind, force) {
   if (!S[slot]) S[slot] = cached(kind);
   if (!force && S[slot] && !S[slot].stored && Date.now() - S[slot].t < FRESH_MS) return Promise.resolve(S[slot]);
   if (running[kind]) return running[kind];
-  S.loading[kind] = true; S.errs[kind] = '';
+  S.loading[kind] = true; S.since[kind] = Date.now();
+  clearTimeout(retryTimer[kind]); S.retryAt[kind] = 0;
   if (kind === 'init') S.flashIds = null;
-  running[kind] = api(ACTION[kind], {}).then(v => { S[slot] = remember(kind, v); plans.clear(); if (kind === 'init' && live) live.loaded(v.stamp); }, e => {
+  const slow = setTimeout(() => { if (running[kind]) S.rerender(); }, SLOW_MS);
+  running[kind] = Promise.resolve().then(() => api(ACTION[kind], {})).then(v => {
+    S[slot] = remember(kind, v); S.errs[kind] = ''; retries[kind] = 0; plans.clear(); if (kind === 'init' && live) live.loaded(v.stamp);
+  }, e => {
     S.errs[kind] = (e && e.message) || 'Nie udało się pobrać danych.';
     if (e && (e.code === 403 || e.code === 401)) { S[slot] = null; forget(kind); }   // bez uprawnień nie pokazujemy starej kopii
-  }).then(() => { S.loading[kind] = false; running[kind] = null; S.rerender(); return S[slot]; });
+    else scheduleRetry(kind);
+  }).then(() => { clearTimeout(slow); S.loading[kind] = false; running[kind] = null; S.rerender(); return S[slot]; })
+    .catch(e => { console.error(e); return S[slot]; });   // błąd rysowania obsługuje render() — tu tylko, by Promise zawsze się rozstrzygnął
   return running[kind];
 }
 /** Po zapisie: pobierz ponownie to, co zapis zmienił (równolegle). */
@@ -138,7 +176,8 @@ export function loadError(kind, what) {
   const unavailable = /niedostępna|nieznana akcja|501/i.test(S.errs[kind]);
   return notice('error', (S[SLOT[kind]] ? 'Nie udało się odświeżyć (' + what + ') — pokazuję ostatnią kopię. ' : 'Nie udało się pobrać: ' + what + '. ') +
     (unavailable ? 'Nadzór SpeedMail działa tylko na serwerze głównym, który chwilowo nie odpowiada — spróbuj za chwilę. ' : S.errs[kind] + ' '),
-  el('button', { type: 'button', class: 'secondary', onclick: () => ensure(kind, true) }, 'Spróbuj ponownie'));
+  S.retryAt[kind] ? el('span', { class: 'muted small', title: 'Panel sam ponawia pobranie po chwili (najpierw po 3 s, potem rzadziej), dopóki ten ekran jest otwarty' }, 'Ponowię automatycznie. ') : null,
+  el('button', { type: 'button', class: 'secondary', id: 'smRetry' + kind, onclick: () => ensure(kind, true) }, 'Spróbuj ponownie'));
 }
 
 // ─── Zmiana statusu w Selly (porcje, postęp, nieudane + ponowienie) ─────────

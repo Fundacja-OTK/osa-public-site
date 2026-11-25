@@ -1,12 +1,15 @@
 // Wspólny klient API panelu (konfiguracja z config.js + sesja z logowania kontem Selly — core/auth.js) i kontekst sesji.
-import { createApi } from './api.js?v=c5a69db';
-import { freshToken } from './auth.js?v=c5a69db';
-import { reportApiFailure } from './errorHook.js?v=c5a69db';
-import { bindWriteState } from './ui.js?v=c5a69db';
-import { denyReason, isWriteAction, GRANTABLE } from '../lib/panelAuth.js?v=c5a69db';
+import { createApi } from './api.js?v=fb40452';
+import { freshToken } from './auth.js?v=fb40452';
+import { reportApiFailure } from './errorHook.js?v=fb40452';
+import { bindWriteState } from './ui.js?v=fb40452';
+import { denyReason, isWriteAction, GRANTABLE } from '../lib/panelAuth.js?v=fb40452';
 
 export const ENV = window.OSA_CONFIG || {}; // { backendUrl, version, backends } — config.js
-const client = createApi({ config: ENV, getToken: freshToken, onFailure: reportApiFailure });
+// Jeden klient i jeden kontekst na kartę (globalThis): gdy w karcie miesza się kod dwóch wdrożeń (client.js pod innym ?v= — core/router.js),
+// druga kopia pliku korzysta z tych samych danych startowych (ctx.boot) i stanu backendów, zamiast zaczynać od pustych.
+const G = typeof globalThis !== 'undefined' ? globalThis : window;
+const client = G.__osaClient || (G.__osaClient = createApi({ config: ENV, getToken: freshToken, onFailure: reportApiFailure, timeouts: ENV.timeouts }));
 /**
  * Zapis bez prawa zmian (zgoda administratora — docs/auth.md) kończy się od razu tym samym komunikatem co na serwerze, bez zapytania.
  * Serwer sprawdza to i tak (to tylko szybsza i czytelniejsza odpowiedź).
@@ -26,5 +29,5 @@ export const apiInfo = client.apiInfo;
 export const onApiInfo = client.onInfo;
 
 /** Kontekst sesji: boot = odpowiedź akcji „init” (email, year, statuses, products, sync, adminUrl…). */
-export const ctx = { boot: null };
+export const ctx = G.__osaCtx || (G.__osaCtx = { boot: null });
 bindWriteState(() => ctx.boot, GRANTABLE);

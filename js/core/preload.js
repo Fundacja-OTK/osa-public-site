@@ -66,3 +66,18 @@ export function prefetchOnIntent(root, onIntent) {
   root.addEventListener('focusin', e => { const a = target(e); if (a) fire(a); });
   root.addEventListener('touchstart', e => { const a = target(e); if (a) fire(a); }, { passive: true });
 }
+
+/**
+ * import() z jednym ponowieniem: gdy pobranie pliku modułu (albo jego zależności) się nie uda — chwilowy błąd sieci / serwera plików —
+ * druga próba po krótkiej przerwie pod adresem z dopiskiem &retry=<czas> (omija zapamiętany nieudany wpis w pamięci modułów i HTTP).
+ * loader = dosłownie () => import('…') (adres odczytywany z treści funkcji względem `base` = import.meta.url pliku z funkcją).
+ */
+export const RETRY_DELAY_MS = 400;
+export async function importRetry(loader, base, delayMs = RETRY_DELAY_MS) {
+  try { return await loader(); } catch (first) {
+    const url = moduleUrlOf(loader, base);
+    if (!url) throw first;
+    await new Promise(r => setTimeout(r, delayMs));
+    return import(url + (url.includes('?') ? '&' : '?') + 'retry=' + Date.now());
+  }
+}

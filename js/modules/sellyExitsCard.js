@@ -1,7 +1,7 @@
 // Karta administratora „Czego wciąż szukasz w Selly”: najczęściej otwierane ekrany Selly z linków „↗” (client:exits:list, 30 dni).
-import { el, loadingBox } from '../core/ui.js?v=c5a69db';
-import { api } from '../core/client.js?v=c5a69db';
-import { ITEMS } from '../core/nav.js?v=c5a69db';
+import { el, loadingBox } from '../core/ui.js?v=fb40452';
+import { api } from '../core/client.js?v=fb40452';
+import { ITEMS } from '../core/nav.js?v=fb40452';
 
 /** Przyjazna nazwa ekranu Selly: pozycja menu o tej trasie, inaczej ekran nadrzędny (przed kropką) albo sama trasa. */
 export function screenName(route) {

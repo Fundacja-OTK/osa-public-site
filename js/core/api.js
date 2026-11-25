@@ -105,7 +105,7 @@ export function createApi(o) {
     if (!backends.length) throw new Error(MSG_NOT_CONFIGURED);
     const isWrite = !READ_ACTION.test(action);
     if (isWrite && !(params && params.opId)) params = Object.assign({}, params, { opId: newOpId() });
-    let lastErr = new Error(MSG_NETWORK), d1Down = false;
+    let lastErr = new Error(MSG_NETWORK), d1Down = false, declined = null;
     for (const b of candidates()) {
       if (unsupported.has(b.url + '|' + action)) { lastErr = Object.assign(new Error('Akcja niedostępna na żadnym backendzie: ' + action), { code: 501 }); continue; }
       const token = await o.getToken(retried === true || retried === b.kind, b.kind);
@@ -127,7 +127,7 @@ export function createApi(o) {
           lastErr = new Error(MSG_NETWORK); continue;
         }
         failed(b, action, 'brak połączenia'); lastErr = new Error(MSG_NETWORK);
-        if (isWrite && !WRITE_RETRY_SAFE.test(action)) throw lastErr;   // zapis bez gwarancji powtarzalności: nie próbujemy drugiego backendu
+        if (isWrite && !WRITE_RETRY_SAFE.test(action)) throw declined || lastErr;   // zapis bez gwarancji powtarzalności: nie próbujemy drugiego backendu
         continue;
       }
       if (res.status >= 500) { clearTimeout(timer); markDown(b.url); failed(b, action, 'HTTP ' + res.status, res.status); lastErr = new Error(MSG_BAD_REPLY); continue; }
@@ -152,11 +152,16 @@ export function createApi(o) {
         if (body.code >= 500 && body.code !== 503) failed(b, action, String(body.error || 'błąd serwera').slice(0, 150), body.code);
         const err = new Error(body.error);
         err.code = body.code;
+        // 503 z Apps Script = „ta funkcja działa tylko przez Cloudflare” (Fallback.gs: akcja odrzucona przed wykonaniem). Trafiamy tu, gdy
+        // serwer główny jest chwilowo oznaczony jako niedziałający (np. po jednym przekroczonym czasie innego zapytania — znacznik trzyma
+        // 5 min, także po odświeżeniu karty) — próbujemy dalej, łącznie z „niedziałającym” serwerem głównym jako ostatnią deską ratunku.
+        // Wcześniej taka akcja (np. sm:init) kończyła się błędem przez 5 min, a „Spróbuj ponownie” trafiało znowu do zapasowego.
+        if (body.code === 503 && b.kind === 'gas') { declined = err; continue; }   // gdy dalej też się nie uda — ten komunikat (czytelniejszy niż „brak połączenia”)
         throw err;
       }
       return body.data;
     }
-    throw lastErr;
+    throw declined || lastErr;
   }
 
   return { api, apiInfo: () => info, onInfo: cb => { listeners.push(cb); },

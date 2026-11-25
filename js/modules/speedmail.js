@@ -3,17 +3,20 @@
 // paczki — przekazane paczki zleceń (plik .xlsx, statusy, anulowanie); tempo — sprzedaż wobec prognozy; ustawienia — lista produktów SM,
 // rozbicia, terminy, progi. Dane i zapisy: akcje sm:* (Worker + D1), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: shared/speedmail.js → lib/speedmailLogic.js (ta sama na serwerze). Bez danych osobowych.
-import { $, el } from '../core/ui.js?v=c5a69db';
-import { go, addLeaveGuard } from '../core/router.js?v=c5a69db';
-import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop } from './speedmailKit.js?v=c5a69db';
-import { viewOrders } from './speedmailZam.js?v=c5a69db';
+import { $, el } from '../core/ui.js?v=fb40452';
+import { go, addLeaveGuard } from '../core/router.js?v=fb40452';
+import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop, resumeRetries, SLOW_MS } from './speedmailKit.js?v=fb40452';
+import { importRetry } from '../core/preload.js?v=fb40452';
+import { viewOrders } from './speedmailZam.js?v=fb40452';
 // Zakładki poza domyślną (Zamówienia) ładują się dopiero po otwarciu — mniej plików przy pierwszym wejściu.
+// [() => import('…') (dosłownie — scripts/bust-cache.js), moduł → widok]; nieudane pobranie: jedno ponowienie z ominięciem pamięci (importRetry).
 const LAZY = {
-  stan: () => import('./speedmailStan.js?v=c5a69db').then(m => m.viewStock),
-  paczki: () => import('./speedmailPaczki.js?v=c5a69db').then(m => m.viewBatches),
-  tempo: () => import('./speedmailTempo.js?v=c5a69db').then(m => m.viewPace),
-  ustawienia: () => import('./speedmailUst.js?v=c5a69db').then(m => { settingsDirty = m.settingsDirty; return m.viewSettings; }),
+  stan: [() => import('./speedmailStan.js?v=fb40452'), m => m.viewStock],
+  paczki: [() => import('./speedmailPaczki.js?v=fb40452'), m => m.viewBatches],
+  tempo: [() => import('./speedmailTempo.js?v=fb40452'), m => m.viewPace],
+  ustawienia: [() => import('./speedmailUst.js?v=fb40452'), m => { settingsDirty = m.settingsDirty; return m.viewSettings; }],
 };
+const tabLoading = {};
 const VIEWS = { zamowienia: viewOrders };
 let settingsDirty = () => false;
 
@@ -37,9 +40,18 @@ function counts() {
 }
 const COUNT_TIP = { zamowienia: 'zamówienia, które wg reguł idą do SpeedMail', stan: 'produkty z czerwonym alertem', paczki: 'przekazane paczki zleceń' };
 
+/** Widok bieżącej zakładki; wyjątek przy rysowaniu (np. nieoczekiwany układ danych) → komunikat z ponowieniem, nigdy pusty ekran. */
 function render() {
-  const root = $('smBody'), nav = $('smNav');
+  const root = $('smBody');
   if (!root) return;
+  try { draw(root); } catch (e) {
+    console.error(e);
+    root.replaceChildren(notice('error', 'Nie udało się pokazać danych SpeedMail (' + String((e && e.message) || e).slice(0, 120) + '). ',
+      el('button', { type: 'button', class: 'secondary', id: 'smDrawRetry', onclick: () => { S.d = null; S.list = null; S.pace = null; ensure('init', true); for (const k of (tabOf(S.view) || [])[4] || []) ensure(k, true); render(); } }, 'Spróbuj ponownie')));
+  }
+}
+function draw(root) {
+  const nav = $('smNav');
   const c = counts();
   nav.replaceChildren(...TABS.map(([k, label, tip]) => el('a', { href: '#/speedmail/' + k, 'aria-current': S.view === k ? 'page' : null,
     title: tip + (c[k] != null ? '\n\nLiczba w nawiasie: ' + COUNT_TIP[k] : '') }, label + (c[k] ? ' (' + c[k] + ')' : ''))));
@@ -48,7 +60,13 @@ function render() {
   const parts = [];
   const err = loadError('init', 'zamówienia i stan SpeedMail');
   if (err) parts.push(err);
-  if (!S.d) { if (!err) parts.push(skeleton(8)); root.replaceChildren(...parts); return; }
+  if (!S.d) {
+    if (!err) {
+      if (S.loading.init && Date.now() - S.since.init >= SLOW_MS) parts.push(el('div', { class: 'notice info', id: 'smSlow', role: 'status', title: 'Gdy serwer główny nie odpowie w ciągu 20 s, panel pokaże błąd z przyciskiem „Spróbuj ponownie” i sam ponowi pobranie' }, 'Serwer odpowiada wolniej niż zwykle — wciąż pobieram dane SpeedMail…'));
+      parts.push(skeleton(8));
+    }
+    root.replaceChildren(...parts); return;
+  }
   if (S.err) parts.push(notice('error', S.err, ' ', el('button', { type: 'button', class: 'link', onclick: () => { S.err = ''; render(); } }, 'Zamknij')));
   if (S.job) parts.push(jobCard());
   const cfgOk = S.d.v && S.d.v.cfg && Array.isArray(S.d.v.cfg.products);
@@ -56,8 +74,16 @@ function render() {
   const view = VIEWS[S.view];
   if (!view) {
     const k = S.view;
+    if (tabLoading[k] === 'error') {
+      parts.push(notice('error', 'Nie udało się wczytać zakładki — sprawdź połączenie z internetem. ', el('button', { type: 'button', class: 'secondary', id: 'smTabRetry', onclick: () => { tabLoading[k] = null; render(); } }, 'Spróbuj ponownie')));
+      root.replaceChildren(...parts); return;
+    }
     parts.push(skeleton(6)); root.replaceChildren(...parts);
-    LAZY[k]().then(fn => { VIEWS[k] = fn; if (S.view === k) render(); }).catch(() => { if (S.view === k) root.replaceChildren(notice('error', 'Nie udało się wczytać zakładki. Odśwież stronę.')); });
+    if (!tabLoading[k]) {
+      tabLoading[k] = 'loading';
+      importRetry(LAZY[k][0], import.meta.url).then(LAZY[k][1]).then(fn => { VIEWS[k] = fn; tabLoading[k] = null; }, e => { console.error(e); tabLoading[k] = 'error'; })
+        .then(() => { if (S.view === k) render(); });
+    }
     return;
   }
   parts.push(view());
@@ -84,7 +110,9 @@ export default {
     ensure('init');
     for (const k of tabOf(v)[4]) ensure(k);
     if (v === 'zamowienia') liveCtl().start(); else liveStop();
+    S.mounted = true;
+    resumeRetries();
     render();
   },
-  unmount() { liveStop(); /* stan zostaje — kontener jest tylko ukrywany */ },
+  unmount() { S.mounted = false; liveStop(); /* stan zostaje — kontener jest tylko ukrywany */ },
 };
