@@ -6,60 +6,60 @@
   <!-- CSP: skrypty tylko z tej strony (bez inline), połączenia tylko do serwera głównego (Cloudflare Workers) i zapasowego (Apps Script) -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://osa-panel.osa-panel.workers.dev https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
   <title>Panel OSA</title>
-  <link rel="icon" href="favicon.svg?v=a2fbbbf" type="image/svg+xml">
-  <link rel="icon" href="icons/icon-32.png?v=a2fbbbf" type="image/png" sizes="32x32">
-  <link rel="icon" href="icons/icon-16.png?v=a2fbbbf" type="image/png" sizes="16x16">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=a2fbbbf">
-  <link rel="manifest" href="manifest.webmanifest?v=a2fbbbf">
+  <link rel="icon" href="favicon.svg?v=85e2814" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-32.png?v=85e2814" type="image/png" sizes="32x32">
+  <link rel="icon" href="icons/icon-16.png?v=85e2814" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=85e2814">
+  <link rel="manifest" href="manifest.webmanifest?v=85e2814">
   <meta name="theme-color" content="#2f2318" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#120e0a" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="css/base.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/shell.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/pulpit.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/przesylki.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/zasob.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/zasoby.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/klienci.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/produkt.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/raporty.css?v=a2fbbbf"><link rel="stylesheet" href="css/raporty-rodziny.css?v=a2fbbbf"><link rel="stylesheet" href="css/masowe.css?v=a2fbbbf"><link rel="stylesheet" href="css/dropshipping.css?v=a2fbbbf"><link rel="stylesheet" href="css/wplaty.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/feedback.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/konfsklepu.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/palette.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/embed.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/natywne.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/faktury.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/speedmail.css?v=a2fbbbf">
-  <link rel="stylesheet" href="css/mobile.css?v=a2fbbbf">
+  <link rel="stylesheet" href="css/base.css?v=85e2814">
+  <link rel="stylesheet" href="css/shell.css?v=85e2814">
+  <link rel="stylesheet" href="css/pulpit.css?v=85e2814">
+  <link rel="stylesheet" href="css/przesylki.css?v=85e2814">
+  <link rel="stylesheet" href="css/zasob.css?v=85e2814">
+  <link rel="stylesheet" href="css/zasoby.css?v=85e2814">
+  <link rel="stylesheet" href="css/klienci.css?v=85e2814">
+  <link rel="stylesheet" href="css/produkt.css?v=85e2814">
+  <link rel="stylesheet" href="css/raporty.css?v=85e2814"><link rel="stylesheet" href="css/raporty-rodziny.css?v=85e2814"><link rel="stylesheet" href="css/masowe.css?v=85e2814"><link rel="stylesheet" href="css/dropshipping.css?v=85e2814"><link rel="stylesheet" href="css/wplaty.css?v=85e2814">
+  <link rel="stylesheet" href="css/feedback.css?v=85e2814">
+  <link rel="stylesheet" href="css/konfsklepu.css?v=85e2814">
+  <link rel="stylesheet" href="css/palette.css?v=85e2814">
+  <link rel="stylesheet" href="css/embed.css?v=85e2814">
+  <link rel="stylesheet" href="css/natywne.css?v=85e2814">
+  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=85e2814">
+  <link rel="stylesheet" href="css/faktury.css?v=85e2814">
+  <link rel="stylesheet" href="css/speedmail.css?v=85e2814">
+  <link rel="stylesheet" href="css/mobile.css?v=85e2814">
   <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, version, backends } -->
   <!-- modulepreload: scripts/preload.js -->
-  <link rel="preload" as="script" href="config.js?v=a2fbbbf">
-  <link rel="preload" as="script" href="js/preboot.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/main.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/shell.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/ui.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/client.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/auth.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/lib/panelAuth.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/router.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/errors.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/sellyExits.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/errorHook.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/feedback.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/update.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/modules/_placeholder.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/nav.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/palette.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/shortcuts.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/recents.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/preload.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/datepicker.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/api.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/delivery.js?v=a2fbbbf">
-  <link rel="modulepreload" href="js/core/search.js?v=a2fbbbf">
-  <script src="config.js?v=a2fbbbf"></script>
-  <script src="js/preboot.js?v=a2fbbbf"></script>
-  <script type="module" src="js/main.js?v=a2fbbbf"></script>
+  <link rel="preload" as="script" href="config.js?v=85e2814">
+  <link rel="preload" as="script" href="js/preboot.js?v=85e2814">
+  <link rel="modulepreload" href="js/main.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/shell.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/ui.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/client.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/auth.js?v=85e2814">
+  <link rel="modulepreload" href="js/lib/panelAuth.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/router.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/errors.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/sellyExits.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/errorHook.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/feedback.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/update.js?v=85e2814">
+  <link rel="modulepreload" href="js/modules/_placeholder.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/nav.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/palette.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/shortcuts.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/recents.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/preload.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/datepicker.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/api.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/delivery.js?v=85e2814">
+  <link rel="modulepreload" href="js/core/search.js?v=85e2814">
+  <script src="config.js?v=85e2814"></script>
+  <script src="js/preboot.js?v=85e2814"></script>
+  <script type="module" src="js/main.js?v=85e2814"></script>
 </head>
 <body>
 <div class="app">

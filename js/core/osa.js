@@ -1,6 +1,6 @@
 // Dane orszaków („OSA”) z notatki klienta: pasek filtrów, oznaczenia (badge) i helpery wspólne dla modułów Zamówienia i Klienci.
-import { el, store, multiSelect } from './ui.js?v=a2fbbbf';
-import { postcodeWojewodztwo } from '../lib/noteParser.js?v=a2fbbbf';
+import { el, store, multiSelect } from './ui.js?v=85e2814';
+import { postcodeWojewodztwo } from '../lib/noteParser.js?v=85e2814';
 
 export const NONE = '__none';
 const WOJ_NAMES = {

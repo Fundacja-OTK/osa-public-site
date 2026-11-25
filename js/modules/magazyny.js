@@ -5,9 +5,9 @@
 // — osobna sekcja #/magazyny/ewidencja; nie zmienia stanów w Selly.
 // Trasy: #/magazyny/stany, #/magazyny/zmiana[?p=<id>], #/magazyny/ewidencja, #/magazyny/{porownanie,inwentaryzacja,rozliczenie,ruch,historia,start};
 // dawne #/magazyny/speedmail → #/speedmail.
-import { $, el, plural, store, flash, norm, dateInput, sortMark } from '../core/ui.js?v=a2fbbbf';
-import { api } from '../core/client.js?v=a2fbbbf';
-import { go } from '../core/router.js?v=a2fbbbf';
+import { $, el, plural, store, flash, norm, dateInput, sortMark } from '../core/ui.js?v=85e2814';
+import { api } from '../core/client.js?v=85e2814';
+import { go } from '../core/router.js?v=85e2814';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 

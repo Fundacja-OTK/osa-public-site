@@ -1,11 +1,11 @@
 // „Wysyłka SpeedMail” — wspólny stan i klocki zakładek (speedmail.js + speedmailZam / Stan / Paczki / Tempo / Ust).
 // Dane (sm:init / sm:list / sm:pace) są trzymane w pamięci i w sessionStorage (same numery zamówień, daty, produkty i liczby —
 // żadnych danych klientów), więc strona rysuje się od razu z ostatniej kopii i odświeża w tle. Bez odpytywania w pętli.
-import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=a2fbbbf';
-import { api, ctx } from '../core/client.js?v=a2fbbbf';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=a2fbbbf';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=a2fbbbf';
-import { SM } from '../lib/speedmailLogic.js?v=a2fbbbf';
+import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=85e2814';
+import { api, ctx } from '../core/client.js?v=85e2814';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=85e2814';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=85e2814';
+import { SM } from '../lib/speedmailLogic.js?v=85e2814';
 
 export { SM };
 export const WRITE = ['magazyny'];                       // jak reguła sm:* (shared/panelAuth.js)
@@ -116,6 +116,15 @@ export const liveStop = () => { if (live) live.stop(); };
 
 // ─── Decyzje (wspólna logika z serwerem) ────────────────────────────────────
 const plans = new Map();
+/** Zamówienia bez powtórzeń (to samo id dwa razy — np. z nakładających się stron synchronizacji): inaczej liczby przy przyciskach „Zaznacz …”
+ *  i w zakładce liczyły duplikaty, a zaznaczenie (zbiór id) — nie. Liczone raz na dane. */
+function uniqOrders(e) {
+  const hit = plans.get('u');
+  if (hit && hit.of === e) return hit.plan;
+  const seen = new Set(), out = e.v.orders.filter(o => { const id = String(o.orderId); if (seen.has(id)) return false; seen.add(id); return true; });
+  plans.set('u', { of: e, plan: out });
+  return out;
+}
 /** Wiersze decyzji dla bieżących danych sm:init (liczone raz na pobranie danych). */
 export function plan() {
   const e = S.d;
@@ -123,7 +132,7 @@ export function plan() {
   const hit = plans.get('p');
   if (hit && hit.of === e) return hit.plan;
   const v = e.v, active = Object.fromEntries(Object.entries(v.sent || {}).filter(([, x]) => !x.cancelled));
-  const p = SM.plan(v.orders, { cfg: v.cfg, today: v.today, totals: v.totals, marks: v.marks, sent: active });
+  const p = SM.plan(uniqOrders(e), { cfg: v.cfg, today: v.today, totals: v.totals, marks: v.marks, sent: active });
   plans.set('p', { of: e, plan: p });
   return p;
 }
@@ -137,7 +146,7 @@ export function planSel(sel) {
   const e = S.d, key = [...sel].sort().join(','), hit = plans.get('s');
   if (hit && hit.of === e && hit.key === key) return hit.plan;
   const v = e.v, active = Object.fromEntries(Object.entries(v.sent || {}).filter(([, x]) => !x.cancelled));
-  const p = SM.plan(v.orders, { cfg: v.cfg, today: v.today, totals: v.totals, marks: v.marks, sent: active, priority: sel });
+  const p = SM.plan(uniqOrders(e), { cfg: v.cfg, today: v.today, totals: v.totals, marks: v.marks, sent: active, priority: sel });
   plans.set('s', { of: e, key, plan: p });
   return p;
 }
