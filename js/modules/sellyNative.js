@@ -3,12 +3,12 @@
 // czyta je i zwraca strukturę (sekrety zamaskowane po stronie serwera); zapis tylko z allowlisty pól, zawsze przez podgląd zmian (dryRun)
 // i potwierdzenie (docs/selly-embed.md, docs/auth.md). „Tylko do podglądu” = flaga `readOnly` z odpowiedzi serwera (jedna, z silnika).
 // Strony ustawień (jedna strona-formularz) obsługuje modules/sellyNativeSettings.js.
-import { el, loadingBox, tapOpen } from '../core/ui.js?v=fb40452';
-import { api } from '../core/client.js?v=fb40452';
-import { sellyUrl } from './_placeholder.js?v=fb40452';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=fb40452';
-import { addLeaveGuard } from '../core/router.js?v=fb40452';
-import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=fb40452';
+import { el, loadingBox, tapOpen } from '../core/ui.js?v=650da05';
+import { api } from '../core/client.js?v=650da05';
+import { sellyUrl } from './_placeholder.js?v=650da05';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=650da05';
+import { addLeaveGuard } from '../core/router.js?v=650da05';
+import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=650da05';
 
 /** Żądanie do Workera: native:read / native:save / native:create → { ok, data } albo { ok:false, code, error } (nigdy nie rzuca). */
 export function sellyCall(req) {

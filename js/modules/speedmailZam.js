@@ -1,9 +1,9 @@
 // „Wysyłka SpeedMail” → zakładka Zamówienia: tabela wszystkich otwartych zamówień z podpowiedzią „SpeedMail / pakujemy sami” i powodem
 // (reguły 1–5 specyfikacji). Sortowanie po każdej kolumnie, filtry i wyszukiwanie zapisane w adresie, zaznaczanie zbiorcze, ręczna zmiana
 // decyzji w obie strony, przekazanie paczki zleceń (sm:batch) + status w Selly, „zostają u nas” (sm:keep + status „Złożone OTK”).
-import { el, cnt, norm, sortTh, pager, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton } from '../core/ui.js?v=fb40452';
-import { go } from '../core/router.js?v=fb40452';
-import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=fb40452';
+import { el, cnt, norm, sortTh, pager, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store } from '../core/ui.js?v=650da05';
+import { go } from '../core/router.js?v=650da05';
+import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=650da05';
 
 const KEYS = ['dec', 'reason', 'status', 'delivery', 'from', 'to', 'product', 'stock', 'pre', 'q'];
 const SORTS = ['num', 'date', 'status', 'delivery', 'items', 'stock', 'dec', 'reason'];
@@ -31,24 +31,29 @@ function setQ(patch, replace) {
 }
 const activeFilters = Q => KEYS.filter(k => Q[k]).length;
 
-/** Wiersze widoku z wierszy decyzji (przy zaznaczeniu: plan, w którym zaznaczone dostają towar pierwsze). */
-function rowsOf(p) {
-  const v = S.d.v;
+/**
+ * Wiersze widoku z wierszy decyzji (przy zaznaczeniu: plan, w którym zaznaczone dostają towar pierwsze). `b` = decyzja, powód i towar
+ * BEZ uwzględnienia zaznaczenia (zwykła kolejność od najstarszych) — według niej działają filtry, zakładki i przyciski „Zaznacz …”, żeby
+ * samo zaznaczanie nie przesuwało zamówień między filtrami (inaczej zaznaczone znikało z widoku, a pasek liczył niewidoczne).
+ */
+function rowsOf(p, base) {
+  const v = S.d.v, b0 = new Map(base.rows.map(r => [String(r.o.orderId), { result: r.result, code: r.code, stock: r.stock }]));
   return p.rows.map(r => {
     const id = String(r.o.orderId), prev = v.sent[id] && v.sent[id].cancelled ? v.sent[id].no : 0;
     return { r, id, num: r.o.orderNumber, day: String(r.o.date || '').slice(0, 10), statusId: r.o.statusId, status: statusName(r.o.statusId), delivery: r.o.delivery || '—',
-      items: r.o.items.filter(i => i.qty > 0).map(i => i.name + ' × ' + nf(i.qty)).join(', '), result: r.result, code: r.code, reason: r.reason, stock: r.stock, presale: r.presale, prev };
+      items: r.o.items.filter(i => i.qty > 0).map(i => i.name + ' × ' + nf(i.qty)).join(', '), result: r.result, code: r.code, reason: r.reason, stock: r.stock, presale: r.presale, prev,
+      b: b0.get(id) || { result: r.result, code: r.code, stock: r.stock } };
   });
 }
 function match(x, Q, f) {
-  if (f.dec.size && !f.dec.has(x.result)) return false;
-  if (f.reason.size && !f.reason.has(x.code)) return false;
+  if (f.dec.size && !f.dec.has(x.b.result)) return false;
+  if (f.reason.size && !f.reason.has(x.b.code)) return false;
   if (f.status.size && !f.status.has(String(x.statusId))) return false;
   if (f.delivery.size && !f.delivery.has(x.delivery)) return false;
   if (Q.from && x.day < Q.from) return false;
   if (Q.to && x.day > Q.to) return false;
   if (f.product.size && ![...f.product].some(k => x.r.need[k])) return false;
-  if (Q.stock && x.stock !== Q.stock) return false;
+  if (Q.stock && x.b.stock !== Q.stock) return false;
   if (Q.pre && (Q.pre === '1') !== !!x.presale) return false;
   if (f.q && !norm(x.num).includes(f.q)) return false;
   return true;
@@ -104,10 +109,14 @@ const opts = (m, labelOf) => [...m].map(([key, n]) => ({ key: String(key), label
 export function viewOrders() {
   if (!u) build();
   const v = S.d.v, Q = readQ(S.query);
-  const live = new Set(plan().rows.filter(r => r.result !== 'sent').map(r => String(r.o.orderId)));
-  for (const id of [...S.sel]) if (!live.has(id)) S.sel.delete(id);
-  const all = rowsOf(planSel(S.sel));
-  const f = { dec: set(Q.dec), reason: set(Q.reason), status: set(Q.status), delivery: set(Q.delivery), product: set(Q.product), q: norm(Q.q) };
+  const base = plan(), f = { dec: set(Q.dec), reason: set(Q.reason), status: set(Q.status), delivery: set(Q.delivery), product: set(Q.product), q: norm(Q.q) };
+  // Zaznaczenie = tylko zamówienia z bieżących danych, które filtry pokazują i które można zaznaczyć (po odświeżeniu, przekazaniu
+  // albo zmianie filtrów reszta jest odznaczana) — liczba w pasku zawsze równa się zaznaczonym polom wyboru.
+  const pickable = new Set(rowsOf(base, base).filter(x => x.b.result !== 'sent' && match(x, Q, f)).map(x => x.id));
+  let dropped = 0;
+  for (const id of [...S.sel]) if (!pickable.has(id)) { S.sel.delete(id); dropped++; }
+  if (dropped) u.dropped = (u.dropped || 0) + dropped;
+  const all = rowsOf(planSel(S.sel), base);
   const shown = sortRows(all.filter(x => match(x, Q, f)), Q);
 
   // filtry: wartości z adresu + listy z liczbą zamówień
@@ -115,7 +124,7 @@ export function viewOrders() {
   u.dec.value = Q.dec; u.stock.value = Q.stock; u.pre.value = Q.pre;
   if (u.range.from.value !== Q.from) u.range.from.value = Q.from;
   if (u.range.to.value !== Q.to) u.range.to.value = Q.to;
-  u.reason.set(opts(countBy(all, x => x.code), k => SM.REASONS[k].label), Q.reason);
+  u.reason.set(opts(countBy(all, x => x.b.code), k => SM.REASONS[k].label), Q.reason);
   u.status.set(opts(countBy(all, x => String(x.statusId)), statusName), Q.status);
   u.delivery.set(opts(countBy(all, x => x.delivery), k => k), Q.delivery);
   const prodN = new Map();
@@ -126,13 +135,13 @@ export function viewOrders() {
   u.filtersBtn.setAttribute('aria-expanded', String(u.layout.isOpen()));
   u.clear.hidden = !nf2;
 
-  const nDec = countBy(all, x => x.result);
+  const nDec = countBy(all, x => x.b.result);
   const seg = (key, label, tip) => el('button', { type: 'button', class: 'chip', id: 'smSeg' + (key || 'All'), 'aria-pressed': String(Q.dec === key), title: tip, onclick: () => setQ({ dec: key }) },
     label, el('span', { class: 'ord-n' }, String(key ? nDec.get(key) || 0 : all.length)));
   u.segs.replaceChildren(
     seg('', 'Wszystkie', 'Wszystkie zamówienia w statusach: ' + (v.use.open.concat(v.use.sm ? [v.use.sm] : []).map(statusName).join(', ') || '—') + '. Statusy zmienisz w Ustawieniach.'),
-    seg('sm', 'Do SpeedMail', 'Zamówienia, które wg reguł (albo ręcznego oznaczenia) pakuje SpeedMail i na które SpeedMail ma towar'),
-    seg('my', 'Pakujemy sami', 'Zamówienia, które zostają u nas — powód w kolumnie „Dlaczego”'),
+    seg('sm', 'Do SpeedMail', 'Zamówienia, które wg reguł (albo ręcznego oznaczenia) pakuje SpeedMail i na które SpeedMail ma towar — w zwykłej kolejności (od najstarszych), bez uwzględniania zaznaczenia'),
+    seg('my', 'Pakujemy sami', 'Zamówienia, które zostają u nas — powód w kolumnie „Dlaczego”. Decyzja w zwykłej kolejności (od najstarszych), bez uwzględniania zaznaczenia'),
     seg('sent', 'Już przekazane', 'Zamówienia zapisane w paczce zleceń, które nie zmieniły jeszcze statusu w Selly'),
     el('span', { class: 'spacer' }),
     S.loading.init ? el('span', { class: 'muted small', id: 'smFresh', role: 'status', title: 'Pokazuję ostatnią kopię, a w tle pobieram świeże dane' }, el('span', { class: 'spinner' }), ' odświeżam…') : null,
@@ -162,7 +171,7 @@ function results(v, Q, all, shown) {
   const selRows = [...S.sel].map(id => byId.get(id)).filter(Boolean);
   const selSm = selRows.filter(x => x.result === 'sm'), selMy = selRows.filter(x => x.result === 'my');
   const pickable = x => x.result !== 'sent';
-  const toggle = (ids, on) => { for (const id of ids) { if (on) S.sel.add(id); else S.sel.delete(id); } S.rerender(); };
+  const toggle = (ids, on) => { for (const id of ids) { if (on) S.sel.add(id); else S.sel.delete(id); } u.dropped = 0; S.rerender(); };
 
   const allCb = el('input', { type: 'checkbox', id: 'smSelPage', 'aria-label': 'Zaznacz wszystkie zamówienia widoczne na tej stronie', title: 'Zaznacz albo odznacz wszystkie zamówienia widoczne na tej stronie' });
   const pageIds = visible.filter(pickable).map(x => x.id);
@@ -186,28 +195,33 @@ function results(v, Q, all, shown) {
   const body = el('tbody', null, visible.length ? visible.map(x => rowEl(x)) : el('tr', null, el('td', { colspan: '10', class: 'empty' },
     all.length ? 'Żadne zamówienie nie pasuje do filtrów. ' : 'Brak otwartych zamówień w wybranych statusach.', all.length ? el('button', { type: 'button', class: 'link', onclick: () => setQ(Object.fromEntries(KEYS.map(k => [k, '']))) }, 'Wyczyść filtry') : null)));
 
-  const smAll = shown.filter(x => x.result === 'sm').map(x => x.id), myAll = shown.filter(x => x.result === 'my').map(x => x.id);
+  // Przyciski „Zaznacz …” wybierają wg decyzji BEZ zaznaczenia (x.b) — zaznaczenie daje zaznaczonym towar pierwsze i zmienia decyzje innych,
+  // więc wybór wg decyzji po zaznaczeniu zmieniałby się przy każdym kliknięciu
+  const smAll = shown.filter(x => x.b.result === 'sm').map(x => x.id), myAll = shown.filter(x => x.b.result === 'my').map(x => x.id);
+  const pick = ids => { S.sel = new Set(ids); u.dropped = 0; S.rerender(); };
+  const dropNote = u.dropped ? el('span', { class: 'muted small tip', id: 'smSelDropped', title: 'Zaznaczenie obejmuje tylko zamówienia widoczne przy bieżących filtrach (na wszystkich stronach) — po zmianie filtrów albo odświeżeniu danych ukryte i już przekazane są odznaczane' },
+    ' Odznaczono ' + cnt(u.dropped, 'zamówienie ukryte', 'zamówienia ukryte', 'zamówień ukrytych') + ' przez filtry lub odświeżenie.') : null;
   // Zużycie zaznaczonych wobec stanu SM: przekazywane („do SpeedMail”) + zaznaczone, na które nawet z pierwszeństwem nie starcza towaru
   const selShort = selRows.filter(x => x.code === 'stock'), want = selSm.concat(selShort);
   const use = SM.selectionUse(want.map(x => x.r), new Set(want.map(x => x.id)), v.totals, v.cfg);
   const cfgSt = v.use;
   const bar = el('div', { class: 'sm-bulk', id: 'smBulk' },
     el('div', { class: 'toolbar', style: 'margin-top:0' },
-      el('button', { type: 'button', class: 'secondary', id: 'smPickSm', disabled: !smAll.length, title: 'Zaznacza wszystkie zamówienia z decyzją „do SpeedMail” pasujące do filtrów (na wszystkich stronach); pozostałe odznacza',
-        onclick: () => { S.sel = new Set(smAll); S.rerender(); } }, 'Zaznacz do SpeedMail (' + smAll.length + ')'),
-      el('button', { type: 'button', class: 'secondary', id: 'smPickMy', disabled: !myAll.length, title: 'Zaznacza wszystkie zamówienia z decyzją „pakujemy sami” pasujące do filtrów (na wszystkich stronach); pozostałe odznacza',
-        onclick: () => { S.sel = new Set(myAll); S.rerender(); } }, 'Zaznacz „pakujemy sami” (' + myAll.length + ')'),
-      el('button', { type: 'button', class: 'secondary', id: 'smPickNone', disabled: !S.sel.size, onclick: () => { S.sel.clear(); S.rerender(); } }, 'Odznacz wszystkie'),
+      el('button', { type: 'button', class: 'secondary', id: 'smPickSm', disabled: !smAll.length, title: 'Zaznacza wszystkie zamówienia pasujące do filtrów (na wszystkich stronach), które w zwykłej kolejności (od najstarszych, zanim zaznaczone dostaną towar pierwsze) idą do SpeedMail; pozostałe odznacza. Wybór nie zależy od bieżącego zaznaczenia',
+        onclick: () => pick(smAll) }, 'Zaznacz do SpeedMail (' + smAll.length + ')'),
+      el('button', { type: 'button', class: 'secondary', id: 'smPickMy', disabled: !myAll.length, title: 'Zaznacza wszystkie zamówienia pasujące do filtrów (na wszystkich stronach), które w zwykłej kolejności (od najstarszych, zanim zaznaczone dostaną towar pierwsze) pakujemy sami; pozostałe odznacza. Wybór nie zależy od bieżącego zaznaczenia — w pasku poniżej część z nich może wyjść „do SpeedMail”, bo zaznaczone dostają towar pierwsze',
+        onclick: () => pick(myAll) }, 'Zaznacz „pakujemy sami” (' + myAll.length + ')'),
+      el('button', { type: 'button', class: 'secondary', id: 'smPickNone', disabled: !S.sel.size, title: S.sel.size ? null : 'Nic nie jest zaznaczone', onclick: () => pick([]) }, 'Odznacz wszystkie'),
       el('span', { class: 'spacer' }),
       el('span', { class: 'muted small', id: 'smShown', title: 'Ile zamówień pasuje do filtrów / ile jest wszystkich' }, 'Pokazano ' + shown.length + ' z ' + all.length)),
     el('div', { class: 'sm-sel', id: 'smSelSum', role: 'status' }, S.sel.size
       ? ['Zaznaczono ', el('strong', null, cnt(selRows.length, 'zamówienie', 'zamówienia', 'zamówień')), ': do SpeedMail ', el('strong', null, String(selSm.length)), ' · pakujemy sami ', el('strong', null, String(selMy.length)),
-        want.length ? useLine(use) : null,
+        dropNote, want.length ? useLine(use) : null,
         el('div', { class: 'muted small', id: 'smSelHint' }, 'Kolumna „Towar w SM” i decyzje są liczone po uwzględnieniu zaznaczonych: dostają one towar pierwsze, pozostałe zamówienia — z tego, co zostanie.',
           selShort.length ? el('span', { class: 'diffbad' }, ' ' + cnt(selShort.length, 'zaznaczone zamówienie nie mieści', 'zaznaczone zamówienia nie mieszczą', 'zaznaczonych zamówień nie mieści') + ' się w stanie SpeedMail.') : null,
           bySel ? el('strong', null, ' Przez zaznaczenie towaru zabraknie dla ' + cnt(bySel, 'innego zamówienia', 'innych zamówień', 'innych zamówień') + ' (oznaczone „brak po zaznaczeniu”).') : null),
         (selShort.length || bySel) ? shortDetails(selShort, all.filter(x => x.r.bySel)) : null]
-      : el('span', { class: 'muted' }, 'Zaznacz zamówienia, aby przekazać je do SpeedMail albo oznaczyć jako pakowane u nas.')),
+      : [el('span', { class: 'muted' }, 'Zaznacz zamówienia, aby przekazać je do SpeedMail albo oznaczyć jako pakowane u nas.'), dropNote]),
     el('div', { class: 'ord-actions' },
       el('button', { type: 'button', class: 'secondary', id: 'smKeep', write: STATUS_WRITE, disabled: !selMy.length || !cfgSt.otk || jobBusy(),
         title: cfgSt.otk ? 'Zapisuje decyzję „pakujemy sami” i zmienia w Selly status na „' + statusName(cfgSt.otk) + '” — zamówienia znikną z tej listy' : 'Wybierz w Ustawieniach status dla zamówień pakowanych u nas (np. „Złożone OTK”)',
@@ -252,15 +266,38 @@ function shortName(name) {
   return shortMemo.map.get(name) || shortRaw(name);
 }
 
-/** Suma zaznaczonych wobec stanu SM: „Korona: 300 z 600 szt.”; produkt, którego zaznaczenie samo przekracza stan — na czerwono z brakiem. */
+const USE_ALL = 'osa.sm.useAll', TIGHT = 0.9, INLINE_MAX = 4, FEW = 6;
+/**
+ * Suma zaznaczonych wobec stanu SM, zwięźle (przy ~30 produktach jedna linia wychodziła poza ekran): w linii najpierw produkty z brakiem
+ * (czerwone, z ile brakuje) i zużyte > 90 % stanu; reszta jako „+N produktów w normie” z „Pokaż wszystkie” → siatka (nazwa, użyte / stan,
+ * pasek zużycia), stan rozwinięcia zapamiętany. Do 6 produktów — wszystkie w linii (zawijane), bez rozwijania.
+ */
 function useLine(u) {
-  return el('div', { class: 'sm-use', id: 'smSelUse' },
-    el('span', { class: 'muted tip', title: 'Ile towaru potrzebują zaznaczone zamówienia (przekazywane do SpeedMail i te, na które go nie starcza) wobec obecnego stanu SpeedMail' }, 'Razem ze stanu SpeedMail: '),
-    ...Object.keys(u.use).map((k, i) => {
-      const p = prodOf(k) || { name: k, unit: '' }, bad = u.over.includes(k);
-      return el('span', { class: 'sm-use-i', 'data-key': k, title: p.name + ': zaznaczone potrzebują ' + nf(u.use[k]) + ' ' + p.unit + ', SpeedMail ma ' + nf(u.have[k]) + ' ' + p.unit + (bad ? ' — brakuje ' + nf(u.lack[k]) + ' ' + p.unit : '') },
-        (i ? ' · ' : '') + shortName(p.name) + ' ', el('span', { class: bad ? 'diffbad' : 'ok-txt' }, nf(u.use[k]) + ' z ' + nf(u.have[k]) + ' ' + p.unit + (bad ? ' ✗ brakuje ' + nf(u.lack[k]) : '')));
-    }));
+  const items = Object.keys(u.use).map(k => {
+    const p = prodOf(k) || { name: k, unit: '' }, used = u.use[k], have = u.have[k] || 0, bad = u.over.includes(k);
+    const ratio = have > 0 ? used / have : (used > 0 ? Infinity : 0);
+    return { k, p, used, have, bad, ratio, lvl: bad ? 'bad' : ratio > TIGHT ? 'warn' : 'ok',
+      tip: p.name + ': zaznaczone potrzebują ' + nf(used) + ' ' + p.unit + ', SpeedMail ma ' + nf(have) + ' ' + p.unit + (bad ? ' — brakuje ' + nf(u.lack[k]) + ' ' + p.unit : ' (zużycie ' + Math.round(ratio * 100) + ' %)') };
+  }).sort((a, b) => (b.bad - a.bad) || (b.ratio - a.ratio) || collator.compare(a.p.name, b.p.name));
+  const few = items.length <= FEW, tight = items.filter(x => x.lvl !== 'ok');
+  const inline = few ? items : tight.slice(0, INLINE_MAX), restTight = few ? 0 : tight.length - inline.length, restOk = few ? 0 : items.length - tight.length;
+  const chip = x => el('span', { class: 'sm-use-i', 'data-key': x.k, title: x.tip }, shortName(x.p.name) + ' ',
+    el('span', { class: x.bad ? 'diffbad' : x.lvl === 'warn' ? 'warn-txt' : 'ok-txt' }, nf(x.used) + ' z ' + nf(x.have) + ' ' + x.p.unit + (x.bad ? ' ✗ brakuje ' + nf(u.lack[x.k]) : '')));
+  const label = el('span', { class: 'muted tip', title: 'Ile towaru potrzebują zaznaczone zamówienia (przekazywane do SpeedMail i te, na które go nie starcza) wobec obecnego stanu SpeedMail. Najpierw produkty, których brakuje albo zużywają ponad 90 % stanu' }, 'Razem ze stanu SpeedMail:');
+  if (few) return el('div', { class: 'sm-use', id: 'smSelUse' }, label, ...inline.map(chip));
+
+  let open = !!store(USE_ALL);
+  const grid = el('div', { class: 'sm-ug', id: 'smUseGrid', hidden: !open || null }, items.map(x =>
+    el('div', { class: 'sm-ug-c ' + x.lvl, 'data-key': x.k, title: x.tip },
+      el('span', { class: 'sm-ug-n' }, shortName(x.p.name)),
+      el('span', { class: 'sm-ug-v' }, nf(x.used) + ' / ' + nf(x.have) + (x.bad ? ' ✗' : '')),
+      el('span', { class: 'sm-ug-bar', 'aria-hidden': 'true' }, el('i', { style: 'width:' + Math.min(100, Math.round((x.have > 0 ? x.ratio : 1) * 100)) + '%' })))));
+  const btn = el('button', { type: 'button', class: 'link', id: 'smUseAll', 'aria-controls': 'smUseGrid', 'aria-expanded': String(open), title: 'Pokaż albo ukryj zużycie wszystkich produktów zaznaczonych zamówień (siatka; wybór zapamiętany)',
+    onclick: () => { open = !open; grid.hidden = !open; btn.setAttribute('aria-expanded', String(open)); btn.textContent = open ? 'Zwiń' : 'Pokaż wszystkie'; store(USE_ALL, open); } }, open ? 'Zwiń' : 'Pokaż wszystkie');
+  const more = [restTight ? cnt(restTight, 'kolejny na styk', 'kolejne na styk', 'kolejnych na styk') : '', restOk ? (tight.length ? '+' : '') + cnt(restOk, 'produkt', 'produkty', 'produktów') + ' w normie' : ''].filter(Boolean);
+  return el('div', { class: 'sm-use', id: 'smSelUse' }, label, ...inline.map(chip),
+    el('span', { class: 'muted small tip sm-use-more', id: 'smUseMore', title: 'Produkty, których zaznaczone zamówienia zużywają najwyżej 90 % stanu SpeedMail — szczegóły w „Pokaż wszystkie”' },
+      (tight.length ? '' : 'wszystkie mieszczą się w stanie: ') + (restTight ? '+' : '') + more.join(' · ')), btn, grid);
 }
 
 /**
@@ -294,7 +331,7 @@ function rowEl(x) {
   const r = x.r, d = DEC[x.result];
   const cb = el('input', { type: 'checkbox', 'aria-label': 'Zaznacz zamówienie ' + x.num, disabled: x.result === 'sent', title: x.result === 'sent' ? 'To zamówienie jest już w paczce zleceń' : null });
   cb.checked = S.sel.has(x.id);
-  cb.addEventListener('change', () => { if (cb.checked) S.sel.add(x.id); else S.sel.delete(x.id); S.rerender(); });
+  cb.addEventListener('change', () => { if (cb.checked) S.sel.add(x.id); else S.sel.delete(x.id); u.dropped = 0; S.rerender(); });
   const stock = stockCell(x);
   const change = x.result === 'sent'
     ? el('a', { href: '#/speedmail/paczki?paczka=' + r.batch, title: 'Otwórz paczkę zleceń nr ' + r.batch + ' (plik, statusy, anulowanie zlecenia)' }, 'paczka ' + r.batch)
