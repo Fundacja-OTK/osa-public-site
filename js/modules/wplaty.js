@@ -3,13 +3,14 @@
 // 2) panel dopasowuje wpłaty do nieopłaconych zamówień (numer w tytule, kwota, nazwisko/e-mail; punktacja i powody),
 // 3) przeglądasz tabelę (pewne / prawdopodobne / brak) i zaznaczasz, co oznaczyć jako opłacone,
 // 4) zapis przez Worker (payments:apply — do serwera idą wyłącznie numery zamówień i kwoty „zapłacono”), podsumowanie i „Cofnij”.
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, norm } from '../core/ui.js?v=b64db56';
-import { listView } from '../core/listView.js?v=b64db56';
-import { sortRows } from '../core/listLogic.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=b64db56';
-import { loadMapping, saveMapping } from './wplatyCsv.js?v=b64db56';
-import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=b64db56';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, norm } from '../core/ui.js?v=2a82ee9';
+import { confirmDialog } from '../core/confirm.js?v=2a82ee9';
+import { listView } from '../core/listView.js?v=2a82ee9';
+import { sortRows } from '../core/listLogic.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=2a82ee9';
+import { loadMapping, saveMapping } from './wplatyCsv.js?v=2a82ee9';
+import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=2a82ee9';
 
 const zl = v => money(v) + ' zł';
 const SKEY = 'osa-wplaty-rules', DKEY = 'osa-wplaty-days';
@@ -28,15 +29,7 @@ const orderLabel = o => o.number + ' · ' + ([o.firstName, o.lastName].filter(Bo
 function hint(text) { return el('p', { class: 'muted wp-hint' }, text); }
 function field(label, control, tip) { return el('label', { class: 'field-inline wp-f', title: tip || null }, tip ? el('span', { class: 'tip' }, label) : label, control); }
 function dialog({ id, title, body, ok, okClass, onOk }) {
-  const prev = document.activeElement;
-  const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); if (prev && prev.focus) prev.focus(); };
-  const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
-  const cancel = el('button', { type: 'button', class: 'secondary', id: id + 'Cancel', onclick: close }, 'Anuluj');
-  const wrap = el('div', { class: 'bm-modal', id }, el('div', { class: 'bm-dialog card', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
-    el('h3', null, title), body, el('div', { class: 'bm-row bm-dlg-actions' }, cancel, el('button', { type: 'button', class: okClass || 'primary', id: id + 'Ok', onclick: () => { close(); onOk(); } }, ok))));
-  document.addEventListener('keydown', onKey, true);
-  document.body.append(wrap);
-  cancel.focus();
+  return confirmDialog({ id, title, body, confirmLabel: ok, danger: /danger/.test(okClass || ''), focus: 'cancel' }).then(yes => { if (yes) onOk(); });
 }
 
 // ─── Krok 1: plik ───────────────────────────────────────────────────────

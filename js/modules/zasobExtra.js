@@ -1,7 +1,8 @@
 // Dodatki ekranu zasobu (zasob.js): składniki zestawu, podgląd logo, moderacja opinii (przyciski w wierszu).
 // Osobny plik, żeby zasob.js został czytelny; każdy element dostaje dane i wywołania z zasob.js.
-import { el, debounce, flash, money } from '../core/ui.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
+import { el, debounce, flash, money } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
 
 const num = v => (v === '' || v == null || !isFinite(Number(v)) ? 0 : Number(v));
 const fmtQty = v => (v == null ? '—' : String(Math.round(Number(v) * 1000) / 1000));
@@ -43,7 +44,7 @@ export function setComponentsCard(id, data, reload) {
     });
     const del = el('button', { type: 'button', class: 'secondary danger', write: 'zestawy', title: 'Usuwa składnik z zestawu w Selly (sam produkt zostaje w sklepie)' }, 'Usuń');
     del.addEventListener('click', async () => {
-      if (!confirm('Usunąć „' + (it._name || 'produkt ' + it.product_id) + '” z zestawu? Sam produkt zostanie w sklepie.')) return;
+      if (!await askConfirm('Usunąć „' + (it._name || 'produkt ' + it.product_id) + '” z zestawu? Sam produkt zostanie w sklepie.', { danger: true })) return;
       del.disabled = true;
       try { await api('res:itemDelete', { res: 'zestawy', id, itemId: it.id }); flash('', 'Usunięto składnik'); reload(); }
       catch (e) { del.disabled = false; msg.textContent = 'Błąd: ' + ((e && e.message) || ''); }
@@ -84,7 +85,7 @@ export function setComponentsCard(id, data, reload) {
   add.addEventListener('click', async () => {
     if (!pick.value) return;
     if (!(num(qty.value) > 0)) { msg.textContent = 'Ilość musi być większa od zera.'; return; }
-    if (items.some(it => String(it.product_id) === pick.value && String(it.variant_id || 0) === String(num(variant.value))) && !confirm('Ten produkt jest już w zestawie. Dodać jeszcze raz?')) return;
+    if (items.some(it => String(it.product_id) === pick.value && String(it.variant_id || 0) === String(num(variant.value))) && !await askConfirm('Ten produkt jest już w zestawie. Dodać jeszcze raz?')) return;
     add.disabled = true;
     try { await api('res:itemSave', { res: 'zestawy', id, fields: { product_id: Number(pick.value), variant_id: num(variant.value), quantity: num(qty.value), allow_increase: incAdd.checked ? 1 : 0 } }); flash('', 'Dodano składnik'); reload(); }
     catch (e) { add.disabled = false; msg.textContent = 'Błąd: ' + ((e && e.message) || ''); }

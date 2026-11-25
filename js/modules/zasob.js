@@ -1,13 +1,14 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=b64db56';
-import { listView } from '../core/listView.js?v=b64db56';
-import { api, ctx } from '../core/client.js?v=b64db56';
-import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=b64db56';
-import { go, setLeaveGuard } from '../core/router.js?v=b64db56';
-import { RESOURCES } from '../core/resources.js?v=b64db56';
-import { registerListKeys } from '../core/listKeys.js?v=b64db56';
-import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=b64db56';
+import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { listView } from '../core/listView.js?v=2a82ee9';
+import { api, ctx } from '../core/client.js?v=2a82ee9';
+import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=2a82ee9';
+import { go, setLeaveGuard } from '../core/router.js?v=2a82ee9';
+import { RESOURCES } from '../core/resources.js?v=2a82ee9';
+import { registerListKeys } from '../core/listKeys.js?v=2a82ee9';
+import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=2a82ee9';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -295,7 +296,7 @@ export function createResource(id) {
           const u = meta && meta.usage ? meta.usage : null;
           const used = u && ((u.products || 0) > 0 || u.children);
           const usedTxt = used ? 'UWAGA: ' + (u.products ? 'przypisanych produktów: ' + u.products + (u.productsExact ? '' : ' lub więcej') + '. ' : '') + (u.children ? 'Ma podkategorie. ' : '') + '\n\n' : '';
-          if (!confirm('Usunąć „' + name + '” z Selly?\n\n' + usedTxt + (def.deleteWarn ? def.deleteWarn + '\n\n' : '') + 'Tego nie można cofnąć.')) return;
+          if (!await askConfirm('Usunąć „' + name + '” z Selly?\n\n' + usedTxt + (def.deleteWarn ? def.deleteWarn + '\n\n' : '') + 'Tego nie można cofnąć.', { danger: true })) return;
           del.disabled = true;
           try { await api('res:delete', { res: id, id: item[def.idField], force: used ? true : undefined, productId: pid || undefined }); setDirty(false); S.opts.delete(id); invalidate(cacheKey('res:options', { res: id })); flash('', 'Usunięto z Selly'); go('/' + id); }
           catch (e) { del.disabled = false; msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Nie udało się usunąć: ' + ((e && e.message) || 'błąd'))); }
@@ -326,7 +327,7 @@ export function createResource(id) {
         });
         const del = r && meta && meta.canDelete ? el('button', { type: 'button', class: 'secondary danger', write: id, title: 'Usuwa wartość z grupy w Selly — tego nie da się cofnąć',
           onclick: async () => {
-            if (!confirm('Usunąć wartość „' + (r.name || r[cfg.idField]) + '” z Selly? Tego nie można cofnąć.')) return;
+            if (!await askConfirm('Usunąć wartość „' + (r.name || r[cfg.idField]) + '” z Selly? Tego nie można cofnąć.', { danger: true })) return;
             try { await api('res:itemDelete', { res: id, id: gid, itemId: r[cfg.idField] }); flash('', 'Usunięto wartość'); reloadItems(); }
             catch (e) { rm.textContent = 'Błąd: ' + ((e && e.message) || ''); }
           } }, 'Usuń') : null;
@@ -370,8 +371,9 @@ export function createResource(id) {
     if (!acts.length) return null;
     const msg = el('span', { class: 'zs-item-msg muted', role: 'status' });
     return el('div', { class: 'zs-links' }, acts.map(a => el('button', { type: 'button', class: 'secondary' + (a.danger ? ' danger' : ''), write: id, id: 'zsQuick-' + a.id, title: a.tip, onclick: async ev => {
-      if (a.confirm && !confirm(a.confirm)) return;
-      const b = ev.currentTarget; b.disabled = true;
+      const b = ev.currentTarget;   // przed await — po nim zdarzenie nie ma już currentTarget
+      if (a.confirm && !await askConfirm(a.confirm)) return;
+      b.disabled = true;
       try { await api('res:save', { res: id, id: item[def.idField], fields: a.fields }); flash('', 'Zapisano w Selly'); renderCard(String(item[def.idField])); }
       catch (e) { b.disabled = false; msg.textContent = 'Błąd: ' + ((e && e.message) || ''); }
     } }, a.label)), msg);

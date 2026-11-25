@@ -2,13 +2,14 @@
 // z ręczną poprawką; układ zapamiętany w tej przeglądarce — same nazwy kolumn) → sprawdzenie BEZ ZAPISU (błędne dane, duplikaty w pliku
 // i w sklepie — clients:emailsExist, odczyt kopii panelu) → dodawanie po jednym kliencie z przerwami (clients:create z opId), z postępem,
 // wynikiem dla każdego wiersza, ponowieniem nieudanych i raportem błędów do pobrania.
-import { el, flash, field, cnt, downloadCsv, statusPill, store } from '../core/ui.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { setLeaveGuard } from '../core/router.js?v=b64db56';
-import { maskCell } from './wplatyCsv.js?v=b64db56';
+import { el, flash, field, cnt, downloadCsv, statusPill, store } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { setLeaveGuard } from '../core/router.js?v=2a82ee9';
+import { maskCell } from './wplatyCsv.js?v=2a82ee9';
 import { FIELDS, MAX_BYTES, MAX_ROWS, IMPORT_GAP_MS, STATUS_TEXT, parseClientsFile, autoMapping, missingRequired, buildRecords, classify, summary,
-  emailChunks, errorReport, templateRows, runThrottled, opIdFor, labelOf } from './klienciImportLogic.js?v=b64db56';
-import { sellyGroups, mergeGroups } from './klienciGrupy.js?v=b64db56';
+  emailChunks, errorReport, templateRows, runThrottled, opIdFor, labelOf } from './klienciImportLogic.js?v=2a82ee9';
+import { sellyGroups, mergeGroups } from './klienciGrupy.js?v=2a82ee9';
 
 const MAP_KEY = 'osa-cli-imp-map';   // { podpis nagłówków → mapowanie } — bez danych z wierszy
 const TONE = { new: 'acc', invalid: 'bad', exists: 'warn', dupFile: 'warn', done: 'ok', failed: 'bad', running: 'info' };
@@ -173,8 +174,8 @@ function paintCheck(note) {
 }
 
 // ─── Krok 4: zapis ──────────────────────────────────────────────────────────
-function confirmRun(list) {
-  if (!confirm('Dodać ' + cnt(list.length, 'klienta', 'klientów', 'klientów') + ' do Selly? Zapis zacznie się od razu; możesz go przerwać.')) return;
+async function confirmRun(list) {
+  if (!await askConfirm('Dodać ' + cnt(list.length, 'klienta', 'klientów', 'klientów') + ' do Selly? Zapis zacznie się od razu; możesz go przerwać.')) return;
   run(list);
 }
 

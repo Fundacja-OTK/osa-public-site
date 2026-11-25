@@ -1,11 +1,12 @@
 // „Wysyłka SpeedMail” → zakładka Paczki zleceń (sekcja 7 specyfikacji): każda przekazana paczka jest zapisana (Zlecenia_SM) —
 // plik .xlsx w stałym układzie kolumn do pobrania w każdej chwili, statusy w Selly („Złożone SpeedMail” → „Przyjęte SpeedMail”) z ponowieniem,
 // anulowanie zlecenia (towar wraca na stan) i świadome ponowne przekazanie (z powodem — blokada duplikatów); raport wysyłek SpeedMail (speedmailImport.js).
-import { el, cnt, sortTh, flash } from '../core/ui.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { go } from '../core/router.js?v=b64db56';
-import { S, WRITE, STATUS_WRITE, dmy, notice, statusName, needText, freshBar, loadError, skeleton, timeOf, save, reload, runStatus, jobBusy, downloadBatch, copyBatch } from './speedmailKit.js?v=b64db56';
-import { shipCard } from './speedmailImport.js?v=b64db56';
+import { el, cnt, sortTh, flash } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { go } from '../core/router.js?v=2a82ee9';
+import { S, WRITE, STATUS_WRITE, dmy, notice, statusName, needText, freshBar, loadError, skeleton, timeOf, save, reload, runStatus, jobBusy, downloadBatch, copyBatch } from './speedmailKit.js?v=2a82ee9';
+import { shipCard } from './speedmailImport.js?v=2a82ee9';
 
 const SORTS = { no: b => b.no, day: b => b.day, orders: b => b.orders, cancelled: b => b.cancelled, author: b => b.author };
 const details = new Map();   // nr paczki → { t, v } | { err } | { loading }
@@ -72,8 +73,8 @@ function detail(Q) {
   const toSm = use.sm ? act.filter(o => use.open.includes(o.statusId)) : [];
   const toAcc = use.acc ? act.filter(o => o.statusId && o.statusId !== use.acc && (o.statusId === use.sm || use.open.includes(o.statusId))) : [];
   const numOf = new Map(orders.map(o => [o.orderId, o.orderNumber]));
-  const setSt = (list, target, title, question) => {
-    if (!confirm(question)) return;
+  const setSt = async (list, target, title, question) => {
+    if (!await askConfirm(question)) return;
     runStatus({ ids: list.map(o => o.orderId), target, title, numOf, then: () => fetchBatch(no, true) });
   };
   return el('div', { class: 'card', id: 'smBatch' },

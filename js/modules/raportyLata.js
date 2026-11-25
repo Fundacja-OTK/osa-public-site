@@ -1,10 +1,10 @@
 // Widok „Lata” raportów sprzedaży — odpowiednik „Analizy OSA” z rozszerzenia (extension/content/reportsAnalysis.js), ale z danych D1:
 // kilka okresów (lat, sezonów albo tych samych dni w każdym roku) obok siebie. Ostatni okres = „bieżący”, przedostatni = „porównanie”.
 // Kolory jak w widoku „Okres”: bieżący = pełna brązowa linia, porównanie = przerywana niebieska, wcześniejsze = cienkie.
-import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=b64db56';
-import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=b64db56';
+import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=2a82ee9';
+import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=2a82ee9';
 
-import { lataPeriods, partialMonth, weekLabel, isoWeekStart, weekRangeText } from './raportyDaty.js?v=b64db56';
+import { lataPeriods, partialMonth, weekLabel, isoWeekStart, weekRangeText } from './raportyDaty.js?v=2a82ee9';
 export { lataPeriods, partialMonth };
 const nfCompact = new Intl.NumberFormat('pl-PL', { notation: 'compact', maximumFractionDigits: 1 });
 const pad = n => String(n).padStart(2, '0');

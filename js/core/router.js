@@ -139,7 +139,7 @@ function createRouter() {
     const seq = ++resolveSeq;
     if (lastHash !== null && location.hash !== lastHash) {
       const msg = guardMessage(location.hash);
-      if (msg && !confirm(msg)) { history.replaceState(null, '', lastHash); return; }
+      if (msg && !await (await import('./confirm.js?v=2a82ee9')).askConfirm(msg)) { if (seq === resolveSeq) history.replaceState(null, '', lastHash); return; }
     }
     const prevHash = lastHash, fromApp = appNav;
     appNav = false;

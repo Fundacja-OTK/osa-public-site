@@ -3,11 +3,12 @@
 //   shipCard() w zakładce Paczki: raport wysyłek SpeedMail → które zamówienia paczek SM wysłał, a które nie (sm:shipMatch, tylko numery) →
 //   na żądanie, po podglądzie i potwierdzeniu: numery przesyłek w Selly (orders:update tracking_code) i status (orders:setStatus).
 // Pliki czytane wyłącznie w przeglądarce; nie są nigdzie zapisywane. Nic nie dzieje się automatycznie.
-import { el, cnt, flash } from '../core/ui.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { S, SM, WRITE, STATUS_WRITE, nf, dmy, notice, tile, prodOf, fold, reload, runStatus, jobBusy, statusName } from './speedmailKit.js?v=b64db56';
-import * as L from './speedmailImportLogic.js?v=b64db56';
-import { runThrottled } from './klienciImportLogic.js?v=b64db56';
+import { el, cnt, flash } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { S, SM, WRITE, STATUS_WRITE, nf, dmy, notice, tile, prodOf, fold, reload, runStatus, jobBusy, statusName } from './speedmailKit.js?v=2a82ee9';
+import * as L from './speedmailImportLogic.js?v=2a82ee9';
+import { runThrottled } from './klienciImportLogic.js?v=2a82ee9';
 
 const ORD_WRITE = ['zamowienia'];               // jak reguła orders:update (shared/panelAuth.js)
 const TRACK_GAP_MS = 400;                       // przerwa między zapisami w Selly (limit API ~500/min)
@@ -154,7 +155,7 @@ function deliveryPreview(rows, v) {
 
 async function saveDelivery(rows, todo, print) {
   const sum = L.deliverySummary(todo);
-  if (!confirm('Zapisać ' + cnt(todo.length, 'dosyłkę', 'dosyłki', 'dosyłek') + ' w stanie SpeedMail?\n\n' + sum.products.map(p => p.name + ': +' + nf(p.qty) + ' ' + p.unit).join('\n') +
+  if (!await askConfirm('Zapisać ' + cnt(todo.length, 'dosyłkę', 'dosyłki', 'dosyłek') + ' w stanie SpeedMail?\n\n' + sum.products.map(p => p.name + ': +' + nf(p.qty) + ' ' + p.unit).join('\n') +
     (rows.length - todo.length ? '\n\nPominięte wiersze (nierozpoznane, błędne, puste, już zapisane): ' + (rows.length - todo.length) : ''))) return;
   D.saving = true; D.result = D.result || {}; rr();
   // porcje liczone z całego podglądu (stałe numery) — ponowienie nieudanej porcji ma ten sam opId, więc serwer nie zapisze jej drugi raz
@@ -283,14 +284,14 @@ function shipActions(an) {
       el('span', { class: 'muted small', id: 'smShipStPlan' }, R.target ? 'do zmiany: ' + stPlan.length + ' (pozostałe mają już ten status)' : '')),
     el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', id: 'smShipSt', write: STATUS_WRITE, disabled: !stPlan.length || jobBusy() || null,
       title: stPlan.length ? 'Zmienia w Selly status ' + stPlan.length + ' zamówień na „' + statusName(R.target) + '”' : 'Wybierz status — albo wszystkie wysłane zamówienia już go mają',
-      onclick: () => {
-        if (!confirm('Zmienić w Selly status ' + cnt(stPlan.length, 'zamówienia', 'zamówień', 'zamówień') + ' wysłanych przez SpeedMail na „' + statusName(R.target) + '”?\n\n' + stPlan.slice(0, 15).map(o => o.orderNumber).join(', ') + (stPlan.length > 15 ? '…' : ''))) return;
+      onclick: async () => {
+        if (!await askConfirm('Zmienić w Selly status ' + cnt(stPlan.length, 'zamówienia', 'zamówień', 'zamówień') + ' wysłanych przez SpeedMail na „' + statusName(R.target) + '”?\n\n' + stPlan.slice(0, 15).map(o => o.orderNumber).join(', ') + (stPlan.length > 15 ? '…' : ''))) return;
         runStatus({ ids: stPlan.map(o => o.orderId), target: R.target, title: 'Raport wysyłek SpeedMail', numOf: new Map(stPlan.map(o => [o.orderId, o.orderNumber])), then: () => checkShip(L.buildShipping(R.tab, R.map, SM.parseRef)) });
       } }, 'Zmień status w Selly' + (stPlan.length ? ' (' + stPlan.length + ')' : ''))));
 }
 
 async function runTracking(items) {
-  if (!confirm('Wpisać numer przesyłki w ' + cnt(items.length, 'zamówieniu', 'zamówieniach', 'zamówieniach') + ' w Selly?\n\n' + items.slice(0, 15).map(p => p.orderNumber + ': ' + (p.current ? p.current + ' → ' : '') + p.tracking).join('\n') + (items.length > 15 ? '\n…' : ''))) return;
+  if (!await askConfirm('Wpisać numer przesyłki w ' + cnt(items.length, 'zamówieniu', 'zamówieniach', 'zamówieniach') + ' w Selly?\n\n' + items.slice(0, 15).map(p => p.orderNumber + ': ' + (p.current ? p.current + ' → ' : '') + p.tracking).join('\n') + (items.length > 15 ? '\n…' : ''))) return;
   const job = R.trk = { running: true, items, n: 0, res: {} };
   rr();
   const r = await runThrottled(items, p => api('orders:update', { id: p.orderId, fields: { tracking_code: p.tracking }, opId: L.trackOpId(R.run, p.orderId + '-' + p.tracking) }), {

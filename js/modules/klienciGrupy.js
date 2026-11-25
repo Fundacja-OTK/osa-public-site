@@ -3,11 +3,12 @@
 // limit zamówień klienta (natywny ekran `klient-limit`: formularz klienta w Selly, tylko 4 pola limitu).
 // Przypisanie: Selly REST API (PUT /api/clients/{id}, pole group_id) przez clients:save. Tworzenie / nazwy / limity grup: API ich nie ma —
 // natywny ekran na sesji Selly użytkownika; edycja istniejącej grupy → „↗ Selly” (adres karty grupy nieopisany w docs/selly-screens).
-import { el, flash, loadingBox, sellyLink, cnt } from '../core/ui.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { sellyCall, createNative } from './sellyNative.js?v=b64db56';
-import { lazyFold } from './klienciExtra.js?v=b64db56';
-import { runThrottled, GROUP_GAP_MS } from './klienciImportLogic.js?v=b64db56';
+import { el, flash, loadingBox, sellyLink, cnt } from '../core/ui.js?v=2a82ee9';
+import { confirmDialog } from '../core/confirm.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { sellyCall, createNative } from './sellyNative.js?v=2a82ee9';
+import { lazyFold } from './klienciExtra.js?v=2a82ee9';
+import { runThrottled, GROUP_GAP_MS } from './klienciImportLogic.js?v=2a82ee9';
 
 const SCREEN = 'klienci-grupy';
 let sellyCache = null;   // { ms, groups } — nazwy grup z Selly (5 min), wspólne dla listy, karty i importu
@@ -46,14 +47,7 @@ export const groupName = (groups, id) => {
 
 /** Okno potwierdzenia (to samo zachowanie co w natywnych ekranach): Esc / Anuluj zamyka, onOk(close). */
 export function confirmModal(id, title, body, okLabel, onOk) {
-  const prev = document.activeElement;
-  const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
-  const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); if (prev && prev.focus) prev.focus(); };
-  const cancel = el('button', { type: 'button', class: 'secondary', id: id + 'Cancel', onclick: close }, 'Anuluj');
-  const ok = el('button', { type: 'button', class: 'primary', id: id + 'Ok', onclick: () => { ok.disabled = true; onOk(close); } }, okLabel);
-  const wrap = el('div', { class: 'nat-modal', id }, el('div', { class: 'nat-dialog card', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, el('h3', null, title), body, el('div', { class: 'nat-actions nat-dlg-actions' }, cancel, ok)));
-  document.addEventListener('keydown', onKey, true); document.body.append(wrap); cancel.focus();
-  return close;
+  return confirmDialog({ id, title, body, confirmLabel: okLabel, focus: 'cancel', onConfirm: ({ close }) => onOk(close) }).close;
 }
 
 // ─── Masowe przypisanie do grupy ────────────────────────────────────────────

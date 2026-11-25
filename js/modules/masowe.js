@@ -2,9 +2,10 @@
 // Przebieg: 1) wybór produktów (filtry albo zaznaczenie) → 2) co zmienić → 3) OBOWIĄZKOWY podgląd „przed → po” → potwierdzenie z liczbą →
 // 4) wykonanie partiami z paskiem postępu (wstrzymaj / zatrzymaj, błędy per produkt) → 5) podsumowanie i „Cofnij” (do 7 dni).
 // Backend: akcje bulk:* (Worker, token READWRITE, tempo ≤ 120 zapisów/min do Selly).
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=b64db56';
-import { api, ctx } from '../core/client.js?v=b64db56';
-import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=b64db56';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=2a82ee9';
+import { confirmDialog } from '../core/confirm.js?v=2a82ee9';
+import { api, ctx } from '../core/client.js?v=2a82ee9';
+import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=2a82ee9';
 
 const BULK_W = ['zmiana-cen', 'zmiana-danych', 'zmiana-kategorii'];   // jak reguła serwera (bulk:*): dowolna z trzech sekcji
 const zl = v => money(v) + ' zł';
@@ -209,16 +210,7 @@ export function createMode(modeKey) {
 
   // ─── Potwierdzenia ───────────────────────────────────────────────────────
   function dialog({ id, title, body, ok, okClass, onOk }) {
-    const prevFocus = document.activeElement;
-    const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); if (prevFocus && prevFocus.focus) prevFocus.focus(); };
-    const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
-    const cancel = el('button', { type: 'button', class: 'secondary', id: id + 'Cancel', onclick: close }, 'Anuluj');
-    const wrap = el('div', { class: 'bm-modal', id }, el('div', { class: 'bm-dialog card', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
-      el('h3', null, title), body, el('div', { class: 'bm-row bm-dlg-actions' }, cancel, el('button', { type: 'button', class: okClass || 'primary', id: id + 'Ok', onclick: () => { close(); onOk(); } }, ok))));
-    document.addEventListener('keydown', onKey, true);
-    document.body.append(wrap);
-    cancel.focus();
-    return close;
+    return confirmDialog({ id, title, body, confirmLabel: ok, danger: /danger/.test(okClass || ''), focus: 'cancel' }).then(yes => { if (yes) onOk(); });
   }
 
   const reqPer = () => S.meta.reqPerItem || 1;

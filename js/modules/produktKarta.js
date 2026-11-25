@@ -1,15 +1,16 @@
 // Karta produktu (#/produkty/<id>) i dodawanie produktu (#/produkty/nowy): zakładki, pasek zapisu ze strażnikiem wyjścia, walidacja pól.
 // Zapis: products:update (pola) + products:setMeta / setFeatures / setCategories; zdjęcia, warianty i stany magazynowe zapisują się od razu (osobne przyciski).
-import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=b64db56';
-import { api, ctx } from '../core/client.js?v=b64db56';
-import { cachedRead } from '../core/cache.js?v=b64db56';
-import { go, addLeaveGuard } from '../core/router.js?v=b64db56';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=b64db56';
-import { noteVisit } from '../core/recents.js?v=b64db56';
-import { isTyping, addKeyTip } from '../core/shortcuts.js?v=b64db56';
-import { previewModal, shownValue } from './produktPodglad.js?v=b64db56';
-import { variantsPanel } from './produktWarianty.js?v=b64db56';
-import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=b64db56';
+import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api, ctx } from '../core/client.js?v=2a82ee9';
+import { cachedRead } from '../core/cache.js?v=2a82ee9';
+import { go, addLeaveGuard } from '../core/router.js?v=2a82ee9';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=2a82ee9';
+import { noteVisit } from '../core/recents.js?v=2a82ee9';
+import { isTyping, addKeyTip } from '../core/shortcuts.js?v=2a82ee9';
+import { previewModal, shownValue } from './produktPodglad.js?v=2a82ee9';
+import { variantsPanel } from './produktWarianty.js?v=2a82ee9';
+import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=2a82ee9';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
@@ -37,7 +38,7 @@ addLeaveGuard(() => (cur && cur.dirty() ? 'W karcie produktu są niezapisane zmi
 if (typeof window !== 'undefined') window.addEventListener('beforeunload', ev => { if (cur && cur.dirty()) { ev.preventDefault(); ev.returnValue = ''; } });
 // Skrót S (albo Ctrl+S) zapisuje kartę — poza polami tekstowymi; Esc wraca do listy (skróty listy: core/listKeys.js, przycisk #prodBack)
 if (typeof document !== 'undefined') document.addEventListener('keydown', ev => {
-  if (!cur || !cur.save || ev.defaultPrevented || ev.altKey || document.querySelector('.pk-modal')) return;
+  if (!cur || !cur.save || ev.defaultPrevented || ev.altKey || document.querySelector('.cf-overlay')) return;
   const k = String(ev.key).toLowerCase();
   const ctrl = (ev.ctrlKey || ev.metaKey) && k === 's';
   const plain = k === 's' && !ev.ctrlKey && !ev.metaKey && !isTyping(ev.target) && !document.querySelector('.pal-overlay');
@@ -319,7 +320,7 @@ export async function renderProductCard(box, id, o) {
           el('button', { type: 'button', class: 'secondary small', write: 'produkty', disabled: i === 0, title: i === 0 ? 'To zdjęcie jest już pierwsze' : 'Przesuń zdjęcie wcześniej w galerii', 'aria-label': 'Przesuń zdjęcie ' + (i + 1) + ' wcześniej', onclick: () => move(i, -1) }, '◀'),
           el('button', { type: 'button', class: 'secondary small', write: 'produkty', disabled: i === list.length - 1, title: i === list.length - 1 ? 'To zdjęcie jest ostatnie' : 'Przesuń zdjęcie później w galerii', 'aria-label': 'Przesuń zdjęcie ' + (i + 1) + ' później', onclick: () => move(i, 1) }, '▶'),
           el('button', { type: 'button', class: 'secondary small', write: 'produkty', disabled: i === mainIdx, title: i === mainIdx ? 'To zdjęcie jest już główne' : 'Ustaw jako zdjęcie główne produktu', onclick: () => act(async () => { await api('products:update', { id, fields: { photo_nr: i + 1 } }); p.photo_nr = i + 1; }, 'Zdjęcie główne zmienione') }, '★ Główne'),
-          el('button', { type: 'button', class: 'secondary small danger', write: 'produkty', title: 'Usuwa to zdjęcie z produktu w Selly (zapytamy o potwierdzenie)', onclick: () => { if (confirm('Usunąć to zdjęcie z produktu w Selly?')) act(() => api('products:photoDelete', { id, photoId: ph.photo_id }), 'Zdjęcie usunięte'); } }, 'Usuń')));
+          el('button', { type: 'button', class: 'secondary small danger', write: 'produkty', title: 'Usuwa to zdjęcie z produktu w Selly (zapytamy o potwierdzenie)', onclick: async () => { if (await askConfirm('Usunąć to zdjęcie z produktu w Selly?', { danger: true })) act(() => api('products:photoDelete', { id, photoId: ph.photo_id }), 'Zdjęcie usunięte'); } }, 'Usuń')));
     });
     const fileIn = el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp,image/gif', multiple: true, id: 'prodPhotoFile', 'aria-label': 'Wybierz zdjęcia z dysku' });
     const urlIn = el('input', { type: 'url', id: 'prodPhotoUrl', placeholder: 'https://… adres zdjęcia', 'aria-label': 'Adres zdjęcia w internecie', title: 'Selly pobierze zdjęcie z podanego adresu' });

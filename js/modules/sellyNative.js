@@ -3,12 +3,13 @@
 // czyta je i zwraca strukturę (sekrety zamaskowane po stronie serwera); zapis tylko z allowlisty pól, zawsze przez podgląd zmian (dryRun)
 // i potwierdzenie (docs/selly-embed.md, docs/auth.md). „Tylko do podglądu” = flaga `readOnly` z odpowiedzi serwera (jedna, z silnika).
 // Strony ustawień (jedna strona-formularz) obsługuje modules/sellyNativeSettings.js.
-import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { sellyUrl } from './_placeholder.js?v=b64db56';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=b64db56';
-import { addLeaveGuard } from '../core/router.js?v=b64db56';
-import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=b64db56';
+import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=2a82ee9';
+import { confirmDialog, askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { sellyUrl } from './_placeholder.js?v=2a82ee9';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=2a82ee9';
+import { addLeaveGuard } from '../core/router.js?v=2a82ee9';
+import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=2a82ee9';
 
 /** Żądanie do Workera: native:read / native:save / native:create → { ok, data } albo { ok:false, code, error } (nigdy nie rzuca). */
 export function sellyCall(req) {
@@ -61,8 +62,8 @@ export function createNative(cfg) {
   const isDirty = () => !!(root && dirty && dirty());
   addLeaveGuard(() => (isDirty() ? LEAVE : null));
   if (typeof window !== 'undefined') window.addEventListener('beforeunload', ev => { if (isDirty()) { ev.preventDefault(); ev.returnValue = ''; } });
-  const mayLeave = () => !isDirty() || confirm(LEAVE);
-  const backToList = () => { if (mayLeave()) { dirty = null; showList(); } };
+  const mayLeave = async () => !isDirty() || await askConfirm(LEAVE);
+  const backToList = async () => { if (await mayLeave()) { dirty = null; showList(); } };
   /** Komunikat nad kartą bez przerysowania formularza (wpisana treść zostaje w edytorze). */
   const showMsg = node => { if (!root) return; const old = root.querySelector('#natMsg'); if (old) old.remove(); const t = root.querySelector('.page-toolbar'); if (t) t.after(node); else root.prepend(node); };
 
@@ -224,8 +225,8 @@ export function createNative(cfg) {
     };
     ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refresh, 200); });
     refresh();
-    const reset = el('button', { type: 'button', class: 'secondary small', id: 'natReset_' + f.name, title: 'Wstawia z powrotem treść z chwili otwarcia karty (Twoje zmiany w treści znikną)', onclick: () => {
-      if (nl(ta.value) !== nl(f.value) && !confirm('Przywrócić treść z Selly? Twoje zmiany w treści znikną.')) return;
+    const reset = el('button', { type: 'button', class: 'secondary small', id: 'natReset_' + f.name, title: 'Wstawia z powrotem treść z chwili otwarcia karty (Twoje zmiany w treści znikną)', onclick: async () => {
+      if (nl(ta.value) !== nl(f.value) && !await askConfirm('Przywrócić treść z Selly? Twoje zmiany w treści znikną.')) return;
       ta.value = f.value; refresh(); onChange();
     } }, isNew ? 'Wyczyść' : 'Przywróć treść z Selly');
     return el('details', { class: 'nat-opts nat-content', id: 'natContent_' + f.name, open: isNew || null },
@@ -304,14 +305,7 @@ export function createNative(cfg) {
   }
 
   function modal(title, body, okLabel, onOk) {
-    const prev = document.activeElement;
-    const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); if (prev && prev.focus) prev.focus(); };
-    const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
-    const cancel = el('button', { type: 'button', class: 'secondary', id: 'natConfirmCancel', onclick: close }, 'Anuluj');
-    const ok = el('button', { type: 'button', class: 'primary', id: 'natConfirmOk', onclick: () => { ok.disabled = true; onOk(close); } }, okLabel);
-    const wrap = el('div', { class: 'nat-modal', id: 'natConfirm' }, el('div', { class: 'nat-dialog card', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, el('h3', null, title), body, el('div', { class: 'nat-actions nat-dlg-actions' }, cancel, ok)));
-    document.addEventListener('keydown', onKey, true); document.body.append(wrap); cancel.focus();
-    return close;
+    return confirmDialog({ id: 'natConfirm', title, body, confirmLabel: okLabel, focus: 'cancel', onConfirm: ({ close }) => onOk(close) }).close;
   }
   const diffTable = (diff, head) => el('table', { id: 'natDiff' }, el('thead', null, el('tr', null, el('th', null, 'Pole'), head.map(h => el('th', null, h)))),
     el('tbody', null, diff.map(x => el('tr', null, el('td', null, (cfg.labels && cfg.labels[x.name]) || x.label),
@@ -339,7 +333,7 @@ export function createNative(cfg) {
     const fail = (node) => hasContent ? showMsg(node) : paintRecord(id, node);
     const conflictBox = msg => el('div', { class: 'card nat-err', id: 'natMsg' }, el('p', null, msg),
       el('p', { class: 'muted' }, 'Twoje zmiany są nadal w formularzu — skopiuj treść, jeśli chcesz ją zachować, a potem pobierz aktualną wersję z Selly.'),
-      el('div', { class: 'nat-actions' }, el('button', { type: 'button', class: 'secondary', id: 'natReload', title: 'Pobiera kartę z Selly od nowa (niezapisane zmiany znikną)', onclick: () => { if (mayLeave()) { dirty = null; showRecord(id); } } }, 'Pobierz aktualną wersję')));
+      el('div', { class: 'nat-actions' }, el('button', { type: 'button', class: 'secondary', id: 'natReload', title: 'Pobiera kartę z Selly od nowa (niezapisane zmiany znikną)', onclick: async () => { if (await mayLeave()) { dirty = null; showRecord(id); } } }, 'Pobierz aktualną wersję')));
     const errBox = (r, pre) => r.code === 'conflict' && hasContent ? conflictBox(r.error) : el('div', { class: 'card nat-err', id: 'natMsg' }, (r.code === 'conflict' || pre ? '' : 'Zapis nie powiódł się: ') + (r.error || (pre ? 'Nie udało się przygotować zapisu' : 'błąd')));
     const pre = await sellyCall({ op: 'save', screen: cfg.screen, id, changes, expect, dryRun: true });
     if (!root) return;

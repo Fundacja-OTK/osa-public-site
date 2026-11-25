@@ -2,10 +2,11 @@
 // klient (wyszukaj istniejącego albo wpisz dane) → produkty (wyszukiwarka, ilość, cena z katalogu, rabat %) → dostawa i płatność → podsumowanie → zapis.
 // Backend: orders:create (POST /api/orders w Selly, shared/failover.js), słowniki z orders:meta, wyszukiwarki clients:list / products:list,
 // dane klienta clients:get, opcjonalnie clients:create (konto klienta). Moduł montuje zamowienia.js dla trasy „nowe”.
-import { el, gateWrite, flash, money, debounce, loadingBox, pageToolbar, cnt } from '../core/ui.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { go, addLeaveGuard } from '../core/router.js?v=b64db56';
-import { num, r2, fmtIn, discounted, totals, validate, payload, clientToForm } from './zamowienieNoweLogika.js?v=b64db56';
+import { el, gateWrite, flash, money, debounce, loadingBox, pageToolbar, cnt } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { go, addLeaveGuard } from '../core/router.js?v=2a82ee9';
+import { num, r2, fmtIn, discounted, totals, validate, payload, clientToForm } from './zamowienieNoweLogika.js?v=2a82ee9';
 
 // ─── Widok ───────────────────────────────────────────────────────────────────
 
@@ -309,7 +310,7 @@ function buildForm(meta) {
   const root = el('div', { class: 'on-wrap' },
     el('div', { class: 'card' }, pageToolbar({ title: 'Nowe zamówienie', sub: 'Dodaj zamówienie ręcznie: klient, produkty, dostawa i płatność. Pola z * są wymagane.',
       actions: [el('a', { href: '#/zamowienia', class: 'btn-link', id: 'onBack', title: 'Wróć do listy zamówień (niezapisany formularz — z pytaniem)' }, '← Lista zamówień'),
-        el('button', { type: 'button', class: 'secondary', id: 'onReset', title: 'Wyczyść formularz i zacznij od nowa', onclick: () => { if (!V.dirty || confirm('Wyczyścić formularz?')) reset(); } }, 'Wyczyść')] })),
+        el('button', { type: 'button', class: 'secondary', id: 'onReset', title: 'Wyczyść formularz i zacznij od nowa', onclick: async () => { if (!V.dirty || await askConfirm('Wyczyścić formularz?')) reset(); } }, 'Wyczyść')] })),
     secClient, secItems, secShip, adv,
     el('section', { class: 'card on-sec', id: 'onSecSum' }, el('h3', null, el('span', { class: 'on-step' }, '4'), 'Podsumowanie'), sumBox, errBox, actBox));
   syncInvoice(); renderItems();

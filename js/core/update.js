@@ -1,7 +1,7 @@
 // „Jest nowa wersja panelu”: co 10 min pobiera config.js (generowany przy każdym wdrożeniu, zawiera version)
 // i porównuje z wersją załadowaną w tej karcie. Pasek jest dyskretny; „Odśwież” respektuje strażnika wyjścia routera
 // (niezapisane zmiany w karcie → pytanie o potwierdzenie), żeby nie zgubić edycji.
-import { el } from './ui.js?v=b64db56';
+import { el } from './ui.js?v=2a82ee9';
 
 export const POLL_MS = 10 * 60 * 1000;
 
@@ -39,7 +39,7 @@ export function showNewVersion({ canLeave, reload }) {
   if (document.getElementById('newVer')) return;
   const bar = el('div', { id: 'newVer', class: 'newver', role: 'status' },
     el('span', null, 'Jest nowa wersja panelu.'),
-    el('button', { type: 'button', class: 'primary small', id: 'newVerReload', title: 'Wczytuje nową wersję. Jeśli masz niezapisane zmiany, najpierw zapytamy.', onclick: () => { if (canLeave()) reload(); } }, 'Odśwież'),
+    el('button', { type: 'button', class: 'primary small', id: 'newVerReload', title: 'Wczytuje nową wersję. Jeśli masz niezapisane zmiany, najpierw zapytamy.', onclick: async () => { if (await canLeave()) reload(); } }, 'Odśwież'),
     el('button', { type: 'button', class: 'secondary small', id: 'newVerLater', title: 'Ukrywa ten komunikat do czasu odświeżenia strony', onclick: () => bar.remove() }, 'Później'));
   document.body.append(bar);
 }

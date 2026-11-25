@@ -3,10 +3,11 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=b64db56';
-import { listView } from '../core/listView.js?v=b64db56';
-import { api, ctx } from '../core/client.js?v=b64db56';
-import { registerListKeys } from '../core/listKeys.js?v=b64db56';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { listView } from '../core/listView.js?v=2a82ee9';
+import { api, ctx } from '../core/client.js?v=2a82ee9';
+import { registerListKeys } from '../core/listKeys.js?v=2a82ee9';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -749,7 +750,7 @@ async function startInspect(r) {
       el('button', { type: 'button', class: 'primary', id: 'shipInspApprove', disabled: !d.saved || !!d.missing.length,
         title: 'Włącza w panelu „Utwórz przesyłkę” dla ' + name + ' według zapisanej budowy (po sprawdzeniu z właścicielem). Tworzenie przesyłki jest płatne.',
         onclick: async ev => {
-          if (!confirm('Zatwierdzić formularz ' + name + '? Panel zacznie tworzyć przesyłki tego przewoźnika (płatne) według zapisanej budowy.')) return;
+          if (!await askConfirm('Zatwierdzić formularz ' + name + '? Panel zacznie tworzyć przesyłki tego przewoźnika (płatne) według zapisanej budowy.')) return;
           ev.target.disabled = true;
           try { await api('shipping:inspectApprove', { carrier: key, approve: true }); status.replaceChildren(el('div', { class: 'notice info' }, 'Zatwierdzono — „Utwórz przesyłkę” jest włączone.')); S.meta = null; await ensureMeta(); renderQueue(); }
           catch (e) { status.replaceChildren(el('div', { class: 'notice error' }, e.message || 'Nie zatwierdzono.')); ev.target.disabled = false; }

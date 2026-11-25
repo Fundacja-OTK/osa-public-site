@@ -1,20 +1,15 @@
 // Przełącznik „Blokada zamówień” w karcie klienta: stan i zapis przez natywny ekran `klient-blokada` (sesja Selly zalogowanego użytkownika;
 // formularz klienta w Selly, zmieniane tylko pole blokada_zamawiania). Zapis: podgląd zmian (dryRun) → potwierdzenie → zapis → weryfikacja.
 // Gdy odczyt się nie uda (brak uprawnień, serwer niedostępny) zostaje zwykły link do karty w Selly.
-import { el, sellyLink, flash } from '../core/ui.js?v=b64db56';
-import { sellyCall } from './sellyNative.js?v=b64db56';
+import { el, sellyLink, flash } from '../core/ui.js?v=2a82ee9';
+import { confirmDialog } from '../core/confirm.js?v=2a82ee9';
+import { sellyCall } from './sellyNative.js?v=2a82ee9';
 
 const SCREEN = 'klient-blokada', FIELD = 'blokada_zamawiania';
 const isOn = v => v !== '' && v != null && v !== '0';
 
 function modal(title, body, okLabel, onOk) {
-  const prev = document.activeElement;
-  const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
-  const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); if (prev && prev.focus) prev.focus(); };
-  const cancel = el('button', { type: 'button', class: 'secondary', id: 'cliBlockCancel', onclick: close }, 'Anuluj');
-  const ok = el('button', { type: 'button', class: 'primary', id: 'cliBlockOk', onclick: () => { ok.disabled = true; onOk(close); } }, okLabel);
-  const wrap = el('div', { class: 'nat-modal', id: 'cliBlockConfirm' }, el('div', { class: 'nat-dialog card', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, el('h3', null, title), body, el('div', { class: 'nat-actions nat-dlg-actions' }, cancel, ok)));
-  document.addEventListener('keydown', onKey, true); document.body.append(wrap); cancel.focus();
+  return confirmDialog({ id: 'cliBlockConfirm', title, body, confirmLabel: okLabel, focus: 'cancel', onConfirm: ({ close }) => onOk(close) }).close;
 }
 
 /** host: element do wypełnienia; fallbackLink: link do karty w Selly (zostaje, gdy odczyt się nie uda). */

@@ -1,12 +1,13 @@
 // Moduł „Dropshipping”: paczki dropshipping i produkty w paczkach (Selly REST API /api/dropshipping/packages…).
 // Lista paczek (filtr dat utworzenia, status, sortowanie, strony) → karta paczki (edycja danych, zmiana statusu, produkty: dodawanie,
 // zmiana ilości i magazynu, usuwanie) → nowa paczka (#/dropshipping/nowa). Backend: dropshipping:* (Worker, token READWRITE do zapisów).
-import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, norm, statusPill, field, dateInput } from '../core/ui.js?v=b64db56';
-import { listView } from '../core/listView.js?v=b64db56';
-import { sortRows } from '../core/listLogic.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { go } from '../core/router.js?v=b64db56';
-import { registerListKeys } from '../core/listKeys.js?v=b64db56';
+import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, norm, statusPill, field, dateInput } from '../core/ui.js?v=2a82ee9';
+import { confirmDialog as coreConfirm } from '../core/confirm.js?v=2a82ee9';
+import { listView } from '../core/listView.js?v=2a82ee9';
+import { sortRows } from '../core/listLogic.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { go } from '../core/router.js?v=2a82ee9';
+import { registerListKeys } from '../core/listKeys.js?v=2a82ee9';
 
 const STATUS = {
   '-1': { label: 'skasowana', tone: 'bad', tip: 'Paczka skasowana / ignorowana — nie jest brana pod uwagę.' },
@@ -101,14 +102,7 @@ function packageForm(pk, isNew) {
 }
 
 function confirmDialog({ id, title, text, ok, onOk }) {
-  const prev = document.activeElement;
-  const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); if (prev && prev.focus) prev.focus(); };
-  const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
-  const cancel = el('button', { type: 'button', class: 'secondary', id: id + 'Cancel', onclick: close }, 'Anuluj');
-  const wrap = el('div', { class: 'bm-modal', id }, el('div', { class: 'bm-dialog card', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
-    el('h3', null, title), el('p', null, text), el('div', { class: 'bm-row' }, cancel, el('button', { type: 'button', class: 'danger', id: id + 'Ok', onclick: () => { close(); onOk(); } }, ok))));
-  document.addEventListener('keydown', onKey, true);
-  document.body.append(wrap); cancel.focus();
+  return coreConfirm({ id, title, body: text, confirmLabel: ok, danger: true, focus: 'cancel' }).then(yes => { if (yes) onOk(); });
 }
 
 function paintCard() {

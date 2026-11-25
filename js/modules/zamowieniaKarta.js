@@ -1,8 +1,9 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=b64db56';
-import { api, ctx } from '../core/client.js?v=b64db56';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=b64db56';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api, ctx } from '../core/client.js?v=2a82ee9';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=2a82ee9';
 const gw = e => gateWrite(e, 'zamowienia');   // bez prawa zmian w sekcji: wyszarzone z podpowiedzią (core/ui.js)
 
 const EDIT_KEY = 'osa-ord-edit';
@@ -197,13 +198,13 @@ function section(C, cfg) {
     }));
     actions = el('div', { class: 'ord-actions' }, cancel, saveBtn);
     // Klawiatura jak w formularzu: Enter w polu = „Zapisz…” (podgląd zmian, nic jeszcze nie trafia do Selly); Esc = „Anuluj” (gdy są zmiany — pytamy „Odrzucić zmiany?”)
-    form.addEventListener('keydown', ev => {
+    form.addEventListener('keydown', async ev => {
       const t = ev.target;
       if (ev.defaultPrevented) return;
       if (ev.key === 'Enter' && ctls.some(c => c.ctl === t) && t.matches('input:not([type=checkbox]):not([type=radio])') && !ev.isComposing) { ev.preventDefault(); if (!saveBtn.disabled) showPreview(); }
       else if (ev.key === 'Escape' && !C.editDefault) {
         ev.preventDefault();
-        if (!ctls.some(c => c.changed()) || confirm('Odrzucić zmiany?\n\nZmienione pola w sekcji „' + cfg.title + '” nie zostaną zapisane.')) setEditing(false);
+        if (!ctls.some(c => c.changed()) || await askConfirm('Odrzucić zmiany?\n\nZmienione pola w sekcji „' + cfg.title + '” nie zostaną zapisane.')) setEditing(false);
       }
     });
     host.replaceChildren(head(flag), errBox, form, actions, pv);
@@ -617,8 +618,8 @@ export function buildOrderCard(deps) {
 
   // przełącznik „Domyślnie w trybie edycji”
   const toggle = el('label', { class: 'osa-chk ord-editdef', title: 'Po włączeniu wszystkie sekcje karty zamówienia od razu otwierają się do edycji (zapamiętane w tej przeglądarce). Domyślnie widzisz podgląd z przyciskami „Edytuj”.' },
-    el('input', { type: 'checkbox', id: 'ordEditDefault', checked: C.editDefault, onchange: ev => {
-      if (C.dirty() && !confirm('W karcie są niezapisane zmiany — przełączenie trybu je odrzuci. Kontynuować?')) { ev.target.checked = !ev.target.checked; return; }
+    el('input', { type: 'checkbox', id: 'ordEditDefault', checked: C.editDefault, onchange: async ev => {
+      if (C.dirty() && !await askConfirm('W karcie są niezapisane zmiany — przełączenie trybu je odrzuci. Kontynuować?')) { ev.target.checked = !ev.target.checked; return; }
       C.editDefault = ev.target.checked; store(EDIT_KEY, C.editDefault);
       for (const s of C.secs) s.setEditing && s.setEditing(C.editDefault);
     } }), ' Domyślnie w trybie edycji');

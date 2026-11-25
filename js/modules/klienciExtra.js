@@ -1,8 +1,9 @@
 // Klienci — sekcje karty ładowane na żądanie (adresy dodatkowe, ceny indywidualne, program partnerski, subkonta, rozwiązania „tylko w Selly”)
 // (ekran „Grupy klientów”, zmiana grupy i limit zamówień: klienciGrupy.js). Sekcje pobierają dane dopiero po rozwinięciu (oszczędność limitu Selly).
-import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=b64db56';
-import { api } from '../core/client.js?v=b64db56';
-import { nipError, postcodeError } from './klienciForm.js?v=b64db56';
+import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=2a82ee9';
+import { askConfirm } from '../core/confirm.js?v=2a82ee9';
+import { api } from '../core/client.js?v=2a82ee9';
+import { nipError, postcodeError } from './klienciForm.js?v=2a82ee9';
 
 const errBox = (host, e) => host.replaceChildren(el('div', { class: 'notice error' }, (e && e.message) || 'Nie udało się pobrać danych.'));
 
@@ -50,7 +51,7 @@ export function addressesFold(id, sellyUrl) {
         el('td', { class: 'nw' }, addrId(a) == null ? el('span', { class: 'muted small', title: 'Selly nie podało numeru adresu — edytuj w panelu Selly' }, '—') : [
           el('button', { type: 'button', class: 'ghost', write: 'klienci', title: 'Edytuj ten adres', onclick: () => openForm(a) }, 'Edytuj'), ' ',
           el('button', { type: 'button', class: 'ghost', write: 'klienci', title: 'Usuń ten adres z konta klienta', onclick: async () => {
-            if (!confirm('Usunąć ten adres klienta?')) return;
+            if (!await askConfirm('Usunąć ten adres klienta?', { danger: true })) return;
             try { await api('clients:addressDelete', { id, addressId: addrId(a) }); flash('', 'Adres usunięty'); reload(); } catch (e) { flash('', e.message || 'Nie udało się usunąć'); }
           } }, 'Usuń')]))))))
       : el('div', { class: 'empty' }, 'Klient nie ma dodatkowych adresów.');
@@ -79,7 +80,7 @@ export function pricesFold(id, sellyUrl) {
           el('td', { class: 'n nw' }, p.catalogPrice == null ? '—' : money(p.catalogPrice)), el('td', { class: 'n nw' }, inp),
           el('td', { class: 'nw' }, el('button', { type: 'button', class: 'secondary', write: 'klienci', title: 'Zapisz zmienioną cenę w Selly', onclick: () => savePrice(p.productId, inp.value, true) }, 'Zapisz'), ' ',
             el('button', { type: 'button', class: 'ghost', write: 'klienci', title: 'Usuń cenę indywidualną — klient wróci do ceny katalogowej', onclick: async () => {
-              if (!confirm('Usunąć cenę indywidualną tego produktu?')) return;
+              if (!await askConfirm('Usunąć cenę indywidualną tego produktu?', { danger: true })) return;
               try { await api('clients:priceDelete', { id, productId: p.productId }); flash('', 'Cena usunięta'); reload(); } catch (e) { flash('', e.message || 'Nie udało się usunąć'); }
             } }, 'Usuń')));
       }))))
@@ -129,7 +130,7 @@ export function affiliateFold(id) {
       comm.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'cliAffTable' }, el('thead', null, el('tr', null, ['Data', 'Zamówienie (ID)', 'Poziom', 'Prowizja', ''].map(h => el('th', null, h)))),
         el('tbody', null, comm.map(x => el('tr', null, el('td', { class: 'nw' }, String(x.created_at || '').slice(0, 10)), el('td', null, String(x.order_id || '')), el('td', null, String(x.level || '')), el('td', { class: 'n' }, money(x.commission)),
           el('td', null, x.commission_id == null ? '' : el('button', { type: 'button', class: 'ghost', write: 'klienci', onclick: async () => {
-            if (!confirm('Usunąć tę prowizję?')) return;
+            if (!await askConfirm('Usunąć tę prowizję?', { danger: true })) return;
             try { await api('clients:affiliateDelete', { id, commissionId: x.commission_id }); flash('', 'Prowizja usunięta'); reload(); } catch (e) { flash('', e.message || 'Nie udało się usunąć'); }
           } }, 'Usuń'))))))) : el('p', { class: 'muted' }, 'Brak prowizji.'),
       el('details', { class: 'fold-inline' }, el('summary', { title: 'Zaawansowane: ręczne dodanie prowizji (doładowanie) klientowi' }, 'Dodaj prowizję ręcznie'),

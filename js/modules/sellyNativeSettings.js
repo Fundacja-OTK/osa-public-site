@@ -2,9 +2,10 @@
 // edycja tylko pól dozwolonych (allowlista w extension/lib/sellyNative.js), podgląd zmian (było → będzie) i potwierdzenie przed zapisem.
 // Pola poufne (hasła, klucze, SMTP…) Worker maskuje po stronie serwera — tu widać tylko „••• (ustawione)” / „(puste)”, bez edycji.
 // Użycie: createSettings({ id, title, screen, a, intro? }) → moduł panelu (mount / unmount), tak jak createNative.
-import { el, loadingBox } from '../core/ui.js?v=b64db56';
-import { sellyCall } from './sellyNative.js?v=b64db56';
-import { sellyUrl } from './_placeholder.js?v=b64db56';
+import { el, loadingBox } from '../core/ui.js?v=2a82ee9';
+import { confirmDialog } from '../core/confirm.js?v=2a82ee9';
+import { sellyCall } from './sellyNative.js?v=2a82ee9';
+import { sellyUrl } from './_placeholder.js?v=2a82ee9';
 
 /** cfg: { id, title, screen (klucz w SCREENS), a (trasa strony w Selly), intro? (krótki opis ekranu) } */
 export function createSettings(cfg) {
@@ -94,13 +95,7 @@ export function createSettings(cfg) {
   }
 
   function modal(title, body, okLabel, onOk) {
-    const prev = document.activeElement;
-    const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); if (prev && prev.focus) prev.focus(); };
-    const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
-    const cancel = el('button', { type: 'button', class: 'secondary', id: 'cfgConfirmCancel', onclick: close }, 'Anuluj');
-    const ok = el('button', { type: 'button', class: 'primary', id: 'cfgConfirmOk', onclick: () => { ok.disabled = true; onOk(close); } }, okLabel);
-    const wrap = el('div', { class: 'nat-modal', id: 'cfgConfirm' }, el('div', { class: 'nat-dialog card', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, el('h3', null, title), body, el('div', { class: 'nat-actions nat-dlg-actions' }, cancel, ok)));
-    document.addEventListener('keydown', onKey, true); document.body.append(wrap); cancel.focus();
+    return confirmDialog({ id: 'cfgConfirm', title, body, confirmLabel: okLabel, focus: 'cancel', onConfirm: ({ close }) => onOk(close) }).close;
   }
 
   const msg = (text, cls) => el('div', { class: 'card ' + (cls || ''), id: 'cfgMsg' }, text);
