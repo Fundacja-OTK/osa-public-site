@@ -3,10 +3,10 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=82b7f36';
-import { api, ctx } from '../core/client.js?v=82b7f36';
-import { go } from '../core/router.js?v=82b7f36';
-import { registerListKeys } from '../core/listKeys.js?v=82b7f36';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone, selOffNote } from '../core/ui.js?v=c5d5baa';
+import { api, ctx } from '../core/client.js?v=c5d5baa';
+import { go } from '../core/router.js?v=c5d5baa';
+import { registerListKeys } from '../core/listKeys.js?v=c5d5baa';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -244,6 +244,7 @@ const activeFilters = Q => ['status', 'from', 'to', 'vmin', 'vmax', 'deliv', 'lo
 
 /** Zmiana filtrów / strony: nowy adres (replace — bez wpisu w historii, np. pisanie w wyszukiwarce). */
 function setQ(patch, replace) {
+  S.only = false;   // zmiana filtrów / strony kończy widok „tylko zaznaczone”
   const n = Object.assign({}, S.Q, patch);
   if (!('page' in patch)) n.page = 1;
   const h = '/przesylki/' + S.view + qsOf(n);
@@ -456,10 +457,11 @@ function renderQueue() {
     u.pagerTop.replaceChildren(); u.pagerBot.replaceChildren();
     renderBar(); return;
   }
-  const rows = S.rows, isIn = key === 'inpost', cols = columns(key);
+  if (S.only && !S.sel.size) S.only = false;
+  const rows = S.only ? [...S.sel.values()] : S.rows, isIn = key === 'inpost', cols = columns(key);   // „Pokaż zaznaczone” — wszystkie zaznaczone, bez stron
   const head = el('tr', null,
     el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'shipSelAll', 'aria-label': 'Zaznacz wszystkie na tej stronie', title: 'Zaznacz lub odznacz wszystkie zamówienia na tej stronie. Zaznaczenie z innych stron zostaje.',
-      onchange: ev => { for (const r of S.rows) { if (ev.target.checked) S.sel.set(String(r.id), r); else S.sel.delete(String(r.id)); } syncSel(); } })),
+      onchange: ev => { for (const r of rows) { if (ev.target.checked) S.sel.set(String(r.id), r); else S.sel.delete(String(r.id)); } syncSel(); } })),
     cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
   const body = el('tbody');
   for (const r of rows) {
@@ -484,12 +486,14 @@ function renderQueue() {
       el('td', { class: 'ship-act' }, rowActions(key, r))));
   }
   if (!rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length + 1), class: 'empty' }, emptyText())));
-  u.results.replaceChildren(el('div', { class: 'table-wrap' }, el('table', { id: 'shipTable', class: 'ship-table' }, el('thead', null, head), body)));
+  u.results.replaceChildren(S.only ? el('div', { class: 'notice info', id: 'shipOnlySel', role: 'status' }, 'Pokazuję tylko zaznaczone (' + rows.length + ') — ze wszystkich stron. ',
+    el('button', { type: 'button', class: 'link', onclick: () => { S.only = false; renderQueue(); } }, 'Wróć do listy')) : null,
+    el('div', { class: 'table-wrap' }, el('table', { id: 'shipTable', class: 'ship-table' }, el('thead', null, head), body)));
   const pages = Math.max(1, Math.ceil(S.total / Q.size));
   const pg = (prefix, sizes) => pager({ prefix, page: Q.page, pages, total: S.total, noun: ['zamówienie', 'zamówienia', 'zamówień'], onPage: p => setQ({ page: p }),
     sizes: sizes ? SIZES : null, size: Q.size, onSize: n => setQ({ size: n }) });
-  u.pagerTop.replaceChildren(pg('ship', true));
-  u.pagerBot.replaceChildren(S.total > Q.size ? pg('shipB', false) : '');
+  u.pagerTop.replaceChildren(S.only ? '' : pg('ship', true));
+  u.pagerBot.replaceChildren(!S.only && S.total > Q.size ? pg('shipB', false) : '');
   syncSel();
 }
 
@@ -508,7 +512,8 @@ function syncSel() {
     const cb = tr.querySelector('input[type=checkbox]'); if (cb) cb.checked = on;
   }
   const all = u.results.querySelector('#shipSelAll');
-  if (all) { const n = S.rows.filter(r => S.sel.has(String(r.id))).length; all.checked = S.rows.length > 0 && n === S.rows.length; all.indeterminate = n > 0 && n < S.rows.length; }
+  const shown = [...u.results.querySelectorAll('#shipTable tbody tr[data-id]')].map(t => t.dataset.id);
+  if (all) { const n = shown.filter(id => S.sel.has(id)).length; all.checked = shown.length > 0 && n === shown.length; all.indeterminate = n > 0 && n < shown.length; }
   renderBar();
 }
 
@@ -517,10 +522,12 @@ function renderBar() {
   const u = S.ui, n = S.sel.size, key = S.view, m = manualOf(key);
   if (!u.bar) return;
   const sel = selectedRows(), withT = sel.filter(r => r.tracking), noT = sel.filter(r => !r.tracking);
-  const off = sel.filter(r => !S.rows.some(x => String(x.id) === String(r.id))).length;
+  const off = S.only ? 0 : sel.filter(r => !S.rows.some(x => String(x.id) === String(r.id))).length;
+  u.bar.classList.toggle('on', n > 0);   // telefon: pasek przykleja się do dołu dopiero, gdy coś zaznaczono (base.css)
   u.bar.replaceChildren(
     el('span', null, el('strong', { id: 'shipSelCount' }, n ? 'Zaznaczono: ' + n : 'Nic nie zaznaczono'),
-      off ? el('span', { class: 'muted small', id: 'shipSelOff', title: 'Zaznaczenie zostaje po przejściu na inną stronę — akcje obejmą wszystkie zaznaczone' }, ' (w tym ' + off + ' z innych stron)') : null),
+      selOffNote({ prefix: 'ship', off, only: S.only, onShow: () => { S.only = true; renderQueue(); }, onBack: () => { S.only = false; renderQueue(); },
+        onUnselOff: () => { for (const k of [...S.sel.keys()]) if (!S.rows.some(x => String(x.id) === String(k))) S.sel.delete(k); syncSel(); } })),
     el('button', { type: 'button', class: 'ghost', id: 'shipSelClear', disabled: !n, title: n ? 'Odznacz wszystkie zamówienia (na wszystkich stronach)' : 'Nic nie jest zaznaczone', onclick: () => { S.sel.clear(); syncSel(); } }, 'Wyczyść zaznaczenie'),
     el('span', { class: 'spacer' }),
     el('button', { type: 'button', class: 'secondary', write: ['przesylki', 'zamowienia'], id: 'shipStatusSel', disabled: !n,
@@ -610,7 +617,7 @@ function renderCourier() {
     m ? el('div', { class: 'notice info', id: 'shipManualNote', role: 'note' }, manualNote(key, name),
       m.native ? [' ', el('a', { href: '#/' + m.native, title: 'Podgląd listy przesyłek ' + name + ' z Selly w panelu' }, 'Podgląd przesyłek ' + name + ' →')] : null) : null,
     el('div', { class: 'toolbar' }, u.search, u.filtersBtn,
-      el('button', { type: 'button', class: 'secondary', id: 'shipReload', title: 'Wczytaj kolejkę ponownie (z kopii zamówień panelu — bez zapytań do Selly)', onclick: loadQueue }, 'Odśwież'),
+      el('button', { type: 'button', class: 'secondary', id: 'shipReload', title: 'Wczytaj kolejkę ponownie (z kopii zamówień panelu — bez zapytań do Selly)', onclick: loadQueue }, '↻ Odśwież'),
       el('span', { class: 'spacer' }),
       el('a', { href: '#/przesylki/ustawienia', class: 'muted small', title: 'Zmień przypisanie sposobów dostawy do przewoźników' }, 'Ustawienia przewoźników')),
     el('div', { id: 'shipNote' }),
@@ -781,8 +788,8 @@ function startCreate(given) {
     noLocker.length ? el('div', { class: 'notice warn', role: 'status', id: 'shipNoLocker' }, 'Bez paczkomatu: ' + noLocker.map(r => r.number || r.id).slice(0, 10).join(', ') + (noLocker.length > 10 ? ' …' : '') + '. Dla usługi paczkomatowej list może się nie utworzyć — wpisz paczkomat w tabeli albo wybierz usługę kurierską.') : null,
     el('p', { class: 'muted small' }, 'Listy zostaną utworzone w Selly u przewoźnika (może to naliczyć opłaty). Porcje po ' + maxBatch() + ' zamówień.'),
     el('div', { class: 'ord-actions' },
-      el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipConfirm', onclick: () => run(rows.map(r => String(r.id))) }, 'Utwórz listy przewozowe'),
-      el('button', { type: 'button', class: 'secondary', id: 'shipCancel', onclick: close }, 'Anuluj')));
+      el('button', { type: 'button', class: 'secondary', id: 'shipCancel', onclick: close }, 'Anuluj'),
+      el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipConfirm', onclick: () => run(rows.map(r => String(r.id))) }, 'Utwórz listy przewozowe')));
   box.scrollIntoView && box.scrollIntoView({ block: 'nearest' });
 
   async function run(ids) {

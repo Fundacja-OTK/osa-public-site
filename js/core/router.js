@@ -24,6 +24,35 @@ function createRouter() {
   let leaveGuard = null, lastHash = null;
   const extraGuards = [];
   let resolveSeq = 0;
+  // Pozycja przewinięcia: nowy ekran (inna ścieżka) zaczyna się od góry; powrót (Wstecz w przeglądarce albo link „← Lista”
+  // prowadzący tam, skąd przyszliśmy) przywraca miejsce na liście. Zmiana samych filtrów (?…) nie przewija.
+  const scrollMem = new Map(), cameFrom = new Map();
+  let appNav = false, scrollJob = 0;
+  if (typeof document !== 'undefined') document.addEventListener('click', ev => {
+    const a = ev.target && ev.target.closest && ev.target.closest('a[href^="#"]');
+    if (a && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && ev.button === 0) appNav = true;
+  }, true);
+  const pathOf = h => String(h || '').split('?')[0];
+  function restoreScroll(y) {
+    const job = ++scrollJob, t0 = Date.now();
+    const stop = () => { scrollJob++; off(); };
+    const off = () => { for (const e of ['wheel', 'touchstart', 'keydown']) removeEventListener(e, stop, true); };
+    for (const e of ['wheel', 'touchstart', 'keydown']) addEventListener(e, stop, true);   // użytkownik sam przewija — nie przeszkadzamy
+    const tick = () => {
+      if (job !== scrollJob) return;
+      if (document.documentElement.scrollHeight - innerHeight >= y - 1) { scrollTo(scrollX, y); off(); return; }
+      if (Date.now() - t0 > 3000) { off(); return; }   // treść się nie doczytała — zostajemy, gdzie jesteśmy
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }
+  function placeScroll(prev, next, fromApp) {
+    if (prev == null || pathOf(prev) === pathOf(next)) return;
+    const back = !fromApp || cameFrom.get(prev) === next;
+    if (!cameFrom.has(next) || !back) cameFrom.set(next, prev);
+    if (back && scrollMem.has(next)) restoreScroll(scrollMem.get(next));
+    else { scrollJob++; scrollTo(scrollX, 0); }
+  }
 
   function register(mod) {
     if (!mod || !mod.id) throw new Error('Moduł bez id');
@@ -39,6 +68,7 @@ function createRouter() {
 
   function go(path, opts) {
     const h = '#/' + String(path).replace(/^[#/]+/, '');
+    appNav = true;
     if (opts && opts.replace) history.replaceState(null, '', h); else if (location.hash !== h) location.hash = h;
     if (opts && opts.replace) resolve();
   }
@@ -111,6 +141,9 @@ function createRouter() {
       const msg = guardMessage(location.hash);
       if (msg && !confirm(msg)) { history.replaceState(null, '', lastHash); return; }
     }
+    const prevHash = lastHash, fromApp = appNav;
+    appNav = false;
+    if (prevHash != null && pathOf(prevHash) !== pathOf(location.hash)) scrollMem.set(prevHash, scrollY);
     lastHash = location.hash;
     const { id, parts, query } = parseHash(location.hash);
     const params = { parts, view: parts[0] || '', query };
@@ -144,6 +177,7 @@ function createRouter() {
       const r = mod.mount(el, params);
       if (r && typeof r.then === 'function') r.then(null, failed);   // async mount: błąd po pierwszym await też kończy się komunikatem
     } catch (e) { failed(e); }
+    if (seq === resolveSeq) placeScroll(prevHash, location.hash, fromApp);
   }
 
   function startRouter(o) {

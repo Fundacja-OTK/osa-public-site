@@ -1,13 +1,13 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=82b7f36';
-import { api, ctx } from '../core/client.js?v=82b7f36';
-import { cachedRead } from '../core/cache.js?v=82b7f36';
-import { go } from '../core/router.js?v=82b7f36';
-import { renderProductCard, closeProductCard } from './produktKarta.js?v=82b7f36';
-import { warehousesScreen } from './produktMagazyny.js?v=82b7f36';
-import { noteVisit } from '../core/recents.js?v=82b7f36';
-import { registerListKeys } from '../core/listKeys.js?v=82b7f36';
+import { el, debounce, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, dateStr, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field, pageToolbar, filterLayout, filterSection, saveBar, inlineInput, columnMenu, thumb, rowActions } from '../core/ui.js?v=c5d5baa';
+import { api, ctx } from '../core/client.js?v=c5d5baa';
+import { cachedRead } from '../core/cache.js?v=c5d5baa';
+import { go } from '../core/router.js?v=c5d5baa';
+import { renderProductCard, closeProductCard } from './produktKarta.js?v=c5d5baa';
+import { warehousesScreen } from './produktMagazyny.js?v=c5d5baa';
+import { noteVisit } from '../core/recents.js?v=c5d5baa';
+import { registerListKeys } from '../core/listKeys.js?v=c5d5baa';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'code', 'price', 'qty', 'id', 'loc', 'ean', 'symbol'];
@@ -256,7 +256,7 @@ function renderList() {
   for (const r of d.rows) body.append(productRow(r));
   const filtered = FILTER_KEYS.some(k => Q[k]);
   if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length), class: 'empty' },
-    filtered ? 'Brak produktów pasujących do wybranych filtrów.' : 'Brak produktów.', ' ',
+    filtered ? 'Brak produktów pasujących do wybranych filtrów.' : 'Brak produktów w kopii panelu — pojawią się po najbliższej synchronizacji z Selly.', ' ',
     filtered ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ ...CLEAR }) }, 'Wyczyść filtry') : null)));
   u.results.replaceChildren(S.err ? el('div', { class: 'notice error' }, S.err) : null,
     el('div', { class: 'table-wrap' }, el('table', { id: 'prodTable', class: 'rich' }, el('thead', null, head), body)),

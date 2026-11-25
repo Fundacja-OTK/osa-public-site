@@ -5,9 +5,9 @@
 // — osobna sekcja #/magazyny/ewidencja; nie zmienia stanów w Selly.
 // Trasy: #/magazyny/stany, #/magazyny/zmiana[?p=<id>], #/magazyny/ewidencja, #/magazyny/{porownanie,inwentaryzacja,rozliczenie,ruch,historia,start};
 // dawne #/magazyny/speedmail → #/speedmail.
-import { $, el, plural, store, flash, norm, dateInput } from '../core/ui.js?v=82b7f36';
-import { api } from '../core/client.js?v=82b7f36';
-import { go } from '../core/router.js?v=82b7f36';
+import { $, el, plural, store, flash, norm, dateInput, sortMark } from '../core/ui.js?v=c5d5baa';
+import { api } from '../core/client.js?v=c5d5baa';
+import { go } from '../core/router.js?v=c5d5baa';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 
@@ -173,7 +173,7 @@ function magTable(cols, rows, sort, redraw, empty) {
     return el('th', { class: col.num ? 'n' : null, 'aria-sort': active ? (sort.dir > 0 ? 'ascending' : 'descending') : 'none' },
       el('button', { type: 'button', class: col.tip ? 'tip' : null, title: tip + '\n\n' + (active ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'),
         onclick: () => { sort.dir = active ? -sort.dir : (col.num ? -1 : 1); sort.key = col.key; redraw(); } },
-        col.label + (active ? (sort.dir > 0 ? ' ↑' : ' ↓') : '')));
+        col.label, sortMark(active, sort.dir > 0)));
   }));
   const body = el('tbody');
   if (!rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length), class: 'empty' }, empty || 'Brak danych.')));
@@ -212,7 +212,7 @@ function magStany() {
     cols.push({ key: 'selly', label: 'Razem', num: true, tip: 'Stan produktu wg Selly łącznie (wszystkie magazyny) — z listy produktów, aktualizowany na bieżąco', val: p => p.selly, cell: p => el('strong', null, nf(p.selly)) });
     cols.push({ key: 'act', label: '', tip: 'Zmień stan tego produktu w Selly', val: () => null,
       cell: p => el('a', { href: '#/magazyny/zmiana?p=' + encodeURIComponent(p.id), class: 'btn-quiet small', title: 'Przyjęcie, przesunięcie albo poprawka stanu „' + p.name + '” — zapis w Selly z podglądem' }, 'Zmień') });
-    out.replaceChildren(magTable(cols, rows, mag.sort, draw, 'Brak produktów.'));
+    out.replaceChildren(magTable(cols, rows, mag.sort, draw, qn ? 'Żaden produkt nie pasuje do „' + mag.q + '” — zmień lub wyczyść wyszukiwanie.' : 'Brak produktów w kopii panelu — pojawią się po najbliższej synchronizacji z Selly.'));
   };
   q.addEventListener('input', () => { mag.q = q.value; draw(); });
   he.addEventListener('change', () => { mag.hideEmpty = he.checked; draw(); });

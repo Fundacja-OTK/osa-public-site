@@ -1,8 +1,8 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=82b7f36';
-import { api } from '../core/client.js?v=82b7f36';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=82b7f36';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=c5d5baa';
+import { api } from '../core/client.js?v=c5d5baa';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=c5d5baa';
 const gw = e => gateWrite(e, 'zamowienia');   // bez prawa zmian w sekcji: wyszarzone z podpowiedzią (core/ui.js)
 
 const EDIT_KEY = 'osa-ord-edit';
@@ -119,7 +119,9 @@ export function previewBox(key, rows, { onConfirm, onBack, note }) {
     el('ul', { class: 'ord-diff' }, rows.map(([label, was, will]) => el('li', null, el('span', { class: 'ord-diff-l' }, label), ' ',
       el('span', { class: 'ord-diff-old', title: 'Obecna wartość w Selly' }, String(was)), el('span', { class: 'ord-diff-arr', 'aria-label': 'zmieni się na' }, ' → '),
       el('strong', { class: 'ord-diff-new', title: 'Nowa wartość po zapisie' }, String(will))))),
-    note || null, err, el('div', { class: 'ord-actions' }, ok, back));
+    note || null, err, el('div', { class: 'ord-actions' }, back, ok));
+  // Esc w podglądzie = „Wróć do edycji” (nic nie zostało zapisane)
+  box.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !back.disabled) { ev.preventDefault(); ev.stopPropagation(); onBack(); } });
   // Podgląd na środek ekranu (formularz znika, strona się przesuwa; przyklejony nagłówek nie może go zasłonić) i fokus na „Zatwierdź”
   setTimeout(() => { try { box.scrollIntoView({ block: 'center' }); ok.focus({ preventScroll: true }); } catch (e) { /* bez przewijania */ } }, 0);
   return box;
@@ -143,7 +145,12 @@ function section(C, cfg) {
     const asShip = ctls.find(c => c.f.k === 'invoice_as_ship');
     if (asShip) for (const c of ctls) if (/^invoice_(company|nip|first|last|post|city|addr)/.test(c.f.k)) { c.ctl.disabled = asShip.ctl.checked; c.ctl.title = asShip.ctl.checked ? 'Wyłączone: dane do faktury są takie same jak adres wysyłki' : ''; }
   };
-  function setEditing(on) { editing = on; render(); }
+  // Fokus po przełączeniu: „Edytuj” → pierwsze pole formularza; „Anuluj” / zapis → z powrotem na „Edytuj” tej sekcji
+  const focusAfter = () => setTimeout(() => {
+    const t = editing ? (ctls[0] && ctls[0].ctl) : host.querySelector('#ordEdit-' + cfg.id);
+    if (t && t.isConnected && !t.disabled) t.focus({ preventScroll: true });
+  }, 0);
+  function setEditing(on) { editing = on; render(); focusAfter(); }
 
   // Zapis po potwierdzeniu w podglądzie; błąd → wyjątek (zostaje w podglądzie z możliwością ponowienia)
   async function save(changed) {
@@ -153,7 +160,7 @@ function section(C, cfg) {
     flash('', 'Zapisano w Selly: ' + cfg.title.toLowerCase() + ' (' + changed.length + ' ' + (changed.length === 1 ? 'pole' : 'pól') + ')');
     editing = C.editDefault;
     try { await C.refresh(); } catch (e) { /* zapis się udał; dane odświeży ponowne otwarcie karty */ }
-    sec.render();
+    sec.render(); focusAfter();
   }
 
   function render() {
@@ -178,7 +185,7 @@ function section(C, cfg) {
       errBox.hidden = true; form.hidden = actions.hidden = true; pv.hidden = false;
       pv.replaceChildren(previewBox(cfg.id, changed.map(c => [c.f.label, showVal(c, c.orig), showVal(c, c.val())]), {
         onConfirm: () => save(changed),
-        onBack: () => { pv.hidden = true; pv.replaceChildren(); form.hidden = actions.hidden = false; refreshState(); },
+        onBack: () => { pv.hidden = true; pv.replaceChildren(); form.hidden = actions.hidden = false; refreshState(); if (!saveBtn.disabled) saveBtn.focus({ preventScroll: true }); },
       }));
     }
     form = el('div', { class: 'ord-form' }, ctls.map(c => {
@@ -188,7 +195,17 @@ function section(C, cfg) {
       c.ctl.addEventListener('input', refreshState); c.ctl.addEventListener('change', refreshState);
       return el('div', { class: 'ord-fw' + (c.f.wide ? ' wide' : '') }, wrap, c.f.after ? c.f.after(c, C) : null, c.warn);
     }));
-    actions = el('div', { class: 'ord-actions' }, saveBtn, cancel);
+    actions = el('div', { class: 'ord-actions' }, cancel, saveBtn);
+    // Klawiatura jak w formularzu: Enter w polu = „Zapisz…” (podgląd zmian, nic jeszcze nie trafia do Selly); Esc = „Anuluj” (gdy są zmiany — pytamy „Odrzucić zmiany?”)
+    form.addEventListener('keydown', ev => {
+      const t = ev.target;
+      if (ev.defaultPrevented) return;
+      if (ev.key === 'Enter' && ctls.some(c => c.ctl === t) && t.matches('input:not([type=checkbox]):not([type=radio])') && !ev.isComposing) { ev.preventDefault(); if (!saveBtn.disabled) showPreview(); }
+      else if (ev.key === 'Escape' && !C.editDefault) {
+        ev.preventDefault();
+        if (!ctls.some(c => c.changed()) || confirm('Odrzucić zmiany?\n\nZmienione pola w sekcji „' + cfg.title + '” nie zostaną zapisane.')) setEditing(false);
+      }
+    });
     host.replaceChildren(head(flag), errBox, form, actions, pv);
     refreshState();
   }
@@ -444,7 +461,7 @@ function invoicesCard(C) {
   const links = el('div', { class: 'ord-actions' },
     sellyLink('Wystaw fakturę w Selly ↗', issueUrl(admin, C.id), 'Otwiera w nowej karcie ekran Selly „Utworzenie faktury do zamówienia” dla tego zamówienia. To Selly nadaje kolejny numer i wpisuje dane sprzedawcy — dlatego wystawianie zostaje w Selly. Po zapisie wróć tu i kliknij „Odśwież”.'),
     el('a', { href: '#/zamowienia/faktury', class: 'btn-link', id: 'ordInvAll', title: 'Lista faktur ze wszystkich zamówień: filtry, rozliczenia, eksport' }, 'Wszystkie faktury →'));
-  const refresh = el('button', { type: 'button', class: 'small-btn secondary', id: 'ordInvRefresh', title: 'Pobiera faktury tego zamówienia z Selly jeszcze raz (np. po wystawieniu faktury w Selly)', onclick: () => load() }, 'Odśwież');
+  const refresh = el('button', { type: 'button', class: 'small-btn secondary', id: 'ordInvRefresh', title: 'Pobiera faktury tego zamówienia z Selly jeszcze raz (np. po wystawieniu faktury w Selly)', onclick: () => load() }, '↻ Odśwież');
   const head = el('div', { class: 'card-head' }, el('h2', null, 'Faktury i paragon'), el('div', { class: 'sub' }, 'Dokumenty sprzedaży tego zamówienia z Selly: wydruk i rozliczenie.'), refresh);
   const o = C.o || {};
   const receipt = o.receipt_number ? dl([[el('span', { class: 'tip', title: 'Numer paragonu zapisany w zamówieniu w Selly' }, 'Paragon'), el('span', { id: 'ordReceipt' }, String(o.receipt_number) + (o.receipt_date ? ' (' + dayOf(o.receipt_date) + ')' : ''))]]) : null;

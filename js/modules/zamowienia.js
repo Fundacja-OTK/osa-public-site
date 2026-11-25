@@ -1,20 +1,21 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=82b7f36';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=82b7f36';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=82b7f36';
-import { api, ctx } from '../core/client.js?v=82b7f36';
-import { go, setLeaveGuard } from '../core/router.js?v=82b7f36';
-import { noteVisit } from '../core/recents.js?v=82b7f36';
-import { registerListKeys } from '../core/listKeys.js?v=82b7f36';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=82b7f36';
-import { cachedRead } from '../core/cache.js?v=82b7f36';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=82b7f36';
-import { showNewOrder } from './zamowienieNowe.js?v=82b7f36';
-import { showInvoices } from './zamowieniaFaktury.js?v=82b7f36';
-import { createFilterUi } from './zamowieniaFiltry.js?v=82b7f36';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=82b7f36';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=82b7f36';
+import { photoSrc } from '../core/photo.js?v=c5d5baa';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange, orderStatusTone, selOffNote } from '../core/ui.js?v=c5d5baa';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=c5d5baa';
+import { api, ctx } from '../core/client.js?v=c5d5baa';
+import { go, setLeaveGuard } from '../core/router.js?v=c5d5baa';
+import { noteVisit } from '../core/recents.js?v=c5d5baa';
+import { registerListKeys } from '../core/listKeys.js?v=c5d5baa';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=c5d5baa';
+import { cachedRead } from '../core/cache.js?v=c5d5baa';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=c5d5baa';
+import { showNewOrder } from './zamowienieNowe.js?v=c5d5baa';
+import { showInvoices } from './zamowieniaFaktury.js?v=c5d5baa';
+import { showPick } from './zamowieniaKompletacja.js?v=c5d5baa';
+import { createFilterUi } from './zamowieniaFiltry.js?v=c5d5baa';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=c5d5baa';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=c5d5baa';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -98,6 +99,7 @@ const listParams = (Q, extra) => {
 
 /** Zmiana filtrów: nowy adres (cofnięcie przeglądarki wraca do poprzedniego widoku); replace — bez wpisu w historii (pisanie w wyszukiwarce). */
 function setQ(patch, replace) {
+  S.only = false;   // zmiana filtrów / strony kończy widok „tylko zaznaczone”
   const n = Object.assign({}, S.Q, patch);
   if (!('page' in patch)) n.page = 1;
   const h = '/zamowienia' + qsOf(n);
@@ -163,12 +165,13 @@ function buildList() {
       { key: 'info', label: 'Informacje dodatkowe', def: false, tip: 'Komentarz klienta, uwaga do zamówienia i numer przesyłki' }] });
   u.info = el('div', { class: 'muted small ord-info' });
   u.dlg = el('div', { id: 'ordDlg' });
-  u.bulk = el('div', { class: 'ord-bulk', id: 'ordBulk', hidden: true });
+  // Pasek „Zaznaczono” przyklejony u dołu, POD tabelą — jego pojawienie się nie przesuwa wierszy (klik w pole wyboru nie „skacze”)
+  u.bulk = el('div', { class: 'ord-bulk sel-bar', id: 'ordBulk', role: 'region', 'aria-label': 'Akcje dla zaznaczonych zamówień', hidden: true });
   u.results = el('div', { id: 'ordResults' });
   // Świeżość listy: znacznik wersji co 30 s, powrót do karty, „Odśwież” (core/liveRefresh.js)
   u.live = liveRefresh({ id: 'ord', reload: kind => loadList(kind), busy: listBusy });
   u.layout = filterLayout({ key: 'zamowienia', panelId: 'ordFilters', panelNodes: [u.filtersInner],
-    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.fx.viewsMenu, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info, u.live.node), u.fx.sum, u.dlg, u.bulk, u.results] });
+    mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.fx.viewsMenu, u.exportBtn, u.colMenu.node, el('span', { class: 'spacer' }), u.info, u.live.node), u.fx.sum, u.results, u.bulk, u.dlg] });
   u.filters = u.layout.panel;
   S.listBox = el('div', { class: 'ord-list' },
     el('div', { class: 'card' },
@@ -322,7 +325,10 @@ function paidBadge(r) {
 }
 
 function renderList() {
-  const u = S.ui, d = S.data, Q = S.Q;
+  const u = S.ui, Q = S.Q;
+  if (S.only && !S.sel.size) S.only = false;
+  // Widok „tylko zaznaczone” (z paska „Zaznaczono… · Pokaż zaznaczone”): wszystkie zaznaczone, także z innych stron, bez stronicowania
+  const d = S.only && S.data ? { ...S.data, rows: [...S.sel.values()] } : S.data;
   if (S.err && !d) {
     u.info.textContent = '';
     u.results.replaceChildren(el('div', { class: 'empty error' }, S.err, ' ', sellyLink('Panel Selly ↗', adminUrl() + '?a=zamowienia', 'Otwiera listę zamówień w panelu Selly w nowej karcie'),
@@ -367,7 +373,7 @@ function renderList() {
     // Pusty wynik: podpowiedz kolejny krok — zwolnij któryś z filtrów (każdy przycisk usuwa jeden warunek) albo wyczyść wszystko
     const cl = clausesOf(Q, { statusName, payName: id => nameIn(S.meta.payments, id), deliveryName: id => nameIn(S.meta.deliveries, id), osaOn: osaActive(Q), osaClear: OSA_CLEAR });
     body.append(el('tr', null, el('td', { colspan: String(cols.length + 1), class: 'empty', id: 'ordEmpty' },
-      filtered ? 'Brak zamówień pasujących do wybranych filtrów.' : 'Brak zamówień.',
+      filtered ? 'Brak zamówień pasujących do wybranych filtrów.' : 'Brak zamówień. Nowe zamówienia ze sklepu pojawią się tu same (panel sprawdza Selly co minutę).',
       filtered ? el('div', { class: 'fx-relax' }, el('span', { class: 'muted small' }, 'Spróbuj poluzować filtry:'),
         ...cl.map(c => el('button', { type: 'button', class: 'chip', title: 'Usuń ten warunek i pokaż więcej zamówień', onclick: () => setQ(c.clear) }, 'Usuń: ' + c.name)),
         el('button', { type: 'button', class: 'secondary', onclick: () => setQ(CLEAR_ALL()) }, 'Wyczyść filtry')) : null)));
@@ -376,7 +382,9 @@ function renderList() {
     sizes: SIZES, size: pageSize(), onSize: n => { store('osa-ord-size', n); setQ({}); } });
   u.results.replaceChildren(
     S.err ? el('div', { class: 'notice error' }, S.err) : null,
-    el('div', { class: 'table-wrap' }, el('table', { id: 'ordTable', class: 'rich' }, el('thead', null, head), body)), pg);
+    S.only ? el('div', { class: 'notice info', id: 'ordOnlySel', role: 'status' }, 'Pokazuję tylko zaznaczone (' + d.rows.length + ') — ze wszystkich stron. ',
+      el('button', { type: 'button', class: 'link', onclick: () => { S.only = false; renderList(); } }, 'Wróć do listy')) : null,
+    el('div', { class: 'table-wrap' }, el('table', { id: 'ordTable', class: 'rich' }, el('thead', null, head), body)), S.only ? null : pg);
   renderBulk();
   refreshSel();
 }
@@ -394,7 +402,8 @@ function refreshSel() {
       const cb = tr.querySelector('input[type=checkbox]'); if (cb) cb.checked = on;
     }
     const all = u.results.querySelector('#ordSelAll');
-    if (all) { const n = d.rows.filter(r => S.sel.has(r.id)).length; all.checked = d.rows.length > 0 && n === d.rows.length; all.indeterminate = n > 0 && n < d.rows.length; }
+    const ids = [...u.results.querySelectorAll('#ordTable tbody tr[data-id]')].map(t => t.dataset.id);
+    if (all) { const n = ids.filter(id => S.sel.has(id)).length; all.checked = ids.length > 0 && n === ids.length; all.indeterminate = n > 0 && n < ids.length; }
   }
   renderBulk();
 }
@@ -404,12 +413,18 @@ function renderBulk() {
   u.bulk.hidden = n === 0;
   if (!n) { u.bulk.replaceChildren(); return; }
   const rows = [...S.sel.values()];
+  const pageIds = [...u.results.querySelectorAll('#ordTable tbody tr[data-id]')].map(t => t.dataset.id);
+  const off = S.only ? 0 : rows.filter(r => !pageIds.includes(String(r.id))).length;
   u.bulk.replaceChildren(
-    el('strong', { id: 'ordSelCount' }, 'Zaznaczono: ' + n),
+    el('span', null, el('strong', { id: 'ordSelCount' }, 'Zaznaczono: ' + n),
+      selOffNote({ prefix: 'ord', off, only: S.only, onShow: () => { S.only = true; renderList(); }, onBack: () => { S.only = false; renderList(); },
+        onUnselOff: () => { for (const k of [...S.sel.keys()]) if (!pageIds.includes(String(k))) S.sel.delete(k); refreshSel(); } })),
     menuButton({ id: 'ordStatusMenu', label: 'Zmień status', cls: 'primary', write: ['zamowienia', 'przesylki'], title: 'Ustaw wybrany status dla wszystkich zaznaczonych zamówień (przed zmianą pokażemy podsumowanie do potwierdzenia)',
       items: () => S.meta.statuses.map(s => ({ label: s.name, title: 'Ustaw status „' + s.name + '” dla zaznaczonych zamówień', run: () => startStatusChange(u.dlg, rows, String(s.id), onStatusDone) })) }),
     el('button', { type: 'button', class: 'secondary', id: 'ordCopyNums', title: 'Kopiuje numery zaznaczonych zamówień, po jednym w wierszu',
       onclick: () => copyToClipboard(rows.map(r => r.number).join('\n'), null, 'Skopiowano ' + cnt(n, 'numer', 'numery', 'numerów'), '') }, 'Kopiuj numery'),
+    el('button', { type: 'button', class: 'secondary', id: 'ordPickList', title: 'Otwiera widok do druku: zbiorcza lista produktów z zaznaczonych zamówień (do zbierania z półek) i kartki pakowania, po jednej na zamówienie (do 100 zamówień)',
+      onclick: () => go('zamowienia/kompletacja?ids=' + rows.slice(0, 100).map(r => r.id).join(',')) }, 'Lista kompletacyjna'),
     el('button', { type: 'button', class: 'ghost', id: 'ordSelClear', title: 'Odznacz wszystkie zaznaczone zamówienia (na wszystkich stronach)', onclick: () => { S.sel.clear(); refreshSel(); } }, 'Wyczyść zaznaczenie'));
 }
 
@@ -442,8 +457,8 @@ function startStatusChange(host, orders, targetId, onDone) {
     skipped ? el('p', { class: 'muted small' }, skipped + ' ' + plural(skipped, 'zamówienie ma', 'zamówienia mają', 'zamówień ma') + ' już ten status — pominięto.') : null,
     el('p', { class: 'muted small' }, 'Zmiana zostanie zapisana w Selly (może uruchomić powiadomienia dla klientów, jeśli tak skonfigurowano status).'),
     el('div', { class: 'ord-actions' },
-      gateWrite(el('button', { type: 'button', class: 'primary', id: 'ordConfirm', onclick: () => run(todo.map(o => String(o.id))) }, 'Zmień status'), ['zamowienia', 'przesylki']),
-      el('button', { type: 'button', class: 'secondary', id: 'ordCancel', onclick: close }, 'Anuluj')));
+      el('button', { type: 'button', class: 'secondary', id: 'ordCancel', onclick: close }, 'Anuluj'),
+      gateWrite(el('button', { type: 'button', class: 'primary', id: 'ordConfirm', onclick: () => run(todo.map(o => String(o.id))) }, 'Zmień status na „' + target + '”'), ['zamowienia', 'przesylki'])));
 
   async function run(ids) {
     const batch = Math.max(1, Number(S.meta && S.meta.maxStatusBatch) || 50);
@@ -649,6 +664,7 @@ export default {
       el0.append(S.metaBox, S.detailBox);
     }
     S.route = { id: params && params.parts && params.parts[0] || '', Q: readQ(params && params.query) };
+    if (showPick(el0, S.route.id === 'kompletacja', params && params.query) && S.route.id === 'kompletacja') { S.routeSeq++; S.guard = null; showInvoices(el0, false); showNewOrder(el0, false); show(''); if (S.ui.live) S.ui.live.stop(); return; }   // #/zamowienia/kompletacja?ids=… → zamowieniaKompletacja.js
     showInvoices(el0, S.route.id === 'faktury');   // #/zamowienia/faktury → zamowieniaFaktury.js
     if (S.ui.live && (S.route.id === 'faktury' || S.route.id === 'nowe')) S.ui.live.stop();
     if (S.route.id === 'faktury') { S.routeSeq++; S.guard = null; showNewOrder(el0, false); show(''); return; }

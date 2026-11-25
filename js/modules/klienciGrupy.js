@@ -3,11 +3,11 @@
 // limit zamówień klienta (natywny ekran `klient-limit`: formularz klienta w Selly, tylko 4 pola limitu).
 // Przypisanie: Selly REST API (PUT /api/clients/{id}, pole group_id) przez clients:save. Tworzenie / nazwy / limity grup: API ich nie ma —
 // natywny ekran na sesji Selly użytkownika; edycja istniejącej grupy → „↗ Selly” (adres karty grupy nieopisany w docs/selly-screens).
-import { el, flash, loadingBox, sellyLink, cnt } from '../core/ui.js?v=82b7f36';
-import { api } from '../core/client.js?v=82b7f36';
-import { sellyCall, createNative } from './sellyNative.js?v=82b7f36';
-import { lazyFold } from './klienciExtra.js?v=82b7f36';
-import { runThrottled, GROUP_GAP_MS } from './klienciImportLogic.js?v=82b7f36';
+import { el, flash, loadingBox, sellyLink, cnt } from '../core/ui.js?v=c5d5baa';
+import { api } from '../core/client.js?v=c5d5baa';
+import { sellyCall, createNative } from './sellyNative.js?v=c5d5baa';
+import { lazyFold } from './klienciExtra.js?v=c5d5baa';
+import { runThrottled, GROUP_GAP_MS } from './klienciImportLogic.js?v=c5d5baa';
 
 const SCREEN = 'klienci-grupy';
 let sellyCache = null;   // { ms, groups } — nazwy grup z Selly (5 min), wspólne dla listy, karty i importu
@@ -84,8 +84,8 @@ export function bulkGroupDialog(host, clients, target, { groups, onDone }) {
     skipped ? el('p', { class: 'muted small', id: 'cliGrpSkipped' }, cnt(skipped, 'klient jest', 'klientów jest', 'klientów jest') + ' już w tej grupie — pominięto.') : null,
     el('p', { class: 'muted small' }, 'Zapis w Selly po jednym kliencie, z przerwą (oszczędzamy limit zapytań sklepu) — potrwa ok. ' + (secs < 90 ? secs + ' s' : Math.ceil(secs / 60) + ' min') + '. Możesz przerwać w każdej chwili.'),
     el('div', { class: 'ord-actions' },
-      el('button', { type: 'button', class: 'primary', write: 'klienci', id: 'cliGrpConfirm', title: 'Zapisuje grupę w Selly dla każdego klienta z listy', onclick: () => run(todo) }, 'Zapisz w Selly'),
-      el('button', { type: 'button', class: 'secondary', id: 'cliGrpCancel', onclick: close }, 'Anuluj')));
+      el('button', { type: 'button', class: 'secondary', id: 'cliGrpCancel', onclick: close }, 'Anuluj'),
+      el('button', { type: 'button', class: 'primary', write: 'klienci', id: 'cliGrpConfirm', title: 'Zapisuje grupę w Selly dla każdego klienta z listy', onclick: () => run(todo) }, 'Zapisz w Selly')));
 
   async function run(list) {
     stop = false;

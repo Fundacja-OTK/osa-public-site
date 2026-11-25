@@ -1,18 +1,18 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
 // Grupy (ekran, zmiana na karcie, masowo z listy) i limit zamówień: klienciGrupy.js; import CSV (#/klienci/import): klienciImport.js.
-import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, syncedLabel, fetchAllRows } from '../core/ui.js?v=82b7f36';
-import { listView } from '../core/listView.js?v=82b7f36';
-import { api, ctx } from '../core/client.js?v=82b7f36';
-import { go, setLeaveGuard } from '../core/router.js?v=82b7f36';
-import { noteVisit } from '../core/recents.js?v=82b7f36';
-import { registerListKeys } from '../core/listKeys.js?v=82b7f36';
-import { clientForm } from './klienciForm.js?v=82b7f36';
-import { mountBlockToggle } from './klienciBlokada.js?v=82b7f36';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=82b7f36';
-import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=82b7f36';
-import { renderImport } from './klienciImport.js?v=82b7f36';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=82b7f36';
+import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, syncedLabel, fetchAllRows } from '../core/ui.js?v=c5d5baa';
+import { listView } from '../core/listView.js?v=c5d5baa';
+import { api, ctx } from '../core/client.js?v=c5d5baa';
+import { go, setLeaveGuard } from '../core/router.js?v=c5d5baa';
+import { noteVisit } from '../core/recents.js?v=c5d5baa';
+import { registerListKeys } from '../core/listKeys.js?v=c5d5baa';
+import { clientForm } from './klienciForm.js?v=c5d5baa';
+import { mountBlockToggle } from './klienciBlokada.js?v=c5d5baa';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=c5d5baa';
+import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=c5d5baa';
+import { renderImport } from './klienciImport.js?v=c5d5baa';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=c5d5baa';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 // Filtry z Selly (lista klientów): nazwy jak w parametrach akcji clients:list
@@ -291,7 +291,7 @@ async function renderForm(id) {
     msg.replaceChildren();
     if (!form.validate()) { msg.replaceChildren(el('div', { class: 'notice error' }, 'Popraw zaznaczone pola.')); return; }
     const changes = creating ? null : form.changed();
-    if (!creating && !Object.keys(changes).length) { msg.replaceChildren(el('div', { class: 'notice warn' }, 'Nie zmieniono żadnego pola.')); return; }
+    if (!creating && !Object.keys(changes).length) { msg.replaceChildren(el('div', { class: 'notice info', role: 'status' }, 'Nie zmieniono żadnego pola — nie ma czego zapisywać.')); return; }
     busy = true; for (const b of box.querySelectorAll('.kf-save')) b.disabled = true;
     try {
       if (creating) {

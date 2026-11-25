@@ -3,11 +3,11 @@
 // 2) panel dopasowuje wpłaty do nieopłaconych zamówień (numer w tytule, kwota, nazwisko/e-mail; punktacja i powody),
 // 3) przeglądasz tabelę (pewne / prawdopodobne / brak) i zaznaczasz, co oznaczyć jako opłacone,
 // 4) zapis przez Worker (payments:apply — do serwera idą wyłącznie numery zamówień i kwoty „zapłacono”), podsumowanie i „Cofnij”.
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=82b7f36';
-import { api } from '../core/client.js?v=82b7f36';
-import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=82b7f36';
-import { loadMapping, saveMapping } from './wplatyCsv.js?v=82b7f36';
-import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=82b7f36';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=c5d5baa';
+import { api } from '../core/client.js?v=c5d5baa';
+import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=c5d5baa';
+import { loadMapping, saveMapping } from './wplatyCsv.js?v=c5d5baa';
+import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=c5d5baa';
 
 const zl = v => money(v) + ' zł';
 const SKEY = 'osa-wplaty-rules', DKEY = 'osa-wplaty-days';
@@ -180,7 +180,7 @@ function paintReview() {
     { label: '', tip: 'Zaznacz, aby oznaczyć zamówienie jako opłacone' },
     { label: 'Data', sort: 'date', tip: 'Data księgowania wpłaty w banku' }, { label: 'Kwota', sort: 'amount', num: true, tip: 'Kwota wpłaty z wyciągu' },
     { label: 'Płatnik', sort: 'payer', tip: 'Nadawca przelewu wg wyciągu' }, { label: 'Tytuł', sort: 'title', tip: 'Tytuł przelewu — tu szukamy numeru zamówienia' },
-    { label: 'Zamówienie', sort: 'order', tip: 'Dopasowane zamówienie. Możesz wybrać inne z listy kandydatów albo „nie oznaczaj”.' },
+    { label: 'Zamówienie', sort: 'order', tip: 'Dopasowane zamówienie. Możesz wybrać inne z listy pasujących zamówień albo „nie oznaczaj”.' },
     { label: 'Wynik', sort: 'score', num: true, tipHeader: true, firstDir: 'desc', tip: 'Punktacja dopasowania 0–100 (najedź na wynik, aby zobaczyć powody). Zasady punktacji możesz zmienić w „Zasady dopasowania”.' },
   ];
   const head = el('tr', null, ...cols.map(col => col.sort ? sortTh(col, { sort: S.sort.sort, dir: S.sort.dir }, (s, d) => { S.sort = { sort: s, dir: d }; paintReview(); }) : el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'wpAll', 'aria-label': 'Zaznacz widoczne', title: 'Zaznacz lub odznacz wszystkie widoczne wiersze, które mają dopasowane zamówienie',
@@ -236,7 +236,7 @@ function rulesCard() {
   return el('details', { class: 'card bm-card bm-opts', id: 'wpRules' }, el('summary', { title: 'Jak panel ocenia, czy wpłata pasuje do zamówienia. Domyślne ustawienia są dobre dla większości sklepów.' }, el('b', null, 'Zasady dopasowania'), ' (zaawansowane)'),
     el('p', { class: 'muted wp-hint' }, 'Każda wpłata dostaje punkty za zgodny numer zamówienia, kwotę, e-mail i nazwisko. Wynik od progu „pewne” jest zaznaczany sam, od progu „prawdopodobne” — pokazywany do Twojej decyzji. Zmiany działają od razu.'),
     el('div', { class: 'bm-row' }, field('Zamówienia z ostatnich dni', el('select', { id: 'wpDays', onchange: ev => { S.days = Number(ev.target.value); store(DKEY, S.days); ensureOrders(true); } },
-      [30, 60, 120, 365, 730].map(n => el('option', { value: String(n), selected: n === S.days }, n + ' dni'))), 'Z ilu ostatnich dni szukamy nieopłaconych zamówień. Dłuższy okres = więcej kandydatów, ale i więcej przypadkowych dopasowań.')),
+      [30, 60, 120, 365, 730].map(n => el('option', { value: String(n), selected: n === S.days }, n + ' dni'))), 'Z ilu ostatnich dni szukamy nieopłaconych zamówień. Dłuższy okres = więcej zamówień do porównania, ale i więcej przypadkowych dopasowań.')),
     el('div', { class: 'bm-row' }, ...inputs),
     el('div', { class: 'bm-row' }, el('button', { type: 'button', class: 'secondary', id: 'wpRulesReset', title: 'Przywróć fabryczne wartości wszystkich reguł', onclick: () => { S.rules = defaultSettings(); store(SKEY, S.rules); S.root.querySelector('#wpRules').replaceWith(rulesCard()); if (S.orders) rematch(); } }, 'Przywróć domyślne')));
 }

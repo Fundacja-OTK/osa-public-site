@@ -2,9 +2,9 @@
 // edycja tylko pól dozwolonych (allowlista w extension/lib/sellyNative.js), podgląd zmian (było → będzie) i potwierdzenie przed zapisem.
 // Pola poufne (hasła, klucze, SMTP…) Worker maskuje po stronie serwera — tu widać tylko „••• (ustawione)” / „(puste)”, bez edycji.
 // Użycie: createSettings({ id, title, screen, a, intro? }) → moduł panelu (mount / unmount), tak jak createNative.
-import { el, loadingBox } from '../core/ui.js?v=82b7f36';
-import { sellyCall } from './sellyNative.js?v=82b7f36';
-import { sellyUrl } from './_placeholder.js?v=82b7f36';
+import { el, loadingBox } from '../core/ui.js?v=c5d5baa';
+import { sellyCall } from './sellyNative.js?v=c5d5baa';
+import { sellyUrl } from './_placeholder.js?v=c5d5baa';
 
 /** cfg: { id, title, screen (klucz w SCREENS), a (trasa strony w Selly), intro? (krótki opis ekranu) } */
 export function createSettings(cfg) {
@@ -21,7 +21,7 @@ export function createSettings(cfg) {
   function errorBox(r) {
     const title = r.code === 'login' ? 'Selly nie otworzyło tego ekranu' : r.code === 'forbidden' ? 'Brak dostępu' : 'Nie udało się pobrać danych z Selly';
     return el('div', { class: 'card nat-err', id: 'cfgErr' }, el('p', null, el('strong', null, title)), el('p', { class: 'muted' }, r.error || 'Nieznany błąd'),
-      el('div', { class: 'nat-actions' }, sellyLink('Otwórz w Selly ↗'), el('button', { type: 'button', class: 'secondary', onclick: load, title: 'Pobiera dane z Selly ponownie' }, 'Odśwież')));
+      el('div', { class: 'nat-actions' }, sellyLink('Otwórz w Selly ↗'), el('button', { type: 'button', class: 'secondary', onclick: load, title: 'Pobiera dane z Selly ponownie' }, '↻ Odśwież')));
   }
 
   async function load(message) {
@@ -86,7 +86,7 @@ export function createSettings(cfg) {
       el('p', null, sellyLink('Zmień w Selly ↗', 'Tego ekranu nie zmieniasz z panelu OSA — otwiera go w panelu Selly, w nowej karcie'))) : (d.note ? el('p', { class: 'muted cfg-intro' }, d.note) : null);
     root.replaceChildren(
       toolbar(d.canSave ? 'Ustawienia na żywo z Selly — zmieniasz tylko oznaczone pola' : 'Podgląd ustawień z Selly',
-        el('button', { type: 'button', class: 'secondary', id: 'cfgRefresh', title: 'Pobiera ustawienia z Selly ponownie', onclick: () => load() }, 'Odśwież'), d.canSave),
+        el('button', { type: 'button', class: 'secondary', id: 'cfgRefresh', title: 'Pobiera ustawienia z Selly ponownie', onclick: () => load() }, '↻ Odśwież'), d.canSave),
       message || null, cfg.intro ? el('p', { class: 'muted cfg-intro' }, cfg.intro) : null, info,
       d.missing ? el('div', { class: 'card nat-err', id: 'cfgNoForm' }, el('p', null, 'Formularz w Selly wygląda inaczej niż oczekiwano — ekran niedostępny. Użyj panelu Selly.')) : null,
       el('div', { id: 'cfgForm', oninput: sync, onchange: sync }, secs),

@@ -1,10 +1,10 @@
 // Moduł „Dropshipping”: paczki dropshipping i produkty w paczkach (Selly REST API /api/dropshipping/packages…).
 // Lista paczek (filtr dat utworzenia, status, sortowanie, strony) → karta paczki (edycja danych, zmiana statusu, produkty: dodawanie,
 // zmiana ilości i magazynu, usuwanie) → nowa paczka (#/dropshipping/nowa). Backend: dropshipping:* (Worker, token READWRITE do zapisów).
-import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=82b7f36';
-import { api } from '../core/client.js?v=82b7f36';
-import { go } from '../core/router.js?v=82b7f36';
-import { registerListKeys } from '../core/listKeys.js?v=82b7f36';
+import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=c5d5baa';
+import { api } from '../core/client.js?v=c5d5baa';
+import { go } from '../core/router.js?v=c5d5baa';
+import { registerListKeys } from '../core/listKeys.js?v=c5d5baa';
 
 const STATUS = {
   '-1': { label: 'skasowana', tone: 'bad', tip: 'Paczka skasowana / ignorowana — nie jest brana pod uwagę.' },
@@ -122,7 +122,7 @@ function paintCard() {
       try { await api('dropshipping:productSave', { packageId: pk.id, id: p.id, fields: { quantity_ordered: Number(qty.value), warehouse_id: Number(wh.value) }, opId: opId() }); flash(null, 'Zapisano pozycję.'); loadCard(pk.id); } catch (e) { fail(e, 'Nie zapisano'); } } }, 'Zapisz');
     const del = el('button', { type: 'button', class: 'secondary danger small-btn', write: 'dropshipping', title: 'Usuń produkt z tej paczki (produkt w sklepie zostaje)', onclick: () => confirmDialog({ id: 'dsDelProd', title: 'Usunąć produkt z paczki?', text: (p.name || 'Produkt ' + p.product_id) + ' zniknie z tej paczki. Sam produkt w sklepie zostaje.', ok: 'Usuń z paczki',
       onOk: async () => { try { await api('dropshipping:productDelete', { packageId: pk.id, id: p.id, opId: opId() }); flash(null, 'Usunięto z paczki.'); loadCard(pk.id); } catch (e) { fail(e, 'Nie usunięto'); } } }) }, 'Usuń');
-    return el('tr', { 'data-pid': String(p.id) }, el('td', null, p.name ? el('a', { href: '#/produkty/' + p.product_id, title: 'Otwórz kartę produktu' }, p.name) : el('span', { class: 'muted', title: 'Produkt nie jest w lokalnej bazie panelu (jeszcze się nie zsynchronizował)' }, 'produkt ' + p.product_id)),
+    return el('tr', { 'data-pid': String(p.id) }, el('td', null, p.name ? el('a', { href: '#/produkty/' + p.product_id, title: 'Otwórz kartę produktu' }, p.name) : el('span', { class: 'muted', title: 'Produktu nie ma jeszcze w kopii panelu (pojawi się po najbliższej synchronizacji z Selly)' }, 'produkt ' + p.product_id)),
       el('td', null, p.code || '—'), el('td', null, qty), el('td', null, wh), el('td', { class: 'ds-act' }, sv, ' ', del));
   });
   $('dsBody').replaceChildren(
@@ -136,7 +136,7 @@ function paintCard() {
     el('section', { class: 'card', id: 'dsProducts' }, el('h2', null, 'Produkty w paczce ', el('span', { class: 'muted', title: 'Liczba pozycji w tej paczce' }, '(' + C.total + ')')),
       C.truncated ? el('p', { class: 'muted' }, 'Pokazano pierwsze 400 pozycji.') : null,
       prodRows.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'dsProdTable' }, el('thead', null, el('tr', null,
-        el('th', null, el('span', { title: 'Nazwa produktu z bazy panelu' }, 'Produkt')), el('th', null, el('span', { title: 'Kod producenta' }, 'Kod')),
+        el('th', null, el('span', { title: 'Nazwa produktu z kopii panelu (dane z Selly)' }, 'Produkt')), el('th', null, el('span', { title: 'Kod producenta' }, 'Kod')),
         el('th', null, el('span', { class: 'tip', title: 'Ile sztuk zamówiono u dostawcy w tej paczce' }, 'Ilość')), el('th', null, el('span', { class: 'tip', title: 'Magazyn, do którego trafi towar' }, 'Magazyn')), el('th', null, ''))),
         el('tbody', null, ...prodRows))) : el('div', { class: 'empty', id: 'dsNoProducts' }, 'Ta paczka nie ma jeszcze produktów.'),
       editable ? addProducts(pk, C) : el('p', { class: 'muted' }, 'Paczka jest skasowana — zmień jej status, aby dodawać produkty.')));

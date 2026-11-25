@@ -1,9 +1,9 @@
 // Wspólny klient API panelu (konfiguracja z config.js + sesja z logowania kontem Selly — core/auth.js) i kontekst sesji.
-import { createApi } from './api.js?v=82b7f36';
-import { freshToken } from './auth.js?v=82b7f36';
-import { reportApiFailure } from './errorHook.js?v=82b7f36';
-import { bindWriteState } from './ui.js?v=82b7f36';
-import { denyReason, isWriteAction, GRANTABLE } from '../lib/panelAuth.js?v=82b7f36';
+import { createApi } from './api.js?v=c5d5baa';
+import { freshToken } from './auth.js?v=c5d5baa';
+import { reportApiFailure } from './errorHook.js?v=c5d5baa';
+import { bindWriteState } from './ui.js?v=c5d5baa';
+import { denyReason, isWriteAction, GRANTABLE } from '../lib/panelAuth.js?v=c5d5baa';
 
 export const ENV = window.OSA_CONFIG || {}; // { backendUrl, version, backends } — config.js
 // Jeden klient i jeden kontekst na kartę (globalThis): gdy w karcie miesza się kod dwóch wdrożeń (client.js pod innym ?v= — core/router.js),
@@ -16,11 +16,33 @@ const client = G.__osaClient || (G.__osaClient = createApi({ config: ENV, getTok
  */
 export function api(action, params, retried) {
   const b = ctx.boot;
-  if (b && Array.isArray(b.write) && isWriteAction(action)) {
+  const write = isWriteAction(action);
+  if (b && Array.isArray(b.write) && write) {
     const msg = denyReason({ perms: b.perms || [], write: b.write, admin: !!b.isAdmin }, action, params || {});
     if (msg) return Promise.reject(Object.assign(new Error(msg), { code: 403 }));
   }
-  return client.api(action, params, retried);
+  const p = client.api(action, params, retried);
+  if (write) busyWhile(p);
+  return p;
+}
+
+// ─── Natychmiastowa informacja zwrotna: przycisk, który uruchomił zapis, jest „zajęty” do końca zapisu ───
+// (wszystkie moduły naraz; drugi klik nie wyśle zapisu drugi raz). Przycisk = ostatnio kliknięty w ciągu 1,5 s
+// albo kliknięty w tym samym zdarzeniu (np. po confirm()). Bez zmiany wymiarów — tylko wygląd i kursor (base.css .is-busy).
+let lastBtn = null, lastAt = 0;
+if (typeof document !== 'undefined') document.addEventListener('click', ev => {
+  const t = ev.target && ev.target.closest && ev.target.closest('button, [role=menuitem]');
+  lastBtn = !t ? null : t.matches('[role=menuitem]') ? ((t.closest('.menu') || {}).querySelector?.(':scope > button') || t) : t;
+  lastAt = Date.now();
+}, true);
+function busyWhile(p) {
+  const btn = lastBtn;
+  const sameClick = typeof window !== 'undefined' && window.event && window.event.type === 'click';   // np. zapis zaraz po confirm()
+  if (!btn || !btn.isConnected || (!sameClick && Date.now() - lastAt > 1500)) return;
+  btn.__busy = (btn.__busy || 0) + 1;
+  btn.classList.add('is-busy'); btn.setAttribute('aria-busy', 'true');
+  const end = () => { if (--btn.__busy > 0) return; btn.classList.remove('is-busy'); btn.removeAttribute('aria-busy'); };
+  p.then(end, end);
 }
 /** Czy w sekcji wolno zmieniać (administrator albo zgoda administratora; natywne ekrany i sekcje tylko do odczytu — zawsze). */
 export const canWriteSection = id => { const b = ctx.boot; return !b || !Array.isArray(b.write) || !GRANTABLE.includes(id) || !!b.isAdmin || b.write.includes(id); };   // bez listy (stary backend) — decyduje serwer

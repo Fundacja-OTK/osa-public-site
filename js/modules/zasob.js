@@ -1,13 +1,13 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=82b7f36';
-import { listView } from '../core/listView.js?v=82b7f36';
-import { api, ctx } from '../core/client.js?v=82b7f36';
-import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=82b7f36';
-import { go, setLeaveGuard } from '../core/router.js?v=82b7f36';
-import { RESOURCES } from '../core/resources.js?v=82b7f36';
-import { registerListKeys } from '../core/listKeys.js?v=82b7f36';
-import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=82b7f36';
+import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=c5d5baa';
+import { listView } from '../core/listView.js?v=c5d5baa';
+import { api, ctx } from '../core/client.js?v=c5d5baa';
+import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=c5d5baa';
+import { go, setLeaveGuard } from '../core/router.js?v=c5d5baa';
+import { RESOURCES } from '../core/resources.js?v=c5d5baa';
+import { registerListKeys } from '../core/listKeys.js?v=c5d5baa';
+import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=c5d5baa';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -270,7 +270,7 @@ export function createResource(id) {
         const cur = f.key in changed ? changed[f.key] : (create ? '' : orig.get(f.key));
         if (!String(cur == null ? '' : cur).trim()) { fail('Pole „' + f.label + '” jest wymagane.'); ctls.get(f.key).node.focus(); return; }
       }
-      if (!Object.keys(changed).length) { msg.replaceChildren(el('div', { class: 'notice warn' }, 'Brak zmian do zapisania.')); return; }
+      if (!Object.keys(changed).length) { msg.replaceChildren(el('div', { class: 'notice info', role: 'status' }, 'Brak zmian do zapisania.')); return; }
       save.disabled = true;
       try {
         const r = await api('res:save', { res: id, id: create ? undefined : item[def.idField], fields: changed, productId: pid || undefined });

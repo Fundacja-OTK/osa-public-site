@@ -127,16 +127,103 @@ export function store(key, value) {
 
 // Krótkie powiadomienie (toast) na dole ekranu; pierwszy argument zachowany dla zgodności wywołań
 /** Jedno powiadomienie z aktualizowanym tekstem (postęp dłuższych operacji, np. eksportu). */
+/** Toasty nad przyklejonym dolnym paskiem akcji (Zapisz / Zaznaczono…), a nie na jego przyciskach. */
+const STICKY_BOTTOM = '.save-bar, .sel-bar, .sm-setbar, .zs-actions, .cfg-actions';
+function placeToasts(host) {
+  let top = innerHeight;
+  for (const b of document.querySelectorAll(STICKY_BOTTOM)) {
+    const r = b.getBoundingClientRect();
+    if (r.height && !b.closest('[hidden]') && r.bottom >= innerHeight - 24 && r.top < innerHeight) top = Math.min(top, r.top);
+  }
+  host.style.bottom = top < innerHeight ? Math.round(innerHeight - top + 8) + 'px' : '';
+}
 export function progressToast(text) {
   const t = el('div', { class: 'toast-item', role: 'status' }, text);
+  placeToasts($('toasts'));
   $('toasts').append(t);
   return { set: s => { t.textContent = s; }, done: s => { if (s) t.textContent = s; setTimeout(() => t.remove(), 2800); } };
 }
 
-export function flash(_id, text) {
-  const t = el('div', { class: 'toast-item' }, text);
-  $('toasts').append(t);
-  setTimeout(() => t.remove(), 2800);
+/**
+ * Krótki komunikat na dole ekranu. Błąd (kind 'error' albo tekst zaczynający się od „Nie udało…”, „Nie zapisano…”, „Błąd…”)
+ * ma własny wygląd, zostaje dłużej (9 s; odliczanie stoi, gdy kursor / fokus jest na nim) i da się go zamknąć — zwykły znika po 2,8 s.
+ */
+const ERR_TOAST = /^(Nie udało|Nie pobrano|Nie zapisano|Nie usunięto|Nie dodano|Nie znaleziono|Nie można|Zapis nie|Błąd|Uzupełnianie przerwane)/;
+export function flash(_id, text, kind) {
+  const host = $('toasts');
+  if (!host) return;
+  const err = kind === 'error' || (kind == null && ERR_TOAST.test(String(text || '').trim()));
+  const t = el('div', { class: 'toast-item' + (err ? ' err' : ''), role: err ? 'alert' : null }, text);
+  if (err) t.append(el('button', { type: 'button', class: 'toast-x', 'aria-label': 'Zamknij komunikat', title: 'Zamknij komunikat', onclick: () => t.remove() }, '×'));
+  placeToasts(host);
+  host.append(t);
+  while (host.children.length > 4) host.firstElementChild.remove();   // seria kliknięć nie zasypuje ekranu
+  if (!err) { setTimeout(() => t.remove(), 2800); return; }
+  // Błąd: 9 s, ale odliczanie stoi, gdy kursor lub fokus jest na komunikacie (czytanie / kopiowanie treści)
+  let timer = 0;
+  const arm = () => { clearTimeout(timer); timer = setTimeout(() => t.remove(), 9000); };
+  const hold = () => clearTimeout(timer);
+  t.addEventListener('mouseenter', hold); t.addEventListener('focusin', hold);
+  t.addEventListener('mouseleave', () => { if (!t.contains(document.activeElement)) arm(); });
+  t.addEventListener('focusout', ev => { if (!t.contains(ev.relatedTarget) && !t.matches(':hover')) arm(); });
+  arm();
+}
+
+// ─── Okna dialogowe: wspólne zachowanie fokusu i klawiatury (wszystkie moduły, także te bez własnej obsługi) ───
+// • nowe okno → fokus do środka (pierwsze pole; bez pól — bezpieczny przycisk, nie „Usuń”); po podmianie treści okna
+//   (krok „Zapisuję…” → wynik) fokus zostaje w oknie, zamiast spaść na <body>;
+// • Esc w oknie = jego „Anuluj” / „Zamknij” (przycisk z data-dismiss albo o takiej nazwie);
+// • zamknięcie → fokus wraca tam, skąd okno otwarto (przycisk / menu), jeśli tylko jeszcze istnieje;
+// • Tab w oknie modalnym (aria-modal) krąży po jego elementach.
+export const DIALOG_SEL = '.ord-dialog, .bm-dialog, .nat-dialog, .pk-dialog';
+const FOCUSABLE = 'input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])';
+const shown = e => !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length) && !e.closest('[hidden]');
+const focusablesIn = d => [...d.querySelectorAll(FOCUSABLE)].filter(shown);
+function firstFocus(d) {
+  const list = focusablesIn(d);
+  return d.querySelector('[autofocus]:not(:disabled)') || list.find(e => e.matches('input, select, textarea') && !e.closest('.menu'))
+    || list.find(e => e.matches('button') && !e.matches('.danger')) || list[0] || null;
+}
+const dismissOf = d => [...d.querySelectorAll('[data-dismiss], button')].find(b => !b.disabled && shown(b) && (b.hasAttribute('data-dismiss') || /^(Anuluj|Zamknij|Wróć|Nie|×)$/.test(b.textContent.trim())));
+if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+  let lastFocus = null;
+  const open = new Set();
+  const lost = () => { const a = document.activeElement; return !a || a === document.body || !a.isConnected; };
+  document.addEventListener('focusin', ev => { if (ev.target.closest && !ev.target.closest(DIALOG_SEL)) lastFocus = ev.target; }, true);
+  const sweep = () => {
+    for (const d of document.querySelectorAll(DIALOG_SEL)) {
+      const fresh = !open.has(d);
+      if (fresh) { open.add(d); d.__prev = lastFocus; d.__prevId = lastFocus && lastFocus.id; }
+      if (!shown(d) || d.contains(document.activeElement)) continue;
+      if (fresh || lost()) { const t = firstFocus(d); if (t) t.focus({ preventScroll: true }); }
+    }
+    for (const d of [...open]) {
+      if (d.isConnected && shown(d)) continue;
+      open.delete(d);
+      if (!lost() && !d.contains(document.activeElement)) continue;
+      const back = d.__prev && d.__prev.isConnected ? d.__prev : (d.__prevId ? document.getElementById(d.__prevId) : null);
+      if (back && shown(back)) back.focus({ preventScroll: true });
+    }
+  };
+  const start = () => new MutationObserver(sweep).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  document.addEventListener('keydown', ev => {
+    if (ev.defaultPrevented) return;
+    const d = ev.target.closest && ev.target.closest(DIALOG_SEL);
+    if (ev.key === 'Escape' && d) {
+      const b = dismissOf(d);
+      if (b) { ev.preventDefault(); b.click(); }
+      return;
+    }
+    if (ev.key !== 'Tab') return;
+    const m = [...document.querySelectorAll('[aria-modal="true"]')].filter(shown).pop();
+    if (!m || !m.matches(DIALOG_SEL)) return;
+    const list = focusablesIn(m);
+    if (!list.length) return;
+    const i = list.indexOf(document.activeElement);
+    if (ev.shiftKey && i <= 0) { ev.preventDefault(); list[list.length - 1].focus(); }
+    else if (!ev.shiftKey && (i === -1 || i === list.length - 1)) { ev.preventDefault(); list[0].focus(); }
+  });
 }
 
 // ─── Menu rozwijane (Kopiuj ▾ / Pobierz ▾) ─────────────────────────────────
@@ -472,6 +559,12 @@ export const sellyLink = (text, url, tip) => el('a', { href: url, target: '_blan
 export const dl = pairs => el('dl', { class: 'ord-dl' }, pairs.filter(p => p && p[1] != null && p[1] !== '' && p[1] !== false).flatMap(([k, v, tip]) => [el('dt', { title: tip || null, class: tip ? 'tip' : null }, k), el('dd', null, v)]));
 
 /**
+ * Strzałka kierunku sortowania w nagłówku. Miejsce na nią jest zarezerwowane także w nieaktywnych kolumnach,
+ * więc klik w nagłówek nie poszerza kolumny i tabela nie „skacze” (zgłoszenie właściciela). Treść: ' ↑' / ' ↓' / '' (spacja jak dawniej w „Nazwa ↓”).
+ */
+export const sortMark = (active, asc) => el('span', { class: 'sort-ar', 'aria-hidden': 'true' }, active ? (asc ? ' ↑' : ' ↓') : '');
+
+/**
  * Nagłówek kolumny tabeli z sortowaniem serwerowym. col: { label, sort?, num?, tip, tipHeader?, firstDir? ('asc'|'desc') }.
  * state: { sort, dir }; onSort(sort, dir). Kolumna bez `sort` to zwykły nagłówek z tooltipem.
  */
@@ -484,7 +577,7 @@ export function sortTh(col, state, onSort) {
       el('span', { class: 'th-multi' }, el('span', { title: col.tip, class: 'th-lbl tip' }, col.label), ...col.sorts.map(x => {
         const a = state.sort === x.sort;
         return el('button', { type: 'button', class: 'th-sort' + (a ? ' on' : ''), title: (x.tip || x.label) + '\n\n' + (a ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'),
-          onclick: () => onSort(x.sort, a ? (state.dir === 'asc' ? 'desc' : 'asc') : (x.firstDir || (x.num ? 'desc' : 'asc'))) }, x.label + (a ? (state.dir === 'asc' ? ' ↑' : ' ↓') : ''));
+          onclick: () => onSort(x.sort, a ? (state.dir === 'asc' ? 'desc' : 'asc') : (x.firstDir || (x.num ? 'desc' : 'asc'))) }, x.label, sortMark(a, state.dir === 'asc'));
       })));
   }
   if (!col.sort) return el('th', { class: cls }, el('span', { title: col.tip, class: col.tipHeader ? 'tip' : null }, col.label));
@@ -492,7 +585,7 @@ export function sortTh(col, state, onSort) {
   return el('th', { class: cls, 'aria-sort': active ? (state.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
     el('button', { type: 'button', class: col.tipHeader ? 'tip' : null, title: col.tip + '\n\n' + (active ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'),
       onclick: () => onSort(col.sort, active ? (state.dir === 'asc' ? 'desc' : 'asc') : (col.firstDir || (col.num ? 'desc' : 'asc'))) },
-      col.label + (active ? (state.dir === 'asc' ? ' ↑' : ' ↓') : '')));
+      col.label, sortMark(active, state.dir === 'asc')));
 }
 
 /** Stronicowanie: „← Poprzednia · Strona X z Y · N pozycji · Następna →”. o: { prefix, page, pages, total, noun:[1,2-4,5+], onPage } */
@@ -684,6 +777,21 @@ export function saveBar(o) {
   };
 }
 
+/**
+ * Dopisek paska „Zaznaczono…” o zaznaczeniu spoza bieżącej strony — z akcjami jak w Gmailu (jeden wzór dla wszystkich list):
+ * „(w tym N z innych stron) · Pokaż zaznaczone · Odznacz je”; w widoku „tylko zaznaczone” — „Wróć do listy”.
+ * o: { prefix, off, only, onShow(), onBack(), onUnselOff() }. Zwraca węzeł albo null (nic do pokazania).
+ */
+export function selOffNote(o) {
+  const lnk = (id, label, tip, fn) => el('button', { type: 'button', class: 'link', id: o.prefix + id, title: tip, onclick: fn }, label);
+  if (o.only) return el('span', { class: 'small', id: o.prefix + 'SelOff' }, ' · ', lnk('SelBack', 'Wróć do listy', 'Wraca do pełnej listy (zaznaczenie zostaje)', o.onBack));
+  if (!o.off) return null;
+  return el('span', { class: 'small', id: o.prefix + 'SelOff' },
+    el('span', { class: 'muted tip', title: 'Zaznaczenie zostaje po przejściu na inną stronę lub zmianie filtra — akcje obejmą wszystkie zaznaczone' }, ' (w tym ' + o.off + ' z innych stron)'),
+    ' · ', lnk('SelShow', 'Pokaż zaznaczone', 'Pokazuje tylko zaznaczone pozycje, wszystkie na jednej liście', o.onShow),
+    ' · ', lnk('SelOffNone', 'Odznacz je', 'Odznacza pozycje zaznaczone na innych stronach (ta strona zostaje bez zmian)', o.onUnselOff));
+}
+
 /** Lista akcji przy wierszu: [{ label, href?, onclick?, icon, tip, ext? }] — małe ikony + etykiety. */
 export function rowActions(items) {
   return el('ul', { class: 'row-actions' }, items.filter(Boolean).map(a => el('li', null,
@@ -710,4 +818,4 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=82b7f36';   // pole daty i zakres dat
+export * from './datepicker.js?v=c5d5baa';   // pole daty i zakres dat

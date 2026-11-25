@@ -48,5 +48,7 @@ td.ship-old { color: var(--no); font-weight: 700; }
 @media (max-width: 640px) {
   .ship-f, .ship-man-field { min-width: 0; flex: 1 1 100%; }
   .ship-man-field textarea { min-width: 0; }
-  .ship-bar > button, .ship-bar > a { flex: 1 1 100%; }
+  /* Dwa przyciski w rzędzie zamiast jednego — pasek przyklejony do dołu nie zasłania połowy ekranu; bez zaznaczenia nie jest przyklejony */
+  .ship-bar > button, .ship-bar > a { flex: 1 1 calc(50% - var(--s2)); min-width: 0; white-space: normal; }
+  .ship-bar:not(.on) { position: static; box-shadow: none; }
 }

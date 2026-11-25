@@ -3,12 +3,12 @@
 // czyta je i zwraca strukturę (sekrety zamaskowane po stronie serwera); zapis tylko z allowlisty pól, zawsze przez podgląd zmian (dryRun)
 // i potwierdzenie (docs/selly-embed.md, docs/auth.md). „Tylko do podglądu” = flaga `readOnly` z odpowiedzi serwera (jedna, z silnika).
 // Strony ustawień (jedna strona-formularz) obsługuje modules/sellyNativeSettings.js.
-import { el, loadingBox, tapOpen } from '../core/ui.js?v=82b7f36';
-import { api } from '../core/client.js?v=82b7f36';
-import { sellyUrl } from './_placeholder.js?v=82b7f36';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=82b7f36';
-import { addLeaveGuard } from '../core/router.js?v=82b7f36';
-import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=82b7f36';
+import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=c5d5baa';
+import { api } from '../core/client.js?v=c5d5baa';
+import { sellyUrl } from './_placeholder.js?v=c5d5baa';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=c5d5baa';
+import { addLeaveGuard } from '../core/router.js?v=c5d5baa';
+import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=c5d5baa';
 
 /** Żądanie do Workera: native:read / native:save / native:create → { ok, data } albo { ok:false, code, error } (nigdy nie rzuca). */
 export function sellyCall(req) {
@@ -84,7 +84,7 @@ export function createNative(cfg) {
       el('p', { class: 'muted' }, r.error || 'Nieznany błąd'),
       el('div', { class: 'nat-actions' },
         el('a', { href: sellyList(), target: '_blank', rel: 'noopener', class: 'btn-link', title: 'Otwiera ten sam ekran w panelu Selly, w nowej karcie' }, 'Otwórz w Selly ↗'),
-        el('button', { type: 'button', class: 'secondary', onclick: retry, title: 'Pobiera dane z Selly ponownie' }, 'Odśwież')));
+        el('button', { type: 'button', class: 'secondary', onclick: retry, title: 'Pobiera dane z Selly ponownie' }, '↻ Odśwież')));
   }
 
   // ─── Lista ──────────────────────────────────────────────────────────────
@@ -141,7 +141,7 @@ export function createNative(cfg) {
           const isNum = numeric(d.rows.map(r => (r.cells[i] || {}).text || ''));
           if (S.sort === i) S.dir = S.dir === 'asc' ? 'desc' : 'asc'; else { S.sort = i; S.dir = isNum ? 'desc' : 'asc'; }
           paintList();
-        } }, el('span', { class: headerTips[h] ? 'tip' : null }, h), act ? el('span', { class: 'sort-ind' }, S.dir === 'asc' ? ' ↑' : ' ↓') : null));
+        } }, el('span', { class: headerTips[h] ? 'tip' : null }, h), sortMark(act, S.dir === 'asc')));
     };
     const cards = !!cfg.recordRoute && (!d.readOnly || rows.some(r => r.id));
     const open = r => { if (cfg.recordRoute && r.id) showRecord(r.id); };
@@ -163,7 +163,7 @@ export function createNative(cfg) {
       el('button', { type: 'button', class: 'secondary', disabled: S.page >= d.pages || null, title: 'Następna strona', onclick: () => { S.page++; showList(); } }, 'Następna ›')) : null;
     const add = cfg.create && d.canCreate ? el('button', { type: 'button', class: 'primary', id: 'natNew', title: cfg.create.tip || 'Dodaje nową pozycję w Selly (przed wysłaniem pokażemy podsumowanie)', onclick: showCreate }, cfg.create.label || 'Dodaj') : null;
     root.replaceChildren(
-      toolbar(rows.length + ' ' + (rows.length === 1 ? 'pozycja' : 'pozycji') + ' na tej stronie', [add, el('button', { type: 'button', class: 'secondary', id: 'natRefresh', title: 'Pobiera listę z Selly ponownie', onclick: showList }, 'Odśwież')]),
+      toolbar(rows.length + ' ' + (rows.length === 1 ? 'pozycja' : 'pozycji') + ' na tej stronie', [add, el('button', { type: 'button', class: 'secondary', id: 'natRefresh', title: 'Pobiera listę z Selly ponownie', onclick: showList }, '↻ Odśwież')]),
       d.filters.length || !d.readOnly ? el('div', { class: 'card' }, filterBox(d)) : null, el('div', { class: 'card nat-tablecard' }, table, pager),
       (d.settings || []).length ? el('div', { class: 'card', id: 'natSettings' }, el('h3', null, 'Ustawienia (tylko podgląd)'), el('dl', { class: 'ord-dl' }, d.settings.flatMap(f => [el('dt', null, f.label || f.name), el('dd', null, f.value)]))) : null,
       (d.extra || []).map(t => el('div', { class: 'card nat-extra' }, el('div', { class: 'table-wrap' }, el('table', null, el('thead', null, el('tr', null, t.headers.map(h => el('th', { title: h }, h)))), el('tbody', null, t.rows.map(r => el('tr', null, r.map(c => el('td', null, c))))))))));

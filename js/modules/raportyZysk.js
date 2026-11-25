@@ -1,7 +1,7 @@
 // Widok „Zysk i marża” raportów sprzedaży (odpowiednik raportu 15 w Selly: wartości netto, koszty zakupu netto, zysk, marża).
 // Dane: akcja reports:profit (D1). Koszt = BIEŻĄCA cena zakupu produktu z karty, nie historyczna — dlatego widok mówi to wprost.
-import { el, sortTh } from '../core/ui.js?v=82b7f36';
-import { zl, zl0, qty, pct1, rangeText, deltaEl, tile } from './raportyKit.js?v=82b7f36';
+import { el, sortTh } from '../core/ui.js?v=c5d5baa';
+import { zl, zl0, qty, pct1, rangeText, deltaEl, tile } from './raportyKit.js?v=c5d5baa';
 
 const pc = v => (v == null ? '—' : pct1(v) + '%');
 const ppFmt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + pct1(Math.abs(v)) + ' p.p.';
@@ -19,7 +19,7 @@ function ppDelta(cur, prev, cmp) {
 export function zyskRender(c) {
   const { Q, d, setQ, legend } = c, r = d.range, cmp = r.compare, cur = d.summary.cur, prev = d.summary.prev;
   const top = el('div', { class: 'rp-top muted' }, 'Dane z ostatniej synchronizacji z Selly. Wynik raportu jest zapamiętywany na 5 minut.');
-  const note = el('div', { class: 'notice warn', id: 'rpCostNote' }, el('b', null, 'Skąd koszt? '),
+  const note = el('div', { class: 'notice info', id: 'rpCostNote' }, el('b', null, 'Skąd koszt? '),
     'Koszt zakupu to BIEŻĄCA cena zakupu produktu z jego karty (nie cena z dnia sprzedaży) × sprzedana ilość; wartości netto to cena pozycji bez VAT (stawka produktu). Gdy zmieniałeś ceny zakupu, zysk dawnych okresów jest przybliżony. ',
     'Pozycje bez ceny zakupu są pominięte w zysku i marży — pokazujemy je osobno.');
   if (!cur.net) return [top, legend, el('div', { class: 'card' }, el('div', { class: 'empty', id: 'rpEmpty' }, 'Brak sprzedaży w okresie ' + rangeText(r.from, r.to) + ' przy ustawieniu „statusy: ' + c.statusPhrase().text + '”.'))];

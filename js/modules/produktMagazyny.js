@@ -5,9 +5,9 @@
 //    edycja i dodawanie (GET/POST/PUT /api/warehouses — products:warehouses / warehouseSave; zapis wymaga prawa do sekcji „Magazyny”),
 //  - usuwanie produktu (DELETE /api/products/{id} — products:delete, tylko administrator panelu).
 // Każdy zapis: walidacja → podgląd zmian → potwierdzenie. Fizyczne stany i ruchy prowadzi osobny moduł Magazyny (js/modules/magazyny.js).
-import { el, flash, money, filterSection, loadingBox, sellyLink, isUnavailable } from '../core/ui.js?v=82b7f36';
-import { api, ctx } from '../core/client.js?v=82b7f36';
-import { previewModal } from './produktPodglad.js?v=82b7f36';
+import { el, flash, money, filterSection, loadingBox, sellyLink, isUnavailable, sortMark } from '../core/ui.js?v=c5d5baa';
+import { api, ctx } from '../core/client.js?v=c5d5baa';
+import { previewModal } from './produktPodglad.js?v=c5d5baa';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const sellyRoute = route => ((ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK) + '?a=' + route;
@@ -167,7 +167,7 @@ export function warehousesScreen(box, o) {
     const sortTh = (key, label, tip, numeric, cls) => {
       const on = S.sort === key;
       return el('th', { class: cls || null, 'aria-sort': on ? (S.dir > 0 ? 'ascending' : 'descending') : null }, el('button', { type: 'button', class: on ? 'th-sort on' : 'th-sort', title: tip + ' — kliknij, aby posortować', 'data-sort': key,
-        onclick: () => { if (on) S.dir = -S.dir; else { S.sort = key; S.dir = numeric ? -1 : 1; } draw(); } }, label, on ? (S.dir > 0 ? ' ↑' : ' ↓') : ''));
+        onclick: () => { if (on) S.dir = -S.dir; else { S.sort = key; S.dir = numeric ? -1 : 1; } draw(); } }, label, sortMark(on, S.dir > 0)));
     };
     if (!rows.length) { listHost.replaceChildren(el('div', { class: 'empty' }, 'Selly nie zwróciło żadnego magazynu.')); return; }
     listHost.replaceChildren(el('div', { class: 'table-wrap' }, el('table', { id: 'whTable' },

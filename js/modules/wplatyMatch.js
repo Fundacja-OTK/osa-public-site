@@ -14,7 +14,7 @@ export const RULES = {
   sure: { def: 85, min: 40, max: 100, label: 'Próg „pewne”', tip: 'Wpłaty z wynikiem co najmniej tyle są zaznaczane do oznaczenia automatycznie. Podnieś, jeśli chcesz zaznaczać mniej.' },
   probable: { def: 30, min: 5, max: 100, label: 'Próg „prawdopodobne”', tip: 'Wpłaty z wynikiem od tego progu są pokazywane jako prawdopodobne (wymagają Twojej decyzji, nie są zaznaczone). Poniżej — „brak dopasowania”.' },
   tolerance: { def: 0.01, min: 0, max: 5, step: 0.01, label: 'Tolerancja kwoty (zł)', tip: 'O ile złotych kwota wpłaty może się różnić od kwoty do zapłaty, żeby nadal uznać ją za zgodną. 0,01 zł zabezpiecza przed błędami zaokrągleń.' },
-  ambiguity: { def: 10, min: 0, max: 50, label: 'Różnica do drugiego kandydata', tip: 'Gdy dwa zamówienia mają niemal tyle samo punktów (różnica mniejsza niż ta wartość), wpłata jest tylko „prawdopodobna” — nie wiadomo, które wybrać.' },
+  ambiguity: { def: 10, min: 0, max: 50, label: 'Przewaga nad drugim zamówieniem', tip: 'Gdy dwa zamówienia mają niemal tyle samo punktów (różnica mniejsza niż ta wartość), wpłata jest tylko „prawdopodobna” — nie wiadomo, które wybrać.' },
 };
 export const defaultSettings = () => Object.fromEntries(Object.entries(RULES).map(([k, r]) => [k, r.def]));
 export function cleanSettings(s) {

@@ -6,53 +6,53 @@
   <!-- CSP: skrypty tylko z tej strony (bez inline), połączenia tylko do serwera głównego (Cloudflare Workers) i zapasowego (Apps Script) -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://osa-panel.osa-panel.workers.dev https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
   <title>Panel OSA</title>
-  <link rel="stylesheet" href="css/base.css?v=82b7f36">
-  <link rel="stylesheet" href="css/shell.css?v=82b7f36">
-  <link rel="stylesheet" href="css/pulpit.css?v=82b7f36">
-  <link rel="stylesheet" href="css/przesylki.css?v=82b7f36">
-  <link rel="stylesheet" href="css/zasob.css?v=82b7f36">
-  <link rel="stylesheet" href="css/zasoby.css?v=82b7f36">
-  <link rel="stylesheet" href="css/klienci.css?v=82b7f36">
-  <link rel="stylesheet" href="css/produkt.css?v=82b7f36">
-  <link rel="stylesheet" href="css/raporty.css?v=82b7f36"><link rel="stylesheet" href="css/raporty-rodziny.css?v=82b7f36"><link rel="stylesheet" href="css/masowe.css?v=82b7f36"><link rel="stylesheet" href="css/dropshipping.css?v=82b7f36"><link rel="stylesheet" href="css/wplaty.css?v=82b7f36">
-  <link rel="stylesheet" href="css/feedback.css?v=82b7f36">
-  <link rel="stylesheet" href="css/konfsklepu.css?v=82b7f36">
-  <link rel="stylesheet" href="css/palette.css?v=82b7f36">
-  <link rel="stylesheet" href="css/embed.css?v=82b7f36">
-  <link rel="stylesheet" href="css/natywne.css?v=82b7f36">
-  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=82b7f36">
-  <link rel="stylesheet" href="css/faktury.css?v=82b7f36">
-  <link rel="stylesheet" href="css/speedmail.css?v=82b7f36">
-  <link rel="stylesheet" href="css/mobile.css?v=82b7f36">
+  <link rel="stylesheet" href="css/base.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/shell.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/pulpit.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/przesylki.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/zasob.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/zasoby.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/klienci.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/produkt.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/raporty.css?v=c5d5baa"><link rel="stylesheet" href="css/raporty-rodziny.css?v=c5d5baa"><link rel="stylesheet" href="css/masowe.css?v=c5d5baa"><link rel="stylesheet" href="css/dropshipping.css?v=c5d5baa"><link rel="stylesheet" href="css/wplaty.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/feedback.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/konfsklepu.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/palette.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/embed.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/natywne.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/faktury.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/speedmail.css?v=c5d5baa">
+  <link rel="stylesheet" href="css/mobile.css?v=c5d5baa">
   <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, version, backends } -->
   <!-- modulepreload: scripts/preload.js -->
-  <link rel="preload" as="script" href="config.js?v=82b7f36">
-  <link rel="preload" as="script" href="js/preboot.js?v=82b7f36">
-  <link rel="modulepreload" href="js/main.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/shell.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/ui.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/client.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/auth.js?v=82b7f36">
-  <link rel="modulepreload" href="js/lib/panelAuth.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/router.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/errors.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/sellyExits.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/errorHook.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/feedback.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/update.js?v=82b7f36">
-  <link rel="modulepreload" href="js/modules/_placeholder.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/nav.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/palette.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/shortcuts.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/recents.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/preload.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/datepicker.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/api.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/delivery.js?v=82b7f36">
-  <link rel="modulepreload" href="js/core/search.js?v=82b7f36">
-  <script src="config.js?v=82b7f36"></script>
-  <script src="js/preboot.js?v=82b7f36"></script>
-  <script type="module" src="js/main.js?v=82b7f36"></script>
+  <link rel="preload" as="script" href="config.js?v=c5d5baa">
+  <link rel="preload" as="script" href="js/preboot.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/main.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/shell.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/ui.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/client.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/auth.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/lib/panelAuth.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/router.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/errors.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/sellyExits.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/errorHook.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/feedback.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/update.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/modules/_placeholder.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/nav.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/palette.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/shortcuts.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/recents.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/preload.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/datepicker.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/api.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/delivery.js?v=c5d5baa">
+  <link rel="modulepreload" href="js/core/search.js?v=c5d5baa">
+  <script src="config.js?v=c5d5baa"></script>
+  <script src="js/preboot.js?v=c5d5baa"></script>
+  <script type="module" src="js/main.js?v=c5d5baa"></script>
 </head>
 <body>
 <div class="app">

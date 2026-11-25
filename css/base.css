@@ -1053,3 +1053,19 @@ tr.live-chg > td { animation: live-chg 2.4s ease-out; }
   .lv-bar > button, .lv-bar > a, .lv-bar > .menu { flex: 1 1 100%; }
   .lv-bar > .menu > button { width: 100%; }
 }
+
+/* ─── Przepływ (UX): stabilny układ i czytelne komunikaty ─── */
+/* Strzałka sortowania ma stałe miejsce w każdym sortowalnym nagłówku — klik nie poszerza kolumny (tabela nie skacze) */
+.sort-ar { display: inline-block; width: 1.35em; white-space: pre; text-align: left; }
+/* Toast błędu: inny kolor, zostaje dłużej, ma „×” */
+.toast-item.err { border-left-color: var(--no); background: var(--no-soft); color: var(--text); display: flex; gap: var(--s3); align-items: flex-start; pointer-events: auto; }
+.toast-x { all: unset; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px; color: var(--muted); }
+.toast-x:hover { color: var(--text); }
+.toast-x:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* Pasek akcji dla zaznaczonych (zamówienia, klienci): przyklejony u dołu listy — pojawienie się nie przesuwa wierszy tabeli */
+.sel-bar { position: sticky; bottom: 0; z-index: 20; margin-top: var(--s3); box-shadow: var(--shadow-pop); }
+.sel-bar .spacer { flex: 1; }
+/* Przycisk, który uruchomił zapis (core/client.js): zajęty do końca zapisu — bez zmiany wymiarów */
+.is-busy { cursor: progress !important; pointer-events: none; opacity: .7; background-image: linear-gradient(90deg, transparent 0 40%, color-mix(in srgb, currentColor 14%, transparent) 50%, transparent 60% 100%); background-size: 250% 100%; animation: osa-busy 1.1s linear infinite; }
+@keyframes osa-busy { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+@media (prefers-reduced-motion: reduce) { .is-busy { animation: none; } }

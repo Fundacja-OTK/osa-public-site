@@ -1,8 +1,8 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=82b7f36';
-import { api, ctx } from '../core/client.js?v=82b7f36';
-import { loadingBox } from '../core/ui.js?v=82b7f36';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob, sortMark } from '../core/ui.js?v=c5d5baa';
+import { api, ctx } from '../core/client.js?v=c5d5baa';
+import { loadingBox } from '../core/ui.js?v=c5d5baa';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
@@ -606,7 +606,7 @@ function renderTable(rows) {
       el('button', { type: 'button', class: col.tip ? 'tip' : null, title: tip + '\n\n' + (active ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'), onclick: () => {
         state.sort = { key: col.key, dir: active ? -state.sort.dir : 1 };
         renderTable();
-      } }, col.label + (active ? (state.sort.dir > 0 ? ' ↑' : ' ↓') : ''))));
+      } }, col.label, sortMark(active, state.sort.dir > 0))));
   }
 
   const body = el('tbody');
@@ -1083,7 +1083,7 @@ function renderWojTable(C) {
   // Tooltip z wyjaśnieniem kolumny musi być na przycisku — jego własny „Sortuj” przykrywał tooltip nagłówka
   const sortBtn = (key, label, tip) => el('button', { type: 'button', class: tip ? 'tip' : null, title: (tip ? tip + '\n\n' : '') + (sortKey === key ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'),
     onclick: () => { if (sortKey === key) ors.sortDir = -sortDir; else { ors.sort = key; ors.sortDir = 0; } renderOrszaki(); } },
-    label + (sortKey === key ? (sortDir > 0 ? ' ↑' : ' ↓') : ''));
+    label, sortMark(sortKey === key, sortDir > 0));
   const two = cols.some(c => c.grp);
   const rs = two ? { rowspan: '2' } : {};
   const r1 = [el('th', Object.assign({ 'aria-sort': ariaSort('name') }, rs), sortBtn('name', 'Województwo',
@@ -1245,7 +1245,7 @@ function renderDetail(C) {
     return el('th', { 'aria-sort': on ? (dir > 0 ? 'ascending' : 'descending') : 'none' },
       el('button', { type: 'button', class: tip !== label ? 'tip' : null, title: tip + '\n\n' + (on ? 'Kliknij, aby odwrócić kolejność' : 'Kliknij, aby posortować'),
         onclick: () => { ors.dsort = { key, dir: on ? -dir : firstDir || 1 }; fill(); } },
-        label + (on ? (dir > 0 ? ' ↑' : ' ↓') : '')));
+        label, sortMark(on, dir > 0)));
   };
   const table = el('table');
   const count = el('span', { class: 'muted' });

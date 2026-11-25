@@ -49,3 +49,28 @@
   .ip-note, .ip-sign { margin-top: 10pt; }
   .ip-foot { margin-top: 18pt; font-size: 8pt; color: #666; }
 }
+
+/* (dołączone tu, by nie dokładać żądania HTTP — budżet perf) */
+/* Lista kompletacyjna (zamowieniaKompletacja.js): ekran + wydruk A4 (body.pk-printing) */
+.pk-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pk-tbl { width: 100%; border-collapse: collapse; margin: 8px 0 14px; }
+.pk-tbl th, .pk-tbl td { border-bottom: 1px solid var(--border, #ccc); padding: 4px 6px; text-align: left; vertical-align: top; }
+.pk-tbl .n { text-align: right; white-space: nowrap; }
+.pk-tbl .c { width: 28px; text-align: center; }
+.pk-slip { border-top: 2px dashed var(--border, #bbb); margin-top: 18px; padding-top: 10px; }
+.pk-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.pk-addr { margin: 6px 0; }
+.pk-addr strong { display: block; }
+.pk-foot { font-size: .85em; color: #666; }
+#pickPrint { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body.pk-printing > *:not(#pickPrint) { display: none !important; }
+  body.pk-printing { background: #fff !important; }
+  body.pk-printing #pickPrint { display: block; color: #000; background: #fff; font: 11pt/1.35 var(--font, sans-serif); }
+  body.pk-printing #pickPrint * { color: #000 !important; background: transparent !important; box-shadow: none !important; }
+  body.pk-printing .pk-tbl th, body.pk-printing .pk-tbl td { border: 1px solid #888; }
+  body.pk-printing .pk-tbl tr { break-inside: avoid; }
+  body.pk-printing .pk-slip { break-before: page; page-break-before: always; border-top: 0; margin-top: 0; padding-top: 0; }
+  body.pk-printing .pk-foot { color: #555 !important; }
+}

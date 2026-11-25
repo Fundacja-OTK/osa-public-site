@@ -2,11 +2,11 @@
 // zaznaczenie przetrwające zmianę strony z przyklejonym paskiem akcji, stan w adresie, stany ładowania / pusto / błąd,
 // opcjonalnie świeżość (core/liveRefresh.js) i pamięć odczytów (core/cache.js). Logika bez DOM: core/listLogic.js.
 // API i przykład: docs/list-view.md. Identyfikatory elementów = prefiks `id` + nazwa (np. cliTable, cliSelCount, zsPrev).
-import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen } from './ui.js?v=82b7f36';
-import { go } from './router.js?v=82b7f36';
-import { cachedRead } from './cache.js?v=82b7f36';
-import { liveRefresh } from './liveRefresh.js?v=82b7f36';
-import * as LL from './listLogic.js?v=82b7f36';
+import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=c5d5baa';
+import { go } from './router.js?v=c5d5baa';
+import { cachedRead } from './cache.js?v=c5d5baa';
+import { liveRefresh } from './liveRefresh.js?v=c5d5baa';
+import * as LL from './listLogic.js?v=c5d5baa';
 
 const td = (c, v) => (v instanceof Node && v.tagName === 'TD' ? v : el('td', { class: [c.num ? 'n' : '', c.cls || ''].filter(Boolean).join(' ') || null }, v == null ? '' : v));
 
@@ -18,13 +18,14 @@ export function listView(o) {
     defaultSort: o.defaultSort || null, filters: (o.filters || []).map(f => ({ key: f.key, param: f.param })), filterPrefix: o.filterPrefix || '',
     sizes: o.sizes || [25, 50, 100, 200], defaultSize: o.defaultSize || 50, extra: o.extra,
   };
-  const S = { st: null, data: null, view: [], total: 0, err: null, seq: 0, sel: new Map(), built: false, filterOpts: {} };
+  const S = { st: null, data: null, view: [], total: 0, err: null, seq: 0, sel: new Map(), built: false, filterOpts: {}, only: false };   // only = widok „tylko zaznaczone”
   const u = {};
   const rowId = r => String(o.rowId ? o.rowId(r) : r.id);
   const visibleCols = () => cols.filter(c => !u.cols || u.cols.isOn(c.key));
 
   // ─── Stan ↔ adres ────────────────────────────────────────────────────────
   function set(patch, opts) {
+    S.only = false;
     const n = LL.patchState(S.st, patch);
     const h = o.route + LL.writeState(n, spec);
     if (location.hash === '#' + h) { S.st = n; sync(); load(); } else go(h, opts && opts.replace ? { replace: true } : undefined);
@@ -148,7 +149,8 @@ export function listView(o) {
   function render() {
     if (!S.data) { if (S.err) renderError(S.err); return; }
     const st = S.st, vc = visibleCols();
-    const rows = o.view ? o.view(S.view, S.data) : S.view;
+    if (S.only && !S.sel.size) S.only = false;
+    const rows = S.only ? [...S.sel.values()] : o.view ? o.view(S.view, S.data) : S.view;
     const ids = rows.map(rowId);
     const head = el('tr', null, o.select ? el('th', { class: 'c' }, el('input', { type: 'checkbox', id: p + 'SelAll', 'aria-label': 'Zaznacz wszystkie na tej stronie',
       title: 'Zaznacz lub odznacz wszystkie pozycje na tej stronie (zaznaczenie z innych stron zostaje)',
@@ -169,8 +171,10 @@ export function listView(o) {
     }
     u.results.replaceChildren(S.err ? el('div', { class: 'notice error', role: 'alert' }, 'Nie udało się odświeżyć — pokazuję poprzednie dane. ', retryBtn()) : null,
       ...(o.above ? [].concat(o.above(S.data, st) || []) : []),
+      S.only ? el('div', { class: 'notice info', id: p + 'OnlySel', role: 'status' }, 'Pokazuję tylko zaznaczone (' + rows.length + ') — ze wszystkich stron. ',
+        el('button', { type: 'button', class: 'link', onclick: () => { S.only = false; render(); } }, 'Wróć do listy')) : null,
       el('div', { class: 'table-wrap' }, el('table', { id: p + 'Table', class: 'lv-table' }, el('thead', null, head), body)),
-      pagerNode());
+      S.only ? null : pagerNode());
     syncSel();
   }
   function pagerNode() {
@@ -213,7 +217,8 @@ export function listView(o) {
     const noun = o.select.noun || ['pozycję', 'pozycje', 'pozycji'];
     u.bar.replaceChildren(
       el('span', null, el('strong', { id: p + 'SelCount' }, 'Zaznaczono: ' + cnt(n, ...noun)),
-        i.off ? el('span', { class: 'muted small tip', id: p + 'SelOff', title: 'Zaznaczenie zostaje po przejściu na inną stronę — akcje obejmą wszystkie zaznaczone' }, ' (w tym ' + i.off + ' z innych stron)') : null),
+        selOffNote({ prefix: p, off: i.off, only: S.only, onShow: () => { S.only = true; render(); }, onBack: () => { S.only = false; render(); },
+          onUnselOff: () => { for (const k of [...S.sel.keys()]) if (!pageIds.includes(k)) S.sel.delete(k); syncSel(); } })),
       el('button', { type: 'button', class: 'ghost', id: p + 'SelClear', title: 'Odznacz wszystko (na wszystkich stronach)', onclick: () => { S.sel.clear(); if (o.select.onClear) o.select.onClear(); syncSel(); } }, 'Wyczyść zaznaczenie'),
       el('span', { class: 'spacer' }),
       ...[].concat(o.select.actions ? o.select.actions([...S.sel.values()], api) : []));
