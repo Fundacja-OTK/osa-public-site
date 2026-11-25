@@ -1,8 +1,8 @@
 // Moduł „Licencje”: raport licencji członkowskich — przedłużenia, orszaki wg województw, anomalie, dziennik zmian.
 // Trasy: #/licencje (lista przedłużeń), #/licencje/orszaki (orszaki wg województw).
-import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=6d8ea70';
-import { api, ctx } from '../core/client.js?v=6d8ea70';
-import { loadingBox } from '../core/ui.js?v=6d8ea70';
+import { $, el, plural, debounce, store, flash, pageError, norm, menuButton, copyMenuButton, downloadMenuButton, downloadXlsx, downloadCsv, tableMatrix, cellText, uniqNonEmpty, htmlEsc, today, tableTsv, tableHtml, copyToClipboard, saveBlob } from '../core/ui.js?v=70a8836';
+import { api, ctx } from '../core/client.js?v=70a8836';
+import { loadingBox } from '../core/ui.js?v=70a8836';
 
 let BOOT = null;          // z backendu: { email, year, codePrefix, statuses, products, sync }
 
@@ -1698,13 +1698,14 @@ export default {
     root = el;
     el.replaceChildren(el0card());
     loadBoot().then(b => {
+      if (!b || !Array.isArray(b.statuses) || !Array.isArray(b.products)) throw new Error('Backend zwrócił niepełną konfigurację (brak statusów lub produktów).');
       BOOT = b;
       el.innerHTML = TEMPLATE;
       $('settings').hidden = false; $('viewnav').hidden = false;
       init();
       setView(pendingView);
     }).catch(err => {
-      root = null;
+      BOOT = null; bootP = null; root = null;   // nic nie zostaje w połowie — kolejne wejście wczytuje od nowa
       el.replaceChildren(el0card(err));
     });
   },

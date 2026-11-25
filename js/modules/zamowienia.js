@@ -1,19 +1,20 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=6d8ea70';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=6d8ea70';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=6d8ea70';
-import { api, ctx } from '../core/client.js?v=6d8ea70';
-import { go, setLeaveGuard } from '../core/router.js?v=6d8ea70';
-import { noteVisit } from '../core/recents.js?v=6d8ea70';
-import { registerListKeys } from '../core/listKeys.js?v=6d8ea70';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=6d8ea70';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=6d8ea70';
-import { showNewOrder } from './zamowienieNowe.js?v=6d8ea70';
-import { showInvoices } from './zamowieniaFaktury.js?v=6d8ea70';
-import { createFilterUi } from './zamowieniaFiltry.js?v=6d8ea70';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=6d8ea70';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=6d8ea70';
+import { photoSrc } from '../core/photo.js?v=70a8836';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=70a8836';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=70a8836';
+import { api, ctx } from '../core/client.js?v=70a8836';
+import { go, setLeaveGuard } from '../core/router.js?v=70a8836';
+import { noteVisit } from '../core/recents.js?v=70a8836';
+import { registerListKeys } from '../core/listKeys.js?v=70a8836';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=70a8836';
+import { cachedRead } from '../core/cache.js?v=70a8836';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=70a8836';
+import { showNewOrder } from './zamowienieNowe.js?v=70a8836';
+import { showInvoices } from './zamowieniaFaktury.js?v=70a8836';
+import { createFilterUi } from './zamowieniaFiltry.js?v=70a8836';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=70a8836';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=70a8836';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -119,7 +120,7 @@ async function ensureMeta() {
   if (S.meta) return true;
   if (S.metaLoading) return false;
   S.metaLoading = true; S.metaErr = null;
-  try { S.meta = await api('orders:meta'); S.metaAt = Date.now(); } catch (e) { S.metaErr = e; }
+  try { S.meta = await cachedRead('orders:meta', {}, { personal: true }); S.metaAt = Date.now(); } catch (e) { S.metaErr = e; }
   S.metaLoading = false;
   return !!S.meta;
 }
@@ -264,7 +265,8 @@ async function loadList(kind = {}) {
     api('orders:meta', kind.manual ? {} : { bg: 1 }).then(m => { if (m && m.statuses) { S.meta = m; if (S.listBox && !S.listBox.hidden) renderSegs(); } }).catch(() => {});
   }
   try {
-    const r = await api('orders:list', listParams(S.Q, kind.background ? { bg: 1 } : undefined));
+    const pre = S.pre; S.pre = null;
+    const r = await (!quiet && pre && pre.k === 'list' ? pre.p : api('orders:list', listParams(S.Q, kind.background ? { bg: 1 } : undefined)));
     if (my !== S.seq) return;
     S.data = r;
     u.live.loaded(r.stamp);
@@ -521,7 +523,8 @@ async function renderDetail(id) {
   const my = ++S.routeSeq, box = S.detailBox;
   box.replaceChildren(el('div', { class: 'card' }, loadingBox('Pobieram zamówienie…')));
   let r;
-  try { r = await api('orders:get', { id }); } catch (e) {
+  const pre = S.pre; S.pre = null;
+  try { r = await (pre && pre.k === 'get' && pre.id === String(id) ? pre.p : api('orders:get', { id })); } catch (e) {
     if (my !== S.routeSeq) return;
     box.replaceChildren(isUnavailable(e) ? unavailableBox() : el('div', { class: 'card' }, el('div', { class: 'empty error' }, 'Nie udało się pobrać zamówienia: ' + (e.message || 'błąd'),
       el('div', null, el('a', { href: S.listHash, class: 'btn-link' }, '← Wróć do listy'), ' ', el('button', { type: 'button', class: 'secondary', onclick: () => renderDetail(id) }, 'Spróbuj ponownie')))));
@@ -618,9 +621,15 @@ async function mountRoute() {
   if (!S.meta) {
     show('meta');
     S.metaBox.replaceChildren(el('div', { class: 'card' }, loadingBox('Wczytuję zamówienia…')));
+    // lista / karta startują równolegle z orders:meta (bez dodatkowej rundy); renderują się po obu odpowiedziach
+    S.pre = null;
+    if (route.id) S.pre = { k: 'get', id: String(route.id), p: api('orders:get', { id: route.id }) };
+    else { S.Q = route.Q; S.pre = { k: 'list', p: api('orders:list', listParams(S.Q)) }; }
+    S.pre.p.catch(() => {});
     await ensureMeta();
     if (my !== S.routeSeq) return;
     if (!S.meta) {
+      S.pre = null;
       S.metaBox.replaceChildren(S.metaErr && isUnavailable(S.metaErr) ? unavailableBox() : unavailableBox(S.metaErr ? 'Nie udało się otworzyć zamówień: ' + S.metaErr.message : MSG_UNAVAILABLE));
       return;
     }
