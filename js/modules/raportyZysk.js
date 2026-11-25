@@ -1,7 +1,7 @@
 // Widok „Zysk i marża” raportów sprzedaży (odpowiednik raportu 15 w Selly: wartości netto, koszty zakupu netto, zysk, marża).
 // Dane: akcja reports:profit (D1). Koszt = BIEŻĄCA cena zakupu produktu z karty, nie historyczna — dlatego widok mówi to wprost.
-import { el, sortTh } from '../core/ui.js?v=a753217';
-import { zl, zl0, qty, pct1, rangeText, deltaEl, tile } from './raportyKit.js?v=a753217';
+import { el, sortTh } from '../core/ui.js?v=866aaea';
+import { zl, zl0, qty, pct1, rangeText, deltaEl, tile } from './raportyKit.js?v=866aaea';
 
 const pc = v => (v == null ? '—' : pct1(v) + '%');
 const ppFmt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + pct1(Math.abs(v)) + ' p.p.';

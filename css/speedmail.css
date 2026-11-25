@@ -28,3 +28,16 @@
   #modSm .sm-bulk .ord-actions > * { flex: 1 1 100%; }
   #modSm td.sm-items, #modSm td.sm-why { min-width: 160px; }
 }
+/* „Towar w SM”: jeden produkt w wierszu, zawijanie zamiast wielokropka, kolor tylko na liczbie */
+#modSm td.sm-stock { min-width: 9.5em; max-width: 17em; }
+#modSm .sm-have { display: grid; gap: 1px; line-height: 1.3; }
+#modSm .sm-ln { overflow-wrap: anywhere; }
+#modSm .sm-v { white-space: nowrap; }
+#modSm .sm-bysel { margin-left: 0; }
+#modSm th .sm-selnote { display: block; font-size: var(--fs-xs); font-weight: 400; color: var(--muted); white-space: normal; }
+#modSm .sm-use { margin-top: 4px; }
+#modSm .sm-use-i { white-space: nowrap; }
+@media (max-width: 640px) {
+  #modSm td.sm-stock { min-width: 8em; }
+  #modSm .sm-use-i { white-space: normal; }
+}

@@ -1,11 +1,11 @@
 // „Wysyłka SpeedMail” — wspólny stan i klocki zakładek (speedmail.js + speedmailZam / Stan / Paczki / Tempo / Ust).
 // Dane (sm:init / sm:list / sm:pace) są trzymane w pamięci i w sessionStorage (same numery zamówień, daty, produkty i liczby —
 // żadnych danych klientów), więc strona rysuje się od razu z ostatniej kopii i odświeża w tle. Bez odpytywania w pętli.
-import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=a753217';
-import { api, ctx } from '../core/client.js?v=a753217';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=a753217';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=a753217';
-import { SM } from '../lib/speedmailLogic.js?v=a753217';
+import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=866aaea';
+import { api, ctx } from '../core/client.js?v=866aaea';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=866aaea';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=866aaea';
+import { SM } from '../lib/speedmailLogic.js?v=866aaea';
 
 export { SM };
 export const WRITE = ['magazyny'];                       // jak reguła sm:* (shared/panelAuth.js)
@@ -50,7 +50,7 @@ export function ensure(kind, force) {
   if (running[kind]) return running[kind];
   S.loading[kind] = true; S.errs[kind] = '';
   if (kind === 'init') S.flashIds = null;
-  running[kind] = api(ACTION[kind], {}).then(v => { S[slot] = remember(kind, v); plans.delete('p'); if (kind === 'init' && live) live.loaded(v.stamp); }, e => {
+  running[kind] = api(ACTION[kind], {}).then(v => { S[slot] = remember(kind, v); plans.clear(); if (kind === 'init' && live) live.loaded(v.stamp); }, e => {
     S.errs[kind] = (e && e.message) || 'Nie udało się pobrać danych.';
     if (e && (e.code === 403 || e.code === 401)) { S[slot] = null; forget(kind); }   // bez uprawnień nie pokazujemy starej kopii
   }).then(() => { S.loading[kind] = false; running[kind] = null; S.rerender(); return S[slot]; });
@@ -87,6 +87,20 @@ export function plan() {
   const v = e.v, active = Object.fromEntries(Object.entries(v.sent || {}).filter(([, x]) => !x.cancelled));
   const p = SM.plan(v.orders, { cfg: v.cfg, today: v.today, totals: v.totals, marks: v.marks, sent: active });
   plans.set('p', { of: e, plan: p });
+  return p;
+}
+/**
+ * Plan z zaznaczeniem: zaznaczone zamówienia dostają towar PIERWSZE (tak samo liczy serwer w sm:batch), potem reszta w zwykłej kolejności.
+ * Bez zaznaczenia = plan(). Liczone raz na dane + zestaw zaznaczonych (bez pobierania danych).
+ */
+export function planSel(sel) {
+  const base = plan();
+  if (!base || !sel || !sel.size) return base;
+  const e = S.d, key = [...sel].sort().join(','), hit = plans.get('s');
+  if (hit && hit.of === e && hit.key === key) return hit.plan;
+  const v = e.v, active = Object.fromEntries(Object.entries(v.sent || {}).filter(([, x]) => !x.cancelled));
+  const p = SM.plan(v.orders, { cfg: v.cfg, today: v.today, totals: v.totals, marks: v.marks, sent: active, priority: sel });
+  plans.set('s', { of: e, key, plan: p });
   return p;
 }
 

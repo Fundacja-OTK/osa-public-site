@@ -265,8 +265,11 @@
    * Decyzja dla każdego zamówienia: do SpeedMail („sm”) albo pakujemy sami („my”) z powodem (reguła 1–5). Zamówienia nie dzielimy.
    * o: { cfg, today: 'RRRR-MM-DD', totals, marks: { orderId: { result: 'my' | 'sm', note } }, sent: { orderId: { no } } }
    * Kolejność przydziału towaru: najpierw zamówienia oznaczone ręcznie „do SM”, potem od najstarszych.
+   * o.priority (lista / Set id zamówień — zaznaczone w panelu): te zamówienia dostają towar PIERWSZE (ręczne „do SM”, potem od najstarszych),
+   *   dopiero potem pozostałe w zwykłej kolejności. Tak samo liczy serwer w sm:batch (plan tylko na zamówieniach paczki), więc podgląd = przydział.
+   *   Wiersze zaznaczone mają `prio`, a niezaznaczone, którym towaru zabrakło dopiero przez zaznaczenie (bez niego „ok”) — `bySel`.
    * → wiersze w kolejności wejścia: { o, result: 'sm' | 'my' | 'sent', code, rule, reason, manual, need, presale, waits, missing, stock: 'ok' | 'brak' | '',
-   *     canForce (czy wolno ręcznie przenieść do SM), batch }
+   *     canForce (czy wolno ręcznie przenieść do SM), batch, prio, bySel }
    */
   function plan(orders, o) {
     const cfg = o.cfg, ix = index(cfg), today = String(o.today || '').slice(0, 10), marks = o.marks || {}, sent = o.sent || {};
@@ -305,27 +308,52 @@
     const lackText = miss => miss.slice(0, 3).map(x => x.name + ' (brakuje ' + nf(x.lack) + ' ' + x.unit + ')').join(', ') + (miss.length > 3 ? ' (+' + (miss.length - 3) + ')' : '');
     const waitText = r => (r.waits ? ' · przedsprzedaż: SpeedMail wyśle od ' + ddmm(D.presaleStart) : '');
     const byDate = (a, b) => (a.o.date < b.o.date ? -1 : a.o.date > b.o.date ? 1 : String(a.o.orderId) < String(b.o.orderId) ? -1 : 1);
-    for (const r of rows.filter(x => x.forced).sort(byDate)) {
+    const pri = o.priority ? new Set([...o.priority].map(String)) : null, sel = !!(pri && pri.size);
+    if (sel) for (const r of rows) r.prio = pri.has(String(r.o.orderId));
+    const serveForced = r => {
       r.missing = lackOf(r); r.stock = r.missing.length ? 'brak' : 'ok'; take(r.need);
       Object.assign(r, { result: 'sm', code: 'manual-sm', rule: 0, reason: 'Oznaczone ręcznie: do SpeedMail' + (r.note ? ' — ' + r.note : '') + (r.missing.length ? ' · UWAGA, brak towaru: ' + lackText(r.missing) : '') + waitText(r) });
-    }
-    for (const r of rows.filter(x => x.eligible).sort(byDate)) {
+    };
+    const serveEligible = r => {
       r.missing = lackOf(r);
-      if (r.missing.length) { Object.assign(r, { result: 'my', code: 'stock', rule: 5, stock: 'brak', reason: 'Brak towaru w SpeedMail: ' + lackText(r.missing) }); continue; }
+      if (r.missing.length) { Object.assign(r, { result: 'my', code: 'stock', rule: 5, stock: 'brak', reason: 'Brak towaru w SpeedMail: ' + lackText(r.missing) }); return; }
       take(r.need);
       Object.assign(r, { result: 'sm', code: 'ok', rule: 0, stock: 'ok', reason: 'Spełnia reguły, towar jest w SpeedMail' + waitText(r) });
+    };
+    // Bez zaznaczenia jedna tura; z zaznaczeniem najpierw zaznaczone (tak jak serwer liczy samą paczkę), potem reszta
+    for (const first of sel ? [true, false] : [null]) {
+      const turn = x => first === null || !!x.prio === first;
+      for (const r of rows.filter(x => x.forced && turn(x)).sort(byDate)) serveForced(r);
+      for (const r of rows.filter(x => x.eligible && turn(x)).sort(byDate)) serveEligible(r);
     }
     // Zamówienia „my” z reguł 1–3 bez produktów spoza listy: informacyjnie, czy SM miałby na nie towar (po przydziale pozostałych)
     for (const r of rows) if (r.stock === '?') { r.missing = lackOf(r); r.stock = r.missing.length ? 'brak' : 'ok'; }
-    return { rows, left: avail };
+    if (sel) {
+      // Które niezaznaczone zamówienia straciły towar przez zaznaczenie: porównanie z planem bez zaznaczenia
+      const was = new Map(plan(orders, Object.assign({}, o, { priority: null })).rows.map(r => [String(r.o.orderId), r.stock]));
+      for (const r of rows) {
+        if (r.prio || r.stock !== 'brak' || was.get(String(r.o.orderId)) !== 'ok') continue;
+        r.bySel = true;
+        r.reason += ' — po uwzględnieniu zaznaczonych zamówień (bez zaznaczenia towar by był)';
+      }
+    }
+    return { rows, left: avail, sel };
   }
 
-  /** Suma zapotrzebowania wybranych wierszy i produkty, których łącznie zabraknie (wybór ręczny). */
+  /**
+   * Suma zapotrzebowania wybranych wierszy wobec stanu SM: use (klucz → ilość), have (klucz → stan dostępny, tylko produkty z use),
+   * over (klucze, których zaznaczenie samo w sobie wyczerpuje ponad stan), lack (klucz → ile brakuje).
+   */
   function selectionUse(rows, selected, totals, cfg) {
-    const use = {};
+    const use = {}, have = {}, lack = {};
     for (const r of rows) if (selected.has(String(r.o.orderId))) for (const k in r.need) use[k] = r3((use[k] || 0) + r.need[k]);
-    const over = cfg.products.filter(p => use[p.key] > Math.max(0, stockOf(p, (totals || {})[p.key])) + 1e-9).map(p => p.key);
-    return { use, over };
+    const over = [];
+    for (const p of cfg.products) {
+      if (!(p.key in use)) continue;
+      have[p.key] = Math.max(0, stockOf(p, (totals || {})[p.key]));
+      if (use[p.key] > have[p.key] + 1e-9) { over.push(p.key); lack[p.key] = r3(use[p.key] - have[p.key]); }
+    }
+    return { use, over, have, lack };
   }
 
   // ─── Stan i alerty (sekcje 5 i 6) ──────────────────────────────────────────────────────────────────────

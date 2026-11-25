@@ -2,9 +2,9 @@
 // edycja tylko pól dozwolonych (allowlista w extension/lib/sellyNative.js), podgląd zmian (było → będzie) i potwierdzenie przed zapisem.
 // Pola poufne (hasła, klucze, SMTP…) Worker maskuje po stronie serwera — tu widać tylko „••• (ustawione)” / „(puste)”, bez edycji.
 // Użycie: createSettings({ id, title, screen, a, intro? }) → moduł panelu (mount / unmount), tak jak createNative.
-import { el, loadingBox } from '../core/ui.js?v=a753217';
-import { sellyCall } from './sellyNative.js?v=a753217';
-import { sellyUrl } from './_placeholder.js?v=a753217';
+import { el, loadingBox } from '../core/ui.js?v=866aaea';
+import { sellyCall } from './sellyNative.js?v=866aaea';
+import { sellyUrl } from './_placeholder.js?v=866aaea';
 
 /** cfg: { id, title, screen (klucz w SCREENS), a (trasa strony w Selly), intro? (krótki opis ekranu) } */
 export function createSettings(cfg) {
