@@ -81,3 +81,4 @@
   .pe-mact { margin-left: 0; width: 100%; }
   .pe-tog button { min-height: 44px; }
 }
+.pe-state { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }

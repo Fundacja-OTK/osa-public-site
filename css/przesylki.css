@@ -57,3 +57,5 @@ td.ship-old { color: var(--no); font-weight: 700; }
 .ship-scope { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .ship-scope .chip[aria-pressed=true] { background: var(--accent-soft); font-weight: 600; }
 .ord-ship-insp { display: inline-block; }
+.ship-insp-src { max-height: 220px; overflow: auto; white-space: pre-wrap; }
+.ship-insp-msgtext { margin: 2px 0 6px; }

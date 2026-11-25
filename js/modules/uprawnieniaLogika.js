@@ -20,17 +20,39 @@ export function hintBadge(h) {
 
 export const normText = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-/** Model z listy modułów grupy (perms:read bez modules) i stron modułów (perms:read z modules). */
+/**
+ * Model z listy modułów grupy i stron modułów (z kopii panelu albo z Selly). Moduł bez strony = jeszcze niewczytany (loaded:false, bez tras).
+ * ms = kiedy stronę odczytano z Selly (kopia w D1 albo odczyt na żywo).
+ */
 export function buildModel(groupId, modules, pages) {
-  const byMod = new Map((pages || []).map(p => [p.module, p]));
-  return {
-    groupId: String(groupId),
-    modules: (modules || []).filter(m => byMod.has(m.module)).map(m => {
-      const p = byMod.get(m.module);
-      return { module: m.module, title: m.title || m.module, empty: !!p.empty, canSave: !!p.canSave, reason: p.reason || '',
-        rows: (p.rows || []).map(r => ({ name: r.name, key: r.key, desc: r.desc || '', orig: r.value || '', value: r.value || '', hint: r.hint || null })) };
-    }),
-  };
+  const model = { groupId: String(groupId), modules: (modules || []).map(m => ({ module: m.module, title: m.title || m.module, loaded: false, empty: false, canSave: false, reason: '', rows: [], ms: 0 })) };
+  for (const p of pages || []) applyPage(model, p, p.ms || 0);
+  return model;
+}
+/**
+ * Wstawia stronę modułu odczytaną z Selly (świeżą albo z kopii). Zmiany użytkownika zostają: trasa zmieniona w edytorze zachowuje wartość
+ * z edytora, reszta przyjmuje stan z Selly; `orig` = stan z Selly (podstawa diffu i kontroli konfliktu). Moduł spoza listy — dopisany na końcu.
+ */
+export function applyPage(model, p, ms) {
+  if (!p || !p.module) return null;
+  let m = model.modules.find(x => x.module === p.module);
+  if (!m) { m = { module: p.module, title: p.module, rows: [] }; model.modules.push(m); }
+  const mine = new Map(m.rows.filter(isChanged).map(r => [r.name, r.value]));
+  Object.assign(m, { loaded: true, empty: !!p.empty, canSave: !!p.canSave, reason: p.reason || '', ms: ms || m.ms || 0 });
+  m.rows = (p.rows || []).map(r => {
+    const orig = r.value || '', want = mine.get(r.name);
+    return { name: r.name, key: r.key, desc: r.desc || '', orig, value: want && VALUES.includes(want) ? want : orig, hint: r.hint || null };
+  });
+  return m;
+}
+/** Najstarszy odczyt wczytanych modułów (ms) — „stan z …”; 0 = nic jeszcze nie wczytano. */
+export function oldestMs(model) {
+  const l = model.modules.filter(m => m.loaded && m.ms);
+  return l.length ? Math.min(...l.map(m => m.ms)) : 0;
+}
+/** Moduły do odczytu z Selly: niewczytane albo starsze niż ttlMs (nowe = pierwsze na liście). */
+export function staleModules(model, nowMs, ttlMs) {
+  return model.modules.filter(m => !m.loaded).map(m => m.module).concat(model.modules.filter(m => m.loaded && nowMs - (m.ms || 0) > ttlMs).map(m => m.module));
 }
 
 export const isChanged = r => r.value !== r.orig;
@@ -56,7 +78,7 @@ export function totals(model) {
   return t;
 }
 
-const settable = m => m.canSave && !m.empty;
+const settable = m => m.loaded !== false && m.canSave && !m.empty;
 /** Ustawia wartość wierszy (tylko moduły z zapisem). → liczba zmienionych pozycji. */
 function setRows(rows, fn) {
   let n = 0;

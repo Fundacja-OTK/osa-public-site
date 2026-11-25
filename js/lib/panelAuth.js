@@ -76,7 +76,7 @@
     'res:list', 'res:get', 'res:options',
     'native:read',
     // edytor uprawnień grup Selly (Konto → Uprawnienia): lista grup i macierz modułów — strony Selly sesją użytkownika, tylko administrator panelu
-    'perms:groups', 'perms:read',
+    'perms:groups', 'perms:read', 'perms:cached',
     'feedback:list', 'client:errors:list', 'client:exits:list', 'health:get', 'logins:list', 'map:latest', 'map:history',
   ];
   const WRITE_ACTIONS = [
@@ -156,7 +156,7 @@
     [/^(whoami|init|auth:(logout|refresh|perms)|feedback:send|client:errors|client:exits)$/, ANY],
     [/^(feedback:(list|status)|client:errors:list|client:exits:list|health:get|map:\w+|logins:list|grants:set|users:\w+)$/, ADMIN],
     // edytor uprawnień grup Selly: tylko administrator panelu (Konta administratorów w Selly); zapis i tak sprawdza Selly (sesja użytkownika)
-    [/^perms:(groups|read|save)$/, ADMIN],
+    [/^perms:(groups|read|cached|save)$/, ADMIN],
     // orders:stamp (znacznik wersji, 1 wiersz D1) i orders:refresh (synchronizacja zamówień teraz — pisze tylko do kopii panelu w D1, nigdy do Selly;
     // limit globalny i budżet Selly: panel/worker/src/lib/liveSync.js) — jak odczyt listy
     [/^orders:(list|get|meta|invoices|stamp|refresh)$/, ORD],

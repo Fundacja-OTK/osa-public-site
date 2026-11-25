@@ -3,10 +3,10 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone, selOffNote } from '../core/ui.js?v=04d1829';
-import { api, ctx } from '../core/client.js?v=04d1829';
-import { go } from '../core/router.js?v=04d1829';
-import { registerListKeys } from '../core/listKeys.js?v=04d1829';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone, selOffNote } from '../core/ui.js?v=ed1e51c';
+import { api, ctx } from '../core/client.js?v=ed1e51c';
+import { go } from '../core/router.js?v=ed1e51c';
+import { registerListKeys } from '../core/listKeys.js?v=ed1e51c';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -805,7 +805,13 @@ async function startInspect(r) {
   box.replaceChildren(
     el('h3', null, 'Budowa formularza przesyłki — ' + name),
     el('p', { class: 'muted small' }, 'Selly otworzyło formularz tak jak po kliknięciu „Utwórz przesyłkę” (trasa ' + d.route + '). Poniżej tylko budowa — bez wartości i danych zamówienia. Nic nie zostało zapisane w Selly.'),
-    st.kind === 'message' ? el('div', { class: 'notice warn', id: 'shipInspMsg' }, 'Selly odpowiedziało komunikatem, nie formularzem: ' + ((st.message && st.message.kinds) || []).join(', ') + '. Spróbuj z innym zamówieniem (z dostawą tego przewoźnika, bez przesyłki).') : null,
+    st.kind === 'message' ? el('div', { class: 'notice warn', id: 'shipInspMsg' }, 'Selly nie zwróciło formularza w żadnym wariancie żądania (poniżej, co odpowiedziało). Spróbuj z innym zamówieniem albo sprawdź komunikat.') : null,
+    // Warianty żądania i tekst komunikatu Selly (zamaskowany) — tylko do wglądu administratora, nigdzie nie zapisywany
+    (d.attempts || []).length ? el('div', { class: 'card', id: 'shipInspAttempts' }, el('strong', { title: 'Panel próbuje kolejno żądań jak przycisk Selly (tylko trasa wyświetlająca formularz) i kończy na pierwszym formularzu' }, 'Próby otwarcia formularza'),
+      el('ol', null, d.attempts.map(a => el('li', null, el('span', null, a.variant + ' → '), el('strong', null, a.result), a.messageText ? el('div', { class: 'small muted ship-insp-msgtext', title: 'Tekst komunikatu Selly (e-maile, telefony, kody pocztowe i liczby ukryte); nie jest nigdzie zapisywany' }, '„' + a.messageText + '”') : null))),
+      d.variant ? el('div', { class: 'small' }, 'Formularz otworzył wariant: ', el('strong', null, d.variant)) : null,
+      d.csrf ? el('details', null, el('summary', { class: 'tip', title: 'Token zabezpieczający żądania panelu Selly — wartość nie jest pokazywana' }, 'Token CSRF panelu: ' + (d.csrf.found ? 'znaleziony (' + d.csrf.source + ')' : 'nie znaleziony') + (d.csrf.headers.length ? ', nagłówek ' + d.csrf.headers.join(', ') : '')),
+        d.csrf.script.length ? el('pre', { class: 'small ship-insp-src' }, d.csrf.script.join('\n')) : null) : null) : null,
     ...st.forms.map((f, i) => el('div', { class: 'ship-insp-form' },
       el('strong', null, 'Formularz ' + (i + 1) + ': ' + (f.loose ? 'pola bez <form> (wysyła je skrypt Selly)' : f.method.toUpperCase() + ' → ' + (f.action || '(ta sama strona)'))),
       el('div', { class: 'table-wrap' }, el('table', { class: 'ship-insp-fields' }, el('thead', null, el('tr', null,
