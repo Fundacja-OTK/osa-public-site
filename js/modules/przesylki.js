@@ -1,11 +1,12 @@
 // Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS — listy przez API; Furgonetka,
-// Rohlig Suus, Poczta Polska — kolejka + link do Selly), filtry / strony / sortowanie w adresie, tworzenie listów w porcjach, etykiety,
-// zmiana statusu oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
-// Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=c270c3b';
-import { api, ctx } from '../core/client.js?v=c270c3b';
-import { go } from '../core/router.js?v=c270c3b';
-import { registerListKeys } from '../core/listKeys.js?v=c270c3b';
+// Rohlig Suus, Poczta Polska — „Utwórz przesyłkę” / „Prześlij do bufora” formularzem panelu Selly, jak robi to Selly), filtry / strony /
+// sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
+// Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
+// shipping:manualCreate, orders:meta, orders:setStatus).
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=3bb5e1e';
+import { api, ctx } from '../core/client.js?v=3bb5e1e';
+import { go } from '../core/router.js?v=3bb5e1e';
+import { registerListKeys } from '../core/listKeys.js?v=3bb5e1e';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -17,6 +18,15 @@ const OTHER = {
 // Przewoźnicy bez tworzenia listów przez API (jak MANUAL w Workerze); native = podgląd listy z Selly w panelu (adminNative.js)
 const MANUAL_FALLBACK = [{ key: 'furgonetka', name: 'Furgonetka.pl', screen: 'furgonetka.przesylki' }, { key: 'suus', name: 'Rohlig Suus', screen: 'suus.przesylki' }, { key: 'poczta', name: 'Poczta Polska', screen: 'enadawca.przesylki' }];
 const NATIVE = { furgonetka: 'furgonetka', suus: 'suus' };
+// Akcje formularzem Selly (Worker: SHIP_FORMS). Dostępne dopiero, gdy meta.manual[].ship[kind] = true (struktura potwierdzona sondą shipprobe).
+const MANUAL_KINDS = { furgonetka: ['create', 'buffer'], suus: ['create'], poczta: ['create', 'buffer'] };
+const KIND = {
+  create: { one: 'Utwórz przesyłkę', many: 'Utwórz przesyłki', doing: 'Tworzę przesyłki…', done: 'Przesyłki utworzone', fail: 'Przesyłki utworzone z błędami', id: 'shipManCreate',
+    tip: 'Utworzy przesyłkę u przewoźnika tak, jak przycisk „Utwórz przesyłkę” w Selly (formularz Selly na Twojej sesji). Najpierw pokażemy formularz i podsumowanie.' },
+  buffer: { one: 'Prześlij do bufora', many: 'Prześlij do bufora', doing: 'Przesyłam do bufora…', done: 'Przesłano do bufora', fail: 'Przesłano do bufora z błędami', id: 'shipManBuffer',
+    tip: 'Przekaże zamówienie do bufora przesyłek przewoźnika tak, jak „Prześlij do bufora” w Selly. Najpierw poprosimy o potwierdzenie.' },
+};
+const MSG_UNVERIFIED = 'Wymaga potwierdzenia struktury formularza Selly (administrator: uruchom shipprobe). Do tego czasu zrób to w Selly — „Utwórz w Selly ↗” w menu ▾ wiersza.';
 const DL_KEY = 'osa-ship-dl';   // identyfikatory zamówień, których etykiety pobrano w tej przeglądarce
 
 // ─── Parametry listu wg przewoźnika ─────────────────────────────────────────
@@ -92,6 +102,9 @@ const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
 const couriers = () => (S.meta && S.meta.couriers && S.meta.couriers.length ? S.meta.couriers : COURIER_FALLBACK);
 const manuals = () => ((S.meta && S.meta.manual && S.meta.manual.length ? S.meta.manual : MANUAL_FALLBACK).map(m => Object.assign({ native: NATIVE[m.key] || '' }, m)));
 const manualOf = k => manuals().find(x => x.key === k) || null;
+const manKinds = k => MANUAL_KINDS[k] || ['create'];
+/** Akcja formularzem Selly potwierdzona (SHIP_FORMS verified) — inaczej przycisk wyłączony z wyjaśnieniem. */
+const shipReady = (k, kind) => { const m = manualOf(k); return !!(m && m.ship && m.ship[kind] === true); };
 const courierName = k => { const c = couriers().find(x => x.key === k) || manualOf(k); return c ? c.name : k; };
 const maxBatch = () => Math.max(1, Number(S.meta && S.meta.maxBatch) || 10);
 const statuses = () => (S.ordMeta && S.ordMeta.statuses) || [];
@@ -266,7 +279,7 @@ function renderSegs() {
     n != null ? el('span', { class: 'ord-n', title: cnt(n, 'zamówienie', 'zamówienia', 'zamówień') + ' bez etykiety (numeru przesyłki)' + (withSt ? ' w wybranych statusach / datach' : '') + ' ze sposobem dostawy przypisanym do ' + label }, String(n)) : null);
   S.ui.segs.replaceChildren(
     ...couriers().map(c => seg(c.key, c.name, 'Kolejka do nadania przez ' + c.name + ' — listy przewozowe tworzysz stąd (przez integrację w Selly)', S.counts[c.key])),
-    ...manuals().map(c => seg(c.key, c.name, c.name + ': kolejka zamówień tutaj, a przesyłkę tworzysz w panelu Selly (Selly nie udostępnia tego przez API)', S.counts[c.key])),
+    ...manuals().map(c => seg(c.key, c.name, c.name + ': kolejka zamówień do nadania; przesyłkę tworzymy formularzem panelu Selly (jak przycisk w Selly — ten przewoźnik nie ma tego w API Selly)', S.counts[c.key])),
     seg('fedex', 'FedEx', 'FedEx idzie przez magazyn SpeedMail — poza Selly'),
     seg('ustawienia', 'Ustawienia przewoźników ⚙', 'Przypisz sposoby dostawy ze sklepu do przewoźników — od tego zależy, co trafia do kolejki'));
 }
@@ -374,7 +387,7 @@ function rowMenu(r, items) {
     title: 'Więcej akcji: zamówienie w panelu i w Selly, śledzenie, zmiana statusu' }, '▾');
   const pop = el('div', { class: 'menu-pop', role: 'menu', hidden: true }, items.filter(Boolean).map(it => (it.href
     ? el('a', { class: 'menu-item', role: 'menuitem', href: it.href, title: it.tip || null, target: it.ext ? '_blank' : null, rel: it.ext ? 'noopener' : null, onclick: () => close() }, it.label)
-    : el('button', { type: 'button', class: 'menu-item', role: 'menuitem', title: it.tip || null, write: it.write || null, onclick: () => { close(); it.run(); } }, it.label))));
+    : el('button', { type: 'button', class: 'menu-item', role: 'menuitem', title: it.tip || null, write: it.write || null, disabled: !!it.disabled, onclick: () => { close(); it.run(); } }, it.label))));
   const wrap = el('span', { class: 'menu ship-rowmenu' }, btn, pop);
   const onDoc = ev => { if (!wrap.contains(ev.target)) close(); };
   function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); }
@@ -396,10 +409,13 @@ function rowActions(key, r) {
   const m = manualOf(key), name = courierName(key), scr = screenOf(key);
   const orderSelly = adminUrl() + '?a=zamowienia.view&id=' + encodeURIComponent(r.id);
   let main;
-  if (m) {
+  if (m && r.tracking) {
     main = el('a', { class: 'btn-secondary small ship-selly', 'data-id': r.id, href: sellyScreenUrl(key, r) || orderSelly, target: '_blank', rel: 'noopener',
-      title: (scr ? 'Otwiera w nowej karcie ekran „Przesyłki ' + name + '” w panelu Selly wyszukany po numerze ' + (r.number || r.id) + ' — tam kliknij „Utwórz przesyłkę”.' : 'Otwiera zamówienie w panelu Selly w nowej karcie.')
-        + ' ' + name + ' nie udostępnia tworzenia przesyłek przez API, więc nie robimy tego stąd.' }, r.tracking ? 'Zobacz w Selly ↗' : 'Utwórz w Selly ↗');
+      title: 'Otwiera w nowej karcie ekran „Przesyłki ' + name + '” w panelu Selly wyszukany po numerze ' + (r.number || r.id) }, 'Zobacz w Selly ↗');
+  } else if (m) {
+    const ready = shipReady(key, 'create');
+    main = el('button', { type: 'button', class: 'primary small-btn ship-mk ship-man', write: 'przesylki', 'data-id': r.id, disabled: !ready,
+      title: ready ? KIND.create.tip : 'Utwórz przesyłkę: ' + MSG_UNVERIFIED, onclick: () => startManual([r], 'create') }, 'Utwórz przesyłkę');
   } else if (r.tracking) {
     main = el('button', { type: 'button', class: 'secondary small-btn ship-lbl', 'data-id': r.id, title: 'Pobierz etykietę PDF tej przesyłki (nr ' + r.tracking + ')',
       onclick: ev => downloadLabels([{ id: r.id, tracking: r.tracking }], ev.target) }, 'Pobierz etykietę');
@@ -411,6 +427,9 @@ function rowActions(key, r) {
   return el('div', { class: 'ship-acts' }, main, rowMenu(r, [
     { label: 'Otwórz zamówienie', href: '#/zamowienia/' + encodeURIComponent(r.id), tip: 'Szczegóły zamówienia w panelu (Ctrl+klik — nowa karta)' },
     { label: 'Zamówienie w Selly ↗', href: orderSelly, ext: true, tip: 'Otwiera to zamówienie w panelu administracyjnym Selly w nowej karcie' },
+    m && !r.tracking && manKinds(key).includes('buffer') ? { label: 'Prześlij do bufora', write: 'przesylki', disabled: !shipReady(key, 'buffer'),
+      tip: shipReady(key, 'buffer') ? KIND.buffer.tip : 'Prześlij do bufora: ' + MSG_UNVERIFIED, run: () => startManual([r], 'buffer') } : null,
+    m && !r.tracking && scr ? { label: 'Utwórz w Selly ↗', href: sellyScreenUrl(key, r), ext: true, tip: 'Otwiera w nowej karcie ekran „Przesyłki ' + name + '” w Selly wyszukany po numerze ' + (r.number || r.id) + ' — tam „Utwórz przesyłkę” lub „Prześlij do bufora”' } : null,
     !m && scr ? { label: 'Przesyłki ' + name + ' w Selly ↗', href: sellyScreenUrl(key, r), ext: true, tip: 'Ekran przesyłek ' + name + ' w Selly, wyszukany po numerze zamówienia' } : null,
     track ? { label: 'Śledź przesyłkę ↗', href: track, ext: true, tip: 'Strona śledzenia przesyłki u przewoźnika ' + name + ' (nowa karta)' } : null,
     { label: 'Zmień status…', write: ['przesylki', 'zamowienia'], tip: 'Zmień status tego zamówienia w Selly', run: () => startStatus([String(r.id)]) },
@@ -419,10 +438,10 @@ function rowActions(key, r) {
 
 function shipState(key, r) {
   const m = manualOf(key);
-  if (!r.tracking) return el('span', { class: 'muted ship-none', title: m ? 'Przesyłka nie została jeszcze utworzona w Selly' : 'List przewozowy jeszcze nie utworzony' }, m ? 'nienadana' : 'brak listu');
+  if (!r.tracking) return el('span', { class: 'muted ship-none', title: m ? 'Przesyłka nie została jeszcze utworzona (brak numeru przesyłki w zamówieniu)' : 'List przewozowy jeszcze nie utworzony' }, m ? 'nienadana' : 'brak listu');
   const got = !m && isDownloaded(r.id);
   return [el('div', { class: 'nw ship-trk' }, r.tracking),
-    el('div', { class: 'cell-sub' }, el('span', { class: 'ship-st' + (got ? ' ok' : ''), title: m ? 'Przesyłka utworzona w Selly' : got ? 'Etykieta tej przesyłki była już pobrana w tej przeglądarce' : 'List utworzony — etykiety jeszcze nie pobierano w tej przeglądarce' },
+    el('div', { class: 'cell-sub' }, el('span', { class: 'ship-st' + (got ? ' ok' : ''), title: m ? 'Przesyłka utworzona (numer zapisany w zamówieniu w Selly)' : got ? 'Etykieta tej przesyłki była już pobrana w tej przeglądarce' : 'List utworzony — etykiety jeszcze nie pobierano w tej przeglądarce' },
       m ? 'utworzona w Selly' : got ? 'etykieta pobrana' : 'list utworzony'))];
 }
 
@@ -507,10 +526,18 @@ function renderBar() {
     el('button', { type: 'button', class: 'secondary', write: ['przesylki', 'zamowienia'], id: 'shipStatusSel', disabled: !n,
       title: n ? 'Zmień status zaznaczonych zamówień w Selly (np. na „Nadane” po oddaniu paczek)' : 'Najpierw zaznacz zamówienia w tabeli',
       onclick: () => startStatus(selectedRows().map(r => String(r.id))) }, 'Zmień status (' + n + ')'),
-    m ? (screenOf(key) ? sellyLink('Przesyłki ' + courierName(key) + ' w Selly ↗', sellyScreenUrl(key), 'Otwiera ekran przesyłek ' + courierName(key) + ' w panelu Selly — tam utworzysz przesyłki (Selly nie udostępnia tego przez API)') : null)
+    m ? (screenOf(key) ? sellyLink('Przesyłki ' + courierName(key) + ' w Selly ↗', sellyScreenUrl(key), 'Otwiera ekran przesyłek ' + courierName(key) + ' w panelu Selly w nowej karcie') : null)
       : el('button', { type: 'button', class: 'secondary', id: 'shipLabelsSel', disabled: !withT.length,
         title: withT.length ? 'Pobierz etykiety PDF zaznaczonych zamówień, które mają numer przesyłki (kilka — archiwum ZIP)' : 'Żadne z zaznaczonych zamówień nie ma jeszcze listu przewozowego',
         onclick: ev => downloadLabels(withT.map(r => ({ id: r.id, tracking: r.tracking })), ev.target) }, 'Pobierz etykiety (' + withT.length + ')'),
+    ...(m ? manKinds(key).slice().reverse().map(kind => {
+      const ready = shipReady(key, kind), K = KIND[kind];
+      return el('button', { type: 'button', class: kind === 'create' ? 'primary' : 'secondary', write: 'przesylki', id: K.id, disabled: !ready || !noT.length,
+        title: !ready ? K.many + ': ' + MSG_UNVERIFIED : noT.length ? (kind === 'create' ? 'Utworzy przesyłki ' + courierName(key) + ' dla zaznaczonych zamówień bez numeru przesyłki'
+          : 'Przekaże do bufora ' + courierName(key) + ' zaznaczone zamówienia bez numeru przesyłki') + ' — formularzem Selly, po kolei, z wynikiem dla każdego (najpierw potwierdzenie)'
+          : n ? 'Zaznaczone zamówienia mają już numer przesyłki' : 'Najpierw zaznacz zamówienia w tabeli',
+        onclick: () => startManual(null, kind) }, K.many + ' (' + noT.length + ')');
+    }) : []),
     m ? null : el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipCreate', disabled: !noT.length,
       title: noT.length ? 'Utworzy listy przewozowe u przewoźnika dla zaznaczonych zamówień bez numeru przesyłki (najpierw poprosimy o potwierdzenie)'
         : n ? 'Zaznaczone zamówienia mają już numer przesyłki — list przewozowy istnieje' : 'Najpierw zaznacz zamówienia w tabeli',
@@ -578,9 +605,9 @@ function renderCourier() {
   registerListKeys({ screen: 'przesylki', table: 'shipTable', select: true, extra: [{ keys: ['r'], label: 'R', desc: 'Odśwież kolejkę', id: 'shipReload' }] });
   u.body.replaceChildren(el('div', { class: 'card', id: 'shipCard' },
     el('div', { class: 'card-head' }, el('h2', null, (m ? 'Przesyłki — ' : 'Do nadania — ') + name),
-      el('div', { class: 'sub' }, m ? 'Zamówienia ze sposobem dostawy przypisanym do ' + name + '. Przesyłki tego przewoźnika tworzysz w panelu Selly — przy każdym zamówieniu jest link „Utwórz w Selly ↗”.'
+      el('div', { class: 'sub' }, m ? 'Zamówienia ze sposobem dostawy przypisanym do ' + name + '. Zaznacz je i kliknij akcję na dole albo „Utwórz przesyłkę” w wierszu.'
         : 'Zamówienia ze sposobem dostawy przypisanym do przewoźnika ' + name + '. Zaznacz je i kliknij „Utwórz listy przewozowe” na dole albo „Utwórz przesyłkę” w wierszu.')),
-    m ? el('div', { class: 'notice info', id: 'shipManualNote', role: 'note' }, name + ' nie udostępnia tworzenia przesyłek przez API Selly, więc nie robimy tego stąd. Tu masz kolejkę z filtrami i zmianą statusu; „Utwórz w Selly ↗” otwiera ekran przesyłek ' + name + ' w Selly wyszukany po numerze zamówienia.',
+    m ? el('div', { class: 'notice info', id: 'shipManualNote', role: 'note' }, manualNote(key, name),
       m.native ? [' ', el('a', { href: '#/' + m.native, title: 'Podgląd listy przesyłek ' + name + ' z Selly w panelu' }, 'Podgląd przesyłek ' + name + ' →')] : null) : null,
     el('div', { class: 'toolbar' }, u.search, u.filtersBtn,
       el('button', { type: 'button', class: 'secondary', id: 'shipReload', title: 'Wczytaj kolejkę ponownie (z kopii zamówień panelu — bez zapytań do Selly)', onclick: loadQueue }, 'Odśwież'),
@@ -594,6 +621,140 @@ function renderCourier() {
 }
 
 function selectedRows() { return [...S.sel.values()]; }
+
+// ─── Przewoźnicy bez API: formularz Selly ───────────────────────────────────
+
+function manualNote(key, name) {
+  const ready = manKinds(key).filter(k => shipReady(key, k)), what = manKinds(key).map(k => '„' + KIND[k].one + '”').join(' i ');
+  return ready.length === manKinds(key).length
+    ? name + ': ' + what + ' działa tu tak jak w Selly — panel wypełnia formularz przewoźnika w Selly na Twojej sesji (Selly nie ma tego w API, ale ma w panelu). Utworzenie przesyłki jest płatne.'
+    : name + ': ' + what + ' zrobimy tu tak jak Selly (formularzem panelu Selly), ale ' + (ready.length ? 'część akcji ' : '') + 'czeka na potwierdzenie struktury formularza Selly (administrator: shipprobe). '
+      + 'Do tego czasu „Utwórz w Selly ↗” w menu ▾ wiersza otwiera ekran przewoźnika w Selly wyszukany po numerze zamówienia.';
+}
+
+/** Jedno pole formularza Selly do edycji (tylko pola z allowlisty serwera: parametry paczki). */
+function manField(f) {
+  const id = 'shipF-' + f.name.replace(/[^\w-]/g, '_'), common = { id, 'data-name': f.name, title: f.help || null };
+  let input;
+  if (f.type === 'select' || f.type === 'radio') input = el('select', common, (f.options || []).map(o => el('option', { value: o.value, selected: o.value === f.value ? true : null }, o.text || o.value || '—')));
+  else if (f.type === 'checkbox') input = el('input', { ...common, type: 'checkbox', checked: f.checked ? true : null, 'data-on': f.onValue || '1' });
+  else if (f.type === 'textarea') input = el('textarea', { ...common, rows: '2', maxlength: '200' }, f.value || '');
+  else input = el('input', { ...common, type: f.type === 'date' || f.type === 'time' ? f.type : 'text', value: f.value || '', maxlength: '200' });
+  return el('label', { class: 'field ship-man-field' }, el('span', null, f.label || f.name), input);
+}
+const manValue = i => (i.type === 'checkbox' ? (i.checked ? i.dataset.on : '') : i.value);
+
+/**
+ * „Utwórz przesyłkę” / „Prześlij do bufora” formularzem Selly. Jedno zamówienie (tworzenie): formularz wypełniony przez Selly → zmiany parametrów
+ * paczki → podgląd „było → będzie” → potwierdzenie (płatne). Kilka zamówień: potwierdzenie i po kolei, z wynikiem dla każdego, „Ponów nieudane”.
+ */
+function startManual(given, kind) {
+  const host = S.ui.dlg, key = S.view, name = courierName(key), K = KIND[kind];
+  const rows = (given || selectedRows()).filter(r => !r.tracking);
+  if (!rows.length || !shipReady(key, kind)) return;
+  const box = el('div', { class: 'card ord-dialog', role: 'dialog', id: 'shipManDlg', 'aria-label': K.many + ' — ' + name });
+  host.replaceChildren(box);
+  const close = () => host.replaceChildren();
+  const numOf = id => S.numOf.get(String(id)) || id;
+  const cancelBtn = () => el('button', { type: 'button', class: 'secondary', id: 'shipCancel', onclick: close }, 'Anuluj');
+  const sellyBtn = r => (screenOf(key) ? sellyLink('Zrób to w Selly ↗', sellyScreenUrl(key, r), 'Otwiera ekran przesyłek ' + name + ' w Selly wyszukany po numerze zamówienia') : null);
+  const costText = kind === 'create' ? 'Utworzenie przesyłki zamawia usługę u przewoźnika ' + name + ' — jest płatne i nie da się go cofnąć z panelu.'
+    : 'Przesłanie do bufora przygotowuje przesyłkę u przewoźnika ' + name + ' (dalsze nadanie i opłaty — wg zasad przewoźnika). Z panelu nie da się tego cofnąć.';
+  box.scrollIntoView && box.scrollIntoView({ block: 'nearest' });
+  if (given && rows.length === 1 && kind === 'create') single(rows[0]); else confirmMany();   // z wiersza: formularz; z paska: potwierdzenie i po kolei
+
+  async function single(r) {
+    box.replaceChildren(el('h3', null, K.one + ' — ' + name + ', zamówienie ' + numOf(r.id)), loadingBox('Pobieram formularz przesyłki z Selly…'));
+    let x;
+    try { x = await api('shipping:manualForm', { carrier: key, kind, orderId: String(r.id) }); } catch (e) { x = { ok: false, error: e.message || 'błąd połączenia' }; }
+    if (!x || !x.ok) {
+      box.replaceChildren(el('h3', null, K.one + ' — ' + name), el('div', { class: 'notice error', role: 'alert', id: 'shipManErr' }, (x && x.error) || 'Nie udało się pobrać formularza z Selly.'),
+        el('div', { class: 'ord-actions' }, sellyBtn(r), el('button', { type: 'button', class: 'secondary', id: 'shipClose', onclick: close }, 'Zamknij')));
+      return;
+    }
+    const d = x.data, ed = d.fields.filter(f => f.editable), ro = d.fields.filter(f => !f.editable && f.type !== 'secret' && String(f.value || '') !== '');
+    const before = Object.fromEntries(ed.map(f => [f.name, f.type === 'checkbox' ? (f.checked ? f.onValue : '') : f.value]));
+    const inputs = ed.map(manField);
+    box.replaceChildren(
+      el('h3', null, K.one + ' — ' + name + ', zamówienie ' + numOf(r.id)),
+      el('p', { class: 'muted small' }, 'Formularz wypełnił Selly (tak jak po kliknięciu „Utwórz przesyłkę” w Selly). Zmienić możesz tylko parametry paczki; resztę wyślemy dokładnie tak, jak podało Selly.'),
+      d.note ? el('div', { class: 'notice warn', role: 'status' }, d.note) : null,
+      (d.notices || []).length ? el('div', { class: 'notice info', role: 'status' }, d.notices.map(n => n.text).join(' · ')) : null,
+      ed.length ? el('div', { class: 'ship-man-fields', id: 'shipManFields' }, inputs) : el('p', { class: 'muted small', id: 'shipManNoFields' }, 'Brak pól do zmiany — użyjemy ustawień wypełnionych przez Selly.'),
+      ro.length ? el('details', { class: 'ship-man-ro' }, el('summary', { title: 'Dane, które Selly wpisało do formularza (np. odbiorca) — wyślemy je bez zmian; zmienisz je w zamówieniu' }, 'Pozostałe dane formularza Selly (' + ro.length + ', tylko podgląd)'),
+        el('dl', null, ro.map(f => [el('dt', null, f.label || f.name), el('dd', null, f.type === 'select' || f.type === 'radio' ? ((f.options || []).find(o => o.value === f.value) || { text: f.value }).text : f.type === 'checkbox' ? (f.checked ? 'tak' : 'nie') : f.value)]))) : null,
+      el('div', { class: 'ord-actions' },
+        el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipManNext', disabled: !d.canSubmit, title: d.canSubmit ? 'Pokaż podsumowanie zmian przed utworzeniem przesyłki' : d.note || 'Formularza nie da się wysłać z panelu', onclick: () => preview() }, 'Dalej — podsumowanie'),
+        sellyBtn(r), cancelBtn()));
+
+    async function preview() {
+      const values = {};
+      for (const i of box.querySelectorAll('[data-name]')) { const v = manValue(i); if (v !== before[i.dataset.name]) values[i.dataset.name] = v; }
+      const btn = box.querySelector('#shipManNext'); btn.disabled = true;
+      let p;
+      try { p = await api('shipping:manualCreate', { carrier: key, kind, orderId: String(r.id), values, expect: before, dryRun: true }); } catch (e) { p = { ok: false, error: e.message || 'błąd połączenia' }; }
+      btn.disabled = false;
+      const old = box.querySelector('#shipManPreview'); if (old) old.remove();
+      if (!p || !p.ok) { box.querySelector('.ord-actions').before(el('div', { class: 'notice error', role: 'alert', id: 'shipManPreview' }, (p && p.error) || 'Nie udało się przygotować podsumowania.')); return; }
+      const diff = p.data.diff || [];
+      box.querySelector('.ord-actions').before(el('div', { class: 'card ship-man-preview', id: 'shipManPreview' },
+        el('strong', null, diff.length ? 'Zmienisz względem formularza Selly:' : 'Bez zmian — użyjemy danych wypełnionych przez Selly.'),
+        diff.length ? el('ul', { class: 'ship-man-diff' }, diff.map(x => el('li', null, el('span', null, x.label || x.name), ': ', el('s', null, x.beforeText || '(puste)'), ' → ', el('strong', null, x.afterText || '(puste)')))) : null,
+        el('div', { class: 'notice warn', role: 'status' }, costText),
+        el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipManConfirm', title: costText, onclick: () => run([String(r.id)], { [String(r.id)]: { values, expect: before } }) }, K.one + ' (płatne)'))));
+    }
+  }
+
+  function confirmMany() {
+    box.replaceChildren(
+      el('h3', null, (kind === 'create' ? 'Utworzyć przesyłki ' + name + ' dla ' : 'Przesłać do bufora ' + name + ' ') + cnt(rows.length, 'zamówienia', 'zamówień', 'zamówień') + '?'),
+      el('p', { class: 'small' }, 'Zamówienia: ' + rows.slice(0, 12).map(r => r.number || r.id).join(', ') + (rows.length > 12 ? ' …' : '')),
+      el('p', { class: 'muted small' }, kind === 'create' ? 'Parametry paczki dla każdego zamówienia — tak, jak wypełni je Selly (ustawienia integracji przewoźnika). Aby zmienić wagę, wymiary czy usługę, użyj „Utwórz przesyłkę” w wierszu.'
+        : 'Każde zamówienie przekażemy osobno, tak jak zaznaczenie go na ekranie przewoźnika w Selly i „Prześlij do bufora”.'),
+      el('div', { class: 'notice warn', role: 'status', id: 'shipManCost' }, costText + ' Zamówienia idą po kolei; zobaczysz wynik dla każdego.'),
+      el('div', { class: 'ord-actions' },
+        el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipManConfirm', title: costText, onclick: () => run(rows.map(r => String(r.id)), {}) }, K.many + ' (' + rows.length + ')' + (kind === 'create' ? ' — płatne' : '')),
+        cancelBtn()));
+  }
+
+  async function run(ids, per) {
+    const bar = el('progress', { max: String(ids.length), value: '0', id: 'shipProgress', 'aria-label': 'Postęp' });
+    const label = el('div', { class: 'muted small', role: 'status' }, K.doing + ' 0 z ' + ids.length);
+    box.replaceChildren(el('h3', null, K.doing), bar, label);
+    const done = [], failed = [];
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i], p = per[id] || {};
+      try {
+        const x = await api('shipping:manualCreate', { carrier: key, kind, orderId: id, values: p.values || {}, expect: p.expect });
+        if (x && x.ok && x.data && x.data.created) { done.push({ id, tracking: x.data.tracking || '' }); S.sel.delete(id); }
+        else failed.push({ id, error: (x && x.error) || ((x && x.data && x.data.notices) || []).filter(n => n.kind === 'error').map(n => n.text).join(' ') || 'Selly nie potwierdziło utworzenia — sprawdź w Selly' });
+      } catch (e) { failed.push({ id, error: e.message || 'błąd połączenia — sprawdź w Selly, czy przesyłka nie powstała' }); }
+      bar.value = i + 1; label.textContent = K.doing + ' ' + (i + 1) + ' z ' + ids.length;
+    }
+    summary(done, failed);
+    loadQueue();
+  }
+
+  function summary(done, failed) {
+    const stSel = el('select', { id: 'shipNewStatus', 'aria-label': 'Nowy status', title: 'Status, który ustawimy zamówieniom z udaną akcją' }, statuses().map(s => el('option', { value: String(s.id) }, s.name)));
+    const guess = statuses().find(s => /nadan/.test(norm(s.name))); if (guess) stSel.value = String(guess.id);
+    box.replaceChildren(
+      el('h3', null, failed.length ? K.fail : K.done),
+      el('p', { id: 'shipSummary' }, 'Udane: ', el('strong', null, String(done.length)), ' · nieudane: ', el('strong', null, String(failed.length))),
+      done.length ? el('ul', { class: 'ship-done' }, done.slice(0, 30).map(d => el('li', null, el('strong', null, numOf(d.id)), ' — ',
+        d.tracking ? 'nr przesyłki ' + d.tracking : el('span', { class: 'muted', title: 'Selly zapisuje numer przesyłki w zamówieniu — pojawi się w kolejce po synchronizacji' }, 'numer przesyłki pojawi się po synchronizacji'))),
+        done.length > 30 ? el('li', { class: 'muted' }, '… i ' + (done.length - 30) + ' więcej') : null) : null,
+      failed.length ? el('ul', { class: 'ord-fails', id: 'shipFails' }, failed.slice(0, 20).map(f => el('li', null, el('strong', null, numOf(f.id)), ' — ' + f.error)),
+        failed.length > 20 ? el('li', { class: 'muted' }, '… i ' + (failed.length - 20) + ' więcej') : null) : null,
+      el('div', { class: 'ord-actions' },
+        failed.length ? el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipRetry', title: 'Spróbuj ponownie tylko dla nieudanych (z ustawieniami wypełnionymi przez Selly). Najpierw sprawdź w Selly, czy przesyłka nie powstała mimo błędu.', onclick: () => run(failed.map(f => f.id), {}) }, 'Ponów nieudane (' + failed.length + ')') : null,
+        el('button', { type: 'button', class: 'secondary', id: 'shipClose', onclick: close }, 'Zamknij')),
+      done.length && statuses().length ? el('div', { class: 'ship-status-row' },
+        el('label', { class: 'field-inline', title: 'Ustaw wybrany status dla zamówień, którym akcja się udała (podpowiadamy status z „Nadane” w nazwie)' }, 'Status udanych', stSel),
+        el('button', { type: 'button', class: 'secondary', write: ['przesylki', 'zamowienia'], id: 'shipSetStatus', title: 'Zmienia status w Selly (może uruchomić powiadomienia dla klientów, jeśli tak skonfigurowano status)',
+          onclick: ev => setStatusDone(box, done.map(d => String(d.id)), stSel.value, ev.target) }, 'Zmień status udanych')) : null);
+  }
+}
 
 // ─── Tworzenie listów ───────────────────────────────────────────────────────
 

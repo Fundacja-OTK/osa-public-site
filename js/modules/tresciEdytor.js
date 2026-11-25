@@ -1,7 +1,7 @@
 // Edytor treści HTML natywnych ekranów (strony informacyjne, bloki HTML, aktualności) — czysta logika bez DOM (testy: tests/unit/tresciEdytor.test.js).
 // Zasada: do Selly idzie DOKŁADNIE wpisany tekst. Oczyszczanie (sanitizeHtml) służy wyłącznie podglądowi w panelu — `stripReport` mówi,
 // co podgląd pominął (skrypty, ramki, zdarzenia, style…), żeby było jasne, co naprawdę dostanie sklep.
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=c270c3b';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=3bb5e1e';
 
 /** Nowe linie jak w polu tekstowym przeglądarki (CRLF / CR → LF) — do porównań, nigdy do zmiany wysyłanej treści. */
 export const nl = s => String(s == null ? '' : s).replace(/\r\n?/g, '\n');

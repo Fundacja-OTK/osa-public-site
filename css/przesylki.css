@@ -17,6 +17,17 @@
 .ship-vrange { display: flex; gap: var(--s2); align-items: center; }
 .ship-num { width: 7em; }
 .ship-pager:empty { display: none; }
+/* Przewoźnicy bez API: formularz Selly (parametry paczki), podgląd „było → będzie” */
+.ship-man-fields { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin: var(--s2) 0; align-items: flex-end; }
+.ship-man-field { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
+.ship-man-field textarea { min-width: 260px; }
+.ship-man-ro { margin: var(--s2) 0; }
+.ship-man-ro > summary { cursor: pointer; }
+.ship-man-ro dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px var(--s3); margin: var(--s2) 0 0; font-size: var(--fs-sm); }
+.ship-man-ro dt { color: var(--muted); }
+.ship-man-ro dd { margin: 0; overflow-wrap: anywhere; }
+.ship-man-preview { margin-top: var(--s2); }
+.ship-man-diff { margin: var(--s1) 0 var(--s2); padding-left: var(--s4); }
 /* Tabela: gęstość jak w Selly, ale czytelnie */
 #shipTable tr.sel { background: var(--accent-soft); }
 #shipTable td { vertical-align: top; }
@@ -35,6 +46,7 @@ td.ship-old { color: var(--no); font-weight: 700; }
 /* Pasek akcji masowych — przyklejony do dołu ekranu (jak „Zapisz” w Selly); bazowy wygląd: .save-bar */
 .ship-bar .spacer { flex: 1; }
 @media (max-width: 640px) {
-  .ship-f { min-width: 0; flex: 1 1 100%; }
+  .ship-f, .ship-man-field { min-width: 0; flex: 1 1 100%; }
+  .ship-man-field textarea { min-width: 0; }
   .ship-bar > button, .ship-bar > a { flex: 1 1 100%; }
 }

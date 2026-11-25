@@ -1,8 +1,8 @@
 // Zamówienia — interfejs filtrów złożonych: szybkie widoki, zdanie z usuwalnymi plakietkami, grupy statusów, płatność, przesyłka,
 // wartość, zapisane widoki. Logika (bez DOM) jest w zamFiltry.js. Moduł dostaje od zamowienia.js uchwyty `h` (stan, setQ, adres).
-import { el, store, flash, menuButton, copyToClipboard } from '../core/ui.js?v=c270c3b';
+import { el, store, flash, menuButton, copyToClipboard } from '../core/ui.js?v=3bb5e1e';
 import { PAY_STATES, TRACK_STATES, OLDER_OPTIONS, STATUS_GROUPS, groupStatuses, toggleOption, toggleMany, csvHas, csvList, clausesOf, sentenceOf, anyFilter,
-  presetsOf, presetActive, olderToDate, cleanViews, addView, renameView, removeView, viewQs, FKEYS, EMPTY_F } from './zamFiltry.js?v=c270c3b';
+  presetsOf, presetActive, olderToDate, cleanViews, addView, renameView, removeView, viewQs, FKEYS, EMPTY_F } from './zamFiltry.js?v=3bb5e1e';
 
 const VIEWS_KEY = 'osa-ord-views', GROUPS_KEY = 'osa-ord-sgroups';
 const loadViews = () => cleanViews(store(VIEWS_KEY));
