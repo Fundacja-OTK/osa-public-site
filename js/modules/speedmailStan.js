@@ -2,10 +2,10 @@
 // zlecone w ostatnich 7 dniach, dni zapasu, przewidywane wyczerpanie, alert (zielony / żółty / czerwony / stop), alert przedsprzedaży.
 // Dosyłki i korekty (zwrot od klienta, uszkodzenie, inwentaryzacja) — formularz w zwijanym panelu; import dosyłki z pliku dostawcy
 // (speedmailImport.js); historia z sm:list.
-import { el, sortTh, statusPill, store } from '../core/ui.js?v=a0c413f';
-import { go } from '../core/router.js?v=a0c413f';
-import { S, SM, WRITE, nf, dmy, notice, tile, prodOf, freshBar, loadError, fold, save, reload, jobBusy } from './speedmailKit.js?v=a0c413f';
-import { deliveryCard } from './speedmailImport.js?v=a0c413f';
+import { el, sortTh, statusPill, store } from '../core/ui.js?v=fff0a43';
+import { go } from '../core/router.js?v=fff0a43';
+import { S, SM, WRITE, nf, dmy, notice, tile, prodOf, freshBar, loadError, fold, save, reload, jobBusy } from './speedmailKit.js?v=fff0a43';
+import { deliveryCard } from './speedmailImport.js?v=fff0a43';
 
 const LEVEL_ORDER = { stop: 0, red: 1, yellow: 2, green: 3, none: 4 };
 const SORTS = { name: r => r.name, level: r => LEVEL_ORDER[r.level], stock: r => r.stock, packs: r => r.packs, sent: r => r.sent, topups: r => r.topups, ordered: r => r.ordered, corr: r => r.corr,

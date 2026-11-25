@@ -1,9 +1,11 @@
 /* Wysyłka SpeedMail (#/speedmail) — dopełnienie wspólnych klocków (tabele, chipy, panel filtrów, okna) */
 #modSm .sm-fresh { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 #modSm .sm-segs { margin-top: var(--s3); }
-#modSm .sm-bulk { margin-top: var(--s3); padding: var(--s3); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r2); }
-#modSm .sm-bulk .ord-actions { margin-top: var(--s2); }
-#modSm .sm-sel { margin-top: var(--s2); }
+/* Pasek zaznaczenia: wspólny przyklejony dolny pasek (.save-bar.lv-bar); szczegóły stanu pod akcjami, przy długich — przewijane w pasku */
+#modSm .sm-picks { margin-top: var(--s3); }
+#modSm .sm-bar { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
+#modSm .sm-bar > .ord-dialog { flex: 1 1 100%; margin: 0; box-shadow: none; }
+#modSm .sm-bar-info { flex: 1 1 100%; min-width: 0; }
 #modSm td.sm-items, #modSm td.sm-why { min-width: 200px; max-width: 420px; }
 #modSm td .ord-st { margin-left: 6px; }
 #modSm tr.sel td { background: var(--accent-soft); }
@@ -25,7 +27,7 @@
 #modSm .sm-set textarea { width: 100%; max-width: 520px; display: block; }
 #modSm .ord-dialog input[type=text] { max-width: 520px; }
 @media (max-width: 640px) {
-  #modSm .sm-bulk .ord-actions > * { flex: 1 1 100%; }
+  #modSm .sm-bar { max-height: 70vh; padding: var(--s2) var(--s3); }
   #modSm td.sm-items, #modSm td.sm-why { min-width: 160px; }
 }
 /* „Towar w SM”: jeden produkt w wierszu, zawijanie zamiast wielokropka, kolor tylko na liczbie */
@@ -37,7 +39,7 @@
 #modSm th .sm-selnote { display: inline; margin-left: 4px; font-size: var(--fs-xs); color: var(--accent); visibility: hidden; }
 #modSm th .sm-selnote.on { visibility: visible; }
 /* „Razem ze stanu SpeedMail”: pozycje zawijają się między sobą (separator w ::before — miejsce łamania poza pozycją), siatka nie szersza niż pasek */
-#modSm .sm-bulk, #modSm .sm-sel { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+#modSm .sm-bar, #modSm .sm-sel { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 #modSm .sm-use { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; row-gap: 2px; min-width: 0; }
 #modSm .sm-use-i { white-space: nowrap; max-width: 100%; }
 #modSm .sm-use-i + .sm-use-i::before { content: '· '; color: var(--muted); }
@@ -63,4 +65,3 @@
 #modSm .sm-det-h { margin-top: var(--s2); font-weight: 600; }
 #modSm .sm-det { margin: var(--s1) 0 0; padding-left: 1.2em; }
 #modSm .sm-det li { margin: 2px 0; }
-#modSm .sm-selprompt { margin-top: 4px; padding: 4px var(--s2); background: var(--info-soft); border-radius: var(--r2); }

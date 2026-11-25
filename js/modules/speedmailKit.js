@@ -1,11 +1,11 @@
 // „Wysyłka SpeedMail” — wspólny stan i klocki zakładek (speedmail.js + speedmailZam / Stan / Paczki / Tempo / Ust).
 // Dane (sm:init / sm:list / sm:pace) są trzymane w pamięci i w sessionStorage (same numery zamówień, daty, produkty i liczby —
 // żadnych danych klientów), więc strona rysuje się od razu z ostatniej kopii i odświeża w tle. Bez odpytywania w pętli.
-import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=a0c413f';
-import { api, ctx } from '../core/client.js?v=a0c413f';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=a0c413f';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=a0c413f';
-import { SM } from '../lib/speedmailLogic.js?v=a0c413f';
+import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=fff0a43';
+import { api, ctx } from '../core/client.js?v=fff0a43';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=fff0a43';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=fff0a43';
+import { SM } from '../lib/speedmailLogic.js?v=fff0a43';
 
 export { SM };
 export const WRITE = ['magazyny'];                       // jak reguła sm:* (shared/panelAuth.js)
@@ -143,7 +143,9 @@ export function planSel(sel) {
 }
 
 // ─── Drobne klocki widoku ───────────────────────────────────────────────────
-export const nf = n => (n == null || n === '' || isNaN(n) ? '—' : (Math.round(Number(n) * 1000) / 1000).toLocaleString('pl-PL', { maximumFractionDigits: 3 }));
+// Jeden obiekt formatu (toLocaleString z opcjami tworzy go przy każdym wywołaniu — przy ~3000 zamówień to setki ms na przerysowanie)
+const NF = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3 });
+export const nf = n => (n == null || n === '' || isNaN(n) ? '—' : NF.format(Math.round(Number(n) * 1000) / 1000));
 export const dmy = d => (d ? String(d).slice(8, 10) + '.' + String(d).slice(5, 7) + '.' + String(d).slice(0, 4) : '—');
 export const notice = (kind, ...c) => el('div', { class: 'notice ' + kind, role: kind === 'error' ? 'alert' : null }, ...c);
 export const th = (label, tip, num) => el('th', { class: num ? 'n' : null }, el('span', { class: tip ? 'tip' : null, title: tip || label }, label));

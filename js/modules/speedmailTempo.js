@@ -1,11 +1,11 @@
 // „Wysyłka SpeedMail” → zakładka Tempo sprzedaży (sekcja 8 specyfikacji): sprzedaż narastająco wobec prognozy dla produktów SpeedMail
 // (zestawy rozbite na składniki, np. korony z licencji), sygnał „szybciej / wolniej niż prognoza o > próg %”, dla wybranego produktu wykres
 // i liczby: prognoza sezonu, sprzedane, brak towaru wobec prognozy. Prognozy i kształt krzywej wpisuje administrator w Ustawieniach.
-import { el, sortTh, statusPill } from '../core/ui.js?v=a0c413f';
-import { go } from '../core/router.js?v=a0c413f';
-import { tile } from './raportyKit.js?v=a0c413f';
-import { lineChart } from './raportyLata.js?v=a0c413f';
-import { S, SM, nf, dmy, notice, prodOf, freshBar, loadError, skeleton } from './speedmailKit.js?v=a0c413f';
+import { el, sortTh, statusPill } from '../core/ui.js?v=fff0a43';
+import { go } from '../core/router.js?v=fff0a43';
+import { tile } from './raportyKit.js?v=fff0a43';
+import { lineChart } from './raportyLata.js?v=fff0a43';
+import { S, SM, nf, dmy, notice, prodOf, freshBar, loadError, skeleton } from './speedmailKit.js?v=fff0a43';
 
 const SIG = { fast: ['szybciej', 'warn', 'Sprzedaż wyprzedza prognozę o więcej niż próg — rozważ dodruk albo (po 15.12) zmianę ceny'], slow: ['wolniej', 'bad', 'Sprzedaż jest poniżej prognozy o więcej niż próg'],
   ok: ['zgodnie', 'ok', 'Sprzedaż mieści się w progu wokół prognozy'], none: ['brak prognozy', 'neutral', 'Nie wpisano prognozy sezonu dla tego produktu (Ustawienia → Produkty SpeedMail)'] };

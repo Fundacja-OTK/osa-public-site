@@ -1,10 +1,10 @@
 // Faktury zamówień — wspólne elementy karty zamówienia i listy „Faktury”: status, edycja rozliczenia (było → będzie), wydruk, link do wystawienia w Selly.
 // Backend: orders:invoices (faktury zamówienia z Selly), orders:invoiceUpdate (zapis rozliczenia — wspólna logika shared/failover.js).
 // Numer, daty, sprzedawca, nabywca i pozycje faktury NIE są tu edytowalne: zapis odsyła je do Selly bez zmian.
-import { gateWrite, el, flash, money, htmlEsc } from '../core/ui.js?v=a0c413f';
-import { dateInput } from '../core/datepicker.js?v=a0c413f';
-import { api } from '../core/client.js?v=a0c413f';
-import { previewBox } from './zamowieniaKarta.js?v=a0c413f';
+import { gateWrite, el, flash, money, htmlEsc } from '../core/ui.js?v=fff0a43';
+import { dateInput } from '../core/datepicker.js?v=fff0a43';
+import { api } from '../core/client.js?v=fff0a43';
+import { previewBox } from './zamowieniaKarta.js?v=fff0a43';
 
 /** Stany faktury w Selly (OrderInvoice.status_id): [nazwa, ton plakietki, wyjaśnienie]. */
 export const INV_STATUS = {
