@@ -1,8 +1,8 @@
 // Moduł „Zmiany w Selly” (tylko administrator): co zmieniło się w strukturze panelu Selly od ostatnich sprawdzeń
 // (menu, strony, kolumny, pola formularzy, przyciski). Źródła: rozszerzenie Chrome, specyfikacja API i serwerowe sprawdzanie panelu; backend: map:latest, map:history, map:retry.
-import { el, loadingBox, isUnavailable, dateStr } from '../core/ui.js?v=85e2814';
-import { api, ctx } from '../core/client.js?v=85e2814';
-import { ITEMS } from '../core/nav.js?v=85e2814';
+import { el, loadingBox, isUnavailable, dateStr } from '../core/ui.js?v=bdda14c';
+import { api, ctx } from '../core/client.js?v=bdda14c';
+import { ITEMS } from '../core/nav.js?v=bdda14c';
 
 const TYPES = {
   'page+': 'Nowa strona', 'page-': 'Zniknęła strona', 'menu+': 'Nowa pozycja menu', 'menu-': 'Zniknęła pozycja menu', 'menu~': 'Zmieniona nazwa w menu',

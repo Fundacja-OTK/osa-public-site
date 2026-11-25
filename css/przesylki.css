@@ -52,3 +52,5 @@ td.ship-old { color: var(--no); font-weight: 700; }
   .ship-bar > button, .ship-bar > a { flex: 1 1 calc(50% - var(--s2)); min-width: 0; white-space: normal; }
   .ship-bar:not(.on) { position: static; box-shadow: none; }
 }
+.ship-insp-fields { font-size: var(--fs-sm); }
+.ship-insp-form { margin: var(--s2) 0; }

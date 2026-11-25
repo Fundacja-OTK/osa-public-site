@@ -3,10 +3,10 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone, selOffNote } from '../core/ui.js?v=85e2814';
-import { api, ctx } from '../core/client.js?v=85e2814';
-import { go } from '../core/router.js?v=85e2814';
-import { registerListKeys } from '../core/listKeys.js?v=85e2814';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone, selOffNote } from '../core/ui.js?v=bdda14c';
+import { api, ctx } from '../core/client.js?v=bdda14c';
+import { go } from '../core/router.js?v=bdda14c';
+import { registerListKeys } from '../core/listKeys.js?v=bdda14c';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -430,6 +430,8 @@ function rowActions(key, r) {
     { label: 'Zamówienie w Selly ↗', href: orderSelly, ext: true, tip: 'Otwiera to zamówienie w panelu administracyjnym Selly w nowej karcie' },
     m && !r.tracking && manKinds(key).includes('buffer') ? { label: 'Prześlij do bufora', write: 'przesylki', disabled: !shipReady(key, 'buffer'),
       tip: shipReady(key, 'buffer') ? KIND.buffer.tip : 'Prześlij do bufora: ' + MSG_UNVERIFIED, run: () => startManual([r], 'buffer') } : null,
+    m && m.inspect && ctx.boot && ctx.boot.isAdmin ? { label: 'Sprawdź budowę formularza (Selly)', tip: 'Tylko administrator: otwiera formularz „Utwórz przesyłkę” ' + name + ' z Selly na Twojej sesji (jak przycisk w Selly, nic nie zapisuje w Selly) i pokazuje samą budowę — pola, przyciski, zapis — bez danych zamówienia. Potem można ją zapisać i zatwierdzić dla panelu.',
+      run: () => startInspect(r) } : null,
     m && !r.tracking && scr ? { label: 'Utwórz w Selly ↗', href: sellyScreenUrl(key, r), ext: true, tip: 'Otwiera w nowej karcie ekran „Przesyłki ' + name + '” w Selly wyszukany po numerze ' + (r.number || r.id) + ' — tam „Utwórz przesyłkę” lub „Prześlij do bufora”' } : null,
     !m && scr ? { label: 'Przesyłki ' + name + ' w Selly ↗', href: sellyScreenUrl(key, r), ext: true, tip: 'Ekran przesyłek ' + name + ' w Selly, wyszukany po numerze zamówienia' } : null,
     track ? { label: 'Śledź przesyłkę ↗', href: track, ext: true, tip: 'Strona śledzenia przesyłki u przewoźnika ' + name + ' (nowa karta)' } : null,
@@ -761,6 +763,60 @@ function startManual(given, kind) {
         el('button', { type: 'button', class: 'secondary', write: ['przesylki', 'zamowienia'], id: 'shipSetStatus', title: 'Zmienia status w Selly (może uruchomić powiadomienia dla klientów, jeśli tak skonfigurowano status)',
           onclick: ev => setStatusDone(box, done.map(d => String(d.id)), stSel.value, ev.target) }, 'Zmień status udanych')) : null);
   }
+}
+
+// ─── Administrator: budowa formularza przewoźnika z Selly (shipping:inspect*) ─
+
+/** Budowa formularza „Utwórz przesyłkę” z sesji administratora: sama struktura → „Zapisz budowę dla panelu” → „Zatwierdź formularz”. */
+async function startInspect(r) {
+  const host = S.ui.dlg, key = S.view, name = courierName(key);
+  const box = el('div', { class: 'card ord-dialog', role: 'dialog', id: 'shipInspDlg', 'aria-label': 'Budowa formularza ' + name });
+  const close = () => host.replaceChildren();
+  host.replaceChildren(box);
+  box.replaceChildren(el('h3', null, 'Budowa formularza przesyłki — ' + name), loadingBox('Otwieram formularz w Selly (jak przycisk „Utwórz przesyłkę”)…'));
+  let x;
+  try { x = await api('shipping:inspect', { carrier: key, orderId: String(r.id) }); } catch (e) { x = { ok: false, error: e.message || 'błąd połączenia' }; }
+  if (!x || !x.ok) { box.replaceChildren(el('h3', null, 'Budowa formularza przesyłki — ' + name), el('div', { class: 'notice error', role: 'alert' }, (x && x.error) || 'Nie udało się.'), el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', onclick: close }, 'Zamknij'))); return; }
+  const d = x.data, st = d.structure, c = d.candidate;
+  const fieldRow = f => el('tr', null, el('td', null, f.name), el('td', null, f.type + (f.hidden ? ' (ukryte)' : '')), el('td', null, f.required ? 'tak' : ''),
+    el('td', { class: 'small' }, (f.options || []).join(', ')), el('td', null, c.editable.includes(f.name) ? el('span', { class: 'tip', title: 'Panel pozwoli zmienić to pole (parametr paczki)' }, 'tak') : ''));
+  const status = el('div', { id: 'shipInspStatus', role: 'status' });
+  box.replaceChildren(
+    el('h3', null, 'Budowa formularza przesyłki — ' + name),
+    el('p', { class: 'muted small' }, 'Selly otworzyło formularz tak jak po kliknięciu „Utwórz przesyłkę” (trasa ' + d.route + '). Poniżej tylko budowa — bez wartości i danych zamówienia. Nic nie zostało zapisane w Selly.'),
+    st.kind === 'message' ? el('div', { class: 'notice warn', id: 'shipInspMsg' }, 'Selly odpowiedziało komunikatem, nie formularzem: ' + ((st.message && st.message.kinds) || []).join(', ') + '. Spróbuj z innym zamówieniem (z dostawą tego przewoźnika, bez przesyłki).') : null,
+    ...st.forms.map((f, i) => el('div', { class: 'ship-insp-form' },
+      el('strong', null, 'Formularz ' + (i + 1) + ': ' + (f.loose ? 'pola bez <form> (wysyła je skrypt Selly)' : f.method.toUpperCase() + ' → ' + (f.action || '(ta sama strona)'))),
+      el('div', { class: 'table-wrap' }, el('table', { class: 'ship-insp-fields' }, el('thead', null, el('tr', null,
+        el('th', { title: 'Nazwa pola w formularzu Selly' }, 'Pole'), el('th', { title: 'Rodzaj pola' }, 'Typ'), el('th', { title: 'Czy Selly wymaga wypełnienia' }, 'Wymagane'),
+        el('th', { title: 'Wartości opcji listy — tylko techniczne; inne ukryte jako <v>' }, 'Opcje'), el('th', { title: 'Czy panel pozwoli zmienić to pole przy tworzeniu przesyłki' }, 'Edytowalne'))),
+        el('tbody', null, f.fields.map(fieldRow)))))),
+    st.ajax.length ? el('p', { class: 'small', id: 'shipInspAjax' }, 'Zapis skryptem Selly: ' + st.ajax.map(a => a.method + ' ' + (a.route || '?') + (a.serialize ? ' (wszystkie pola)' : a.params.length ? ' (' + a.params.join(', ') + ')' : '')).join('; ')) : null,
+    el('div', { class: 'card', id: 'shipInspCand' }, el('strong', null, 'Propozycja dla panelu: '),
+      'formularz ' + c.form + ', zapis ' + (c.save || '— nieznany') + ', pola do zmiany: ' + (c.editable.join(', ') || 'brak'),
+      d.missing.length ? el('div', { class: 'notice warn' }, 'Brakuje: ' + d.missing.join('; ')) : null,
+      d.approved ? el('div', { class: 'notice info' }, 'Formularz tego przewoźnika jest już zatwierdzony w panelu.') : null),
+    status,
+    el('div', { class: 'ord-actions' },
+      el('button', { type: 'button', class: 'secondary', id: 'shipInspSave', disabled: !st.forms.length, title: st.forms.length ? 'Zapisuje tę budowę (bez wartości) jako propozycję dla panelu — jeszcze niczego nie włącza' : 'Brak formularza do zapisania',
+        onclick: async ev => {
+          ev.target.disabled = true;
+          try { const s2 = await api('shipping:inspectSave', { carrier: key, structure: st }); status.replaceChildren(el('div', { class: 'notice info' }, 'Zapisano budowę dla panelu.' + (s2.data.missing.length ? ' Brakuje: ' + s2.data.missing.join('; ') : ' Można ją zatwierdzić.')));
+            box.querySelector('#shipInspApprove').disabled = !!s2.data.missing.length; }
+          catch (e) { status.replaceChildren(el('div', { class: 'notice error' }, e.message || 'Nie zapisano.')); ev.target.disabled = false; }
+        } }, 'Zapisz budowę dla panelu'),
+      el('button', { type: 'button', class: 'primary', id: 'shipInspApprove', disabled: !d.saved || !!d.missing.length,
+        title: 'Włącza w panelu „Utwórz przesyłkę” dla ' + name + ' według zapisanej budowy (po sprawdzeniu z właścicielem). Tworzenie przesyłki jest płatne.',
+        onclick: async ev => {
+          if (!confirm('Zatwierdzić formularz ' + name + '? Panel zacznie tworzyć przesyłki tego przewoźnika (płatne) według zapisanej budowy.')) return;
+          ev.target.disabled = true;
+          try { await api('shipping:inspectApprove', { carrier: key, approve: true }); status.replaceChildren(el('div', { class: 'notice info' }, 'Zatwierdzono — „Utwórz przesyłkę” jest włączone.')); S.meta = null; await ensureMeta(); renderQueue(); }
+          catch (e) { status.replaceChildren(el('div', { class: 'notice error' }, e.message || 'Nie zatwierdzono.')); ev.target.disabled = false; }
+        } }, 'Zatwierdź formularz'),
+      d.approved ? el('button', { type: 'button', class: 'ghost', id: 'shipInspRevoke', title: 'Wyłącza tworzenie przesyłek ' + name + ' w panelu (wraca „Utwórz w Selly ↗”)',
+        onclick: async ev => { ev.target.disabled = true; try { await api('shipping:inspectApprove', { carrier: key, approve: false }); status.replaceChildren(el('div', { class: 'notice info' }, 'Cofnięto zatwierdzenie.')); S.meta = null; await ensureMeta(); renderQueue(); } catch (e) { ev.target.disabled = false; } } }, 'Cofnij zatwierdzenie') : null,
+      el('button', { type: 'button', class: 'secondary', id: 'shipClose', onclick: close }, 'Zamknij')));
+  box.scrollIntoView && box.scrollIntoView({ block: 'nearest' });
 }
 
 // ─── Tworzenie listów ───────────────────────────────────────────────────────

@@ -63,7 +63,7 @@
     'orders:list', 'orders:get', 'orders:meta', 'orders:invoices', 'orders:stamp', 'orders:refresh', 'orders:invoiceList', 'orders:invoiceScan',
     'clients:list', 'clients:get', 'clients:meta', 'clients:addresses', 'clients:affiliate', 'clients:extra', 'clients:groups', 'clients:prices', 'clients:emailsExist',
     'products:list', 'products:get', 'products:facets', 'products:dicts', 'products:extra', 'products:warehouses',
-    'shipping:meta', 'shipping:queue', 'shipping:label', 'shipping:manualForm',
+    'shipping:meta', 'shipping:queue', 'shipping:label', 'shipping:manualForm', 'shipping:inspect',
     'dropshipping:list', 'dropshipping:get',
     'payments:candidates',
     'reports:sales', 'reports:years', 'reports:product', 'reports:profit', 'reports:families', 'reports:familyYears', 'reports:productSearch', 'reports:compare',
@@ -87,7 +87,7 @@
     'products:create', 'products:update', 'products:duplicate', 'products:setCategories', 'products:setFeatures', 'products:setMeta', 'products:setStock',
     'products:variantUpdate', 'products:photoAdd', 'products:photoUpdate', 'products:photoDelete',
     'products:variantAdd', 'products:variantDelete', 'products:stockAdd', 'products:stockRemove', 'products:delete', 'products:warehouseSave',
-    'shipping:create', 'shipping:setMap', 'shipping:manualCreate',
+    'shipping:create', 'shipping:setMap', 'shipping:manualCreate', 'shipping:inspectSave', 'shipping:inspectApprove',
     'dropshipping:save', 'dropshipping:delete', 'dropshipping:productsAdd', 'dropshipping:productSave', 'dropshipping:productDelete',
     'payments:apply', 'payments:undo',
     'bulk:start', 'bulk:step', 'bulk:pause', 'bulk:resume', 'bulk:stop', 'bulk:undo',
@@ -168,6 +168,7 @@
     // ustawienia magazynów Selly (trasa „magazyny” w Selly) — zapis tylko z prawem do sekcji Magazyny
     [/^products:warehouseSave$/, ['magazyny']],
     [/^products:\w+$/, ['produkty']],
+    [/^shipping:inspect(Save|Approve)?$/, ADMIN],   // budowa formularza przewoźnika z sesji administratora (modules/shipInspect.js)
     [/^shipping:\w+$/, ['przesylki']],
     [/^dropshipping:\w+$/, ['dropshipping']],
     [/^payments:\w+$/, ['wplaty']],
