@@ -18,8 +18,8 @@
 // Zasady: dane z pamięci pokazuj z widocznym odświeżaniem (np. „odświeżam…” / czas danych), a do zapisów i decyzji bierz fresh: true.
 // Klucze w sessionStorage: „osa-c:<akcja>|<parametry JSON>” = { v: wersja panelu, u: login, at, data } (inna wersja/login → pomijane).
 
-import { api, ENV } from './client.js?v=3bb5e1e';
-import { sessionLogin } from './auth.js?v=3bb5e1e';
+import { api, ENV } from './client.js?v=037a459';
+import { sessionLogin } from './auth.js?v=037a459';
 
 export const DEFAULT_TTL = 60 * 1000;
 export const KEY_PREFIX = 'osa-c:';

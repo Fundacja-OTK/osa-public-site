@@ -34,7 +34,8 @@
 #modSm .sm-ln { overflow-wrap: anywhere; }
 #modSm .sm-v { white-space: nowrap; }
 #modSm .sm-bysel { margin-left: 0; }
-#modSm th .sm-selnote { display: block; font-size: var(--fs-xs); font-weight: 400; color: var(--muted); white-space: normal; }
+#modSm th .sm-selnote { display: inline; margin-left: 4px; font-size: var(--fs-xs); color: var(--accent); visibility: hidden; }
+#modSm th .sm-selnote.on { visibility: visible; }
 #modSm .sm-use { margin-top: 4px; }
 #modSm .sm-use-i { white-space: nowrap; }
 @media (max-width: 640px) {

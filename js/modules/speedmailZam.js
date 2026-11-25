@@ -1,9 +1,9 @@
 // „Wysyłka SpeedMail” → zakładka Zamówienia: tabela wszystkich otwartych zamówień z podpowiedzią „SpeedMail / pakujemy sami” i powodem
 // (reguły 1–5 specyfikacji). Sortowanie po każdej kolumnie, filtry i wyszukiwanie zapisane w adresie, zaznaczanie zbiorcze, ręczna zmiana
 // decyzji w obie strony, przekazanie paczki zleceń (sm:batch) + status w Selly, „zostają u nas” (sm:keep + status „Złożone OTK”).
-import { el, cnt, norm, sortTh, pager, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton } from '../core/ui.js?v=3bb5e1e';
-import { go } from '../core/router.js?v=3bb5e1e';
-import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=3bb5e1e';
+import { el, cnt, norm, sortTh, pager, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton } from '../core/ui.js?v=037a459';
+import { go } from '../core/router.js?v=037a459';
+import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=037a459';
 
 const KEYS = ['dec', 'reason', 'status', 'delivery', 'from', 'to', 'product', 'stock', 'pre', 'q'];
 const SORTS = ['num', 'date', 'status', 'delivery', 'items', 'stock', 'dec', 'reason'];
@@ -180,7 +180,8 @@ function results(v, Q, all, shown) {
   ];
   const sel = S.sel.size > 0, bySel = all.filter(x => x.r.bySel).length;
   const ths = cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir, page: 1 })));
-  if (sel) ths[5].append(el('span', { class: 'sm-selnote tip', id: 'smSelNote', title: 'Liczby i decyzje uwzględniają zaznaczone zamówienia: dostają one towar jako pierwsze (tak policzy go serwer przy przekazaniu), a pozostałe — z tego, co zostanie. Odznacz wszystkie, aby wrócić do zwykłej kolejności (od najstarszych).' }, 'po uwzględnieniu zaznaczonych'));
+  // Znacznik zawsze w nagłówku (niewidoczny bez zaznaczenia) — zaznaczenie nie zmienia wysokości nagłówka ani układu tabeli
+  ths[5].append(el('span', { class: 'sm-selnote tip' + (sel ? ' on' : ''), id: 'smSelNote', 'aria-hidden': sel ? null : 'true', title: 'Liczby i decyzje uwzględniają zaznaczone zamówienia: dostają one towar jako pierwsze (tak policzy go serwer przy przekazaniu), a pozostałe — z tego, co zostanie. Odznacz wszystkie, aby wrócić do zwykłej kolejności (od najstarszych).' }, '◆'));
   const head = el('tr', null, el('th', null, allCb), ...ths, el('th', null, el('span', { class: 'tip', title: 'Ręczna zmiana decyzji dla jednego zamówienia (z powodem, który zostaje w tabeli)' }, 'Zmień')));
   const body = el('tbody', null, visible.length ? visible.map(x => rowEl(x)) : el('tr', null, el('td', { colspan: '10', class: 'empty' },
     all.length ? 'Żadne zamówienie nie pasuje do filtrów. ' : 'Brak otwartych zamówień w wybranych statusach.', all.length ? el('button', { type: 'button', class: 'link', onclick: () => setQ(Object.fromEntries(KEYS.map(k => [k, '']))) }, 'Wyczyść filtry') : null)));

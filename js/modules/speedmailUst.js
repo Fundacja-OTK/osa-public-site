@@ -2,8 +2,8 @@
 // Lista produktów SpeedMail (ID Selly, opakowanie, kolumna w pliku, ilość wysłana, minimum, prognoza), rozbicia zestawów, terminy sezonu,
 // formy dostawy liczone jako „Kurier”, statusy w Selly, progi alertów, plik dla SM, krzywa prognozy. Wspólne dla wszystkich (D1);
 // zapis tylko administrator panelu (sm:configSave z wersją — dwie osoby nie nadpiszą sobie zmian). Walidacja: shared/speedmail.js.
-import { el, dateInput, flash } from '../core/ui.js?v=3bb5e1e';
-import { S, SM, nf, dmy, notice, statusName, fold, save, reload, jobBusy } from './speedmailKit.js?v=3bb5e1e';
+import { el, dateInput, flash } from '../core/ui.js?v=037a459';
+import { S, SM, nf, dmy, notice, statusName, fold, save, reload, jobBusy } from './speedmailKit.js?v=037a459';
 
 let draft = null;   // { of: wersja, cfg: kopia robocza, info: '' }
 const clone = x => JSON.parse(JSON.stringify(x));
