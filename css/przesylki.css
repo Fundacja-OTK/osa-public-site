@@ -16,7 +16,6 @@
 .ship-status-row { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; margin-top: var(--s3); }
 .ship-vrange { display: flex; gap: var(--s2); align-items: center; }
 .ship-num { width: 7em; }
-.ship-pager:empty { display: none; }
 /* Przewoźnicy bez API: formularz Selly (parametry paczki), podgląd „było → będzie” */
 .ship-man-fields { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin: var(--s2) 0; align-items: flex-end; }
 .ship-man-field { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
@@ -44,13 +43,11 @@ td.ship-old { color: var(--no); font-weight: 700; }
 .ship-rowmenu .menu-pop { min-width: 220px; }
 .ship-rowmenu a.menu-item { text-decoration: none; }
 /* Pasek akcji masowych — przyklejony do dołu ekranu (jak „Zapisz” w Selly); bazowy wygląd: .save-bar */
-.ship-bar .spacer { flex: 1; }
 @media (max-width: 640px) {
   .ship-f, .ship-man-field { min-width: 0; flex: 1 1 100%; }
   .ship-man-field textarea { min-width: 0; }
-  /* Dwa przyciski w rzędzie zamiast jednego — pasek przyklejony do dołu nie zasłania połowy ekranu; bez zaznaczenia nie jest przyklejony */
-  .ship-bar > button, .ship-bar > a { flex: 1 1 calc(50% - var(--s2)); min-width: 0; white-space: normal; }
-  .ship-bar:not(.on) { position: static; box-shadow: none; }
+  /* Dwa przyciski w rzędzie zamiast jednego — pasek przyklejony do dołu (wspólny .lv-bar) nie zasłania połowy ekranu */
+  #shipBulk > button, #shipBulk > a { flex: 1 1 calc(50% - var(--s2)); min-width: 0; white-space: normal; }
 }
 .ship-insp-fields { font-size: var(--fs-sm); }
 .ship-insp-form { margin: var(--s2) 0; }

@@ -1,10 +1,12 @@
 // Moduł „Dropshipping”: paczki dropshipping i produkty w paczkach (Selly REST API /api/dropshipping/packages…).
 // Lista paczek (filtr dat utworzenia, status, sortowanie, strony) → karta paczki (edycja danych, zmiana statusu, produkty: dodawanie,
 // zmiana ilości i magazynu, usuwanie) → nowa paczka (#/dropshipping/nowa). Backend: dropshipping:* (Worker, token READWRITE do zapisów).
-import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sortTh, pager, norm, statusPill, field, dateInput } from '../core/ui.js?v=9f3bf7d';
-import { api } from '../core/client.js?v=9f3bf7d';
-import { go } from '../core/router.js?v=9f3bf7d';
-import { registerListKeys } from '../core/listKeys.js?v=9f3bf7d';
+import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, norm, statusPill, field, dateInput } from '../core/ui.js?v=b64db56';
+import { listView } from '../core/listView.js?v=b64db56';
+import { sortRows } from '../core/listLogic.js?v=b64db56';
+import { api } from '../core/client.js?v=b64db56';
+import { go } from '../core/router.js?v=b64db56';
+import { registerListKeys } from '../core/listKeys.js?v=b64db56';
 
 const STATUS = {
   '-1': { label: 'skasowana', tone: 'bad', tip: 'Paczka skasowana / ignorowana — nie jest brana pod uwagę.' },
@@ -15,7 +17,7 @@ const pill = id => { const s = STATUS[String(id)]; return statusPill(s ? s.label
 const opId = () => 'ds-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 const MSG_UNAVAILABLE = 'Dropshipping wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
 
-const S = { root: null, seq: 0, route: '', list: { rows: [], meta: {}, page: 1, limit: 50, from: '', to: '', status: 'all', sort: 'created', dir: 'desc', q: '' }, card: null, err: '' };
+const S = { root: null, seq: 0, route: '', card: null, err: '' };
 const $ = id => document.getElementById(id);
 const fail = (e, what) => { flash(null, (what || 'Nie udało się') + ': ' + (e && e.message ? e.message : e)); };
 
@@ -24,49 +26,48 @@ function errorBox(e) {
     el('button', { type: 'button', class: 'secondary', onclick: () => mountRoute() }, 'Spróbuj ponownie')));
 }
 
-// ─── Lista paczek ───────────────────────────────────────────────────────
-async function loadList() {
-  const my = ++S.seq, L = S.list;
-  $('dsBody').replaceChildren(el('div', { class: 'card' }, loadingBox('Wczytuję paczki…')));
-  try {
-    const r = await api('dropshipping:list', { page: L.page, limit: L.limit, from: L.from || undefined, to: L.to || undefined });
-    if (my !== S.seq) return;
-    L.rows = r.rows || []; L.meta = r.meta || {}; paintList();
-  } catch (e) { if (my === S.seq) $('dsBody').replaceChildren(errorBox(e)); }
-}
-
-function sortedList() {
-  const L = S.list;
-  let rows = L.rows.filter(p => (L.status === 'all' || String(p.status_id) === L.status) && (!L.q || norm([p.package_name, p.package_description, p.id].join(' ')).includes(norm(L.q))));
-  const key = { id: p => Number(p.id), name: p => norm(p.package_name), status: p => Number(p.status_id), sent: p => p.sent_date || '', created: p => p.created_at || '' }[L.sort] || (() => 0);
-  const sgn = L.dir === 'asc' ? 1 : -1, empty = v => v === '' || v == null;
-  return rows.slice().sort((a, b) => { const x = key(a), y = key(b); if (empty(x) !== empty(y)) return empty(x) ? 1 : -1; return (x < y ? -1 : x > y ? 1 : 0) * sgn; });
-}
-
-function paintList() {
-  const L = S.list, rows = sortedList();
-  const onSort = (s, d) => { L.sort = s; L.dir = d; paintList(); };
-  const th = (col) => sortTh(col, { sort: L.sort, dir: L.dir }, onSort);
-  const chip = (k, label, tip) => el('button', { type: 'button', class: 'chip', 'data-f': k, 'aria-pressed': String(L.status === k), title: tip, onclick: () => { L.status = k; paintList(); } }, label);
-  const pages = Math.max(1, Number(L.meta.page_count) || 1), total = Number(L.meta.total_count) || L.rows.length;
-  $('dsBody').replaceChildren(el('section', { class: 'card', id: 'dsListCard' },
-    el('div', { class: 'ds-filters' },
-      field('Utworzona od', dateInput({ id: 'dsFrom', value: L.from, label: 'Utworzona od', title: 'Pokaż paczki utworzone od tego dnia', onChange: v => { L.from = v; L.page = 1; loadList(); } }), 'Pokaż paczki utworzone od tego dnia'),
-      field('do', dateInput({ id: 'dsTo', value: L.to, label: 'Utworzona do', title: 'Pokaż paczki utworzone do tego dnia (włącznie)', onChange: v => { L.to = v; L.page = 1; loadList(); } }), 'Pokaż paczki utworzone do tego dnia (włącznie)'),
-      field('Szukaj na stronie', el('input', { type: 'search', id: 'dsQ', value: L.q, placeholder: 'nazwa lub opis', title: 'Filtruje paczki widoczne na tej stronie wyników po nazwie i opisie',
-        oninput: ev => { L.q = ev.target.value; clearTimeout(S.qt); S.qt = setTimeout(() => { paintList(); const q = $('dsQ'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 250); } }))),
-    el('div', { class: 'chips', role: 'group', 'aria-label': 'Filtr statusu paczki' }, chip('all', 'Wszystkie', 'Paczki w każdym statusie'), ...Object.entries(STATUS).map(([k, s]) => chip(k, s.label, s.tip))),
-    rows.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'dsTable' }, el('thead', null, el('tr', null,
-      th({ label: 'ID', sort: 'id', num: true, firstDir: 'desc', tip: 'Numer paczki w Selly' }), th({ label: 'Nazwa', sort: 'name', tip: 'Nazwa paczki dropshipping' }),
-      th({ label: 'Status', sort: 'status', tip: 'Wstępna → zatwierdzona / wysłana; skasowana = ignorowana' }), th({ label: 'Data wysyłki', sort: 'sent', tip: 'Data, kiedy paczka została (lub ma zostać) wysłana do dostawcy' }),
-      th({ label: 'Utworzona', sort: 'created', tip: 'Kiedy paczkę utworzono' }), el('th', null, el('span', { title: 'Opis paczki (pierwsze znaki)' }, 'Opis')))),
-      el('tbody', null, ...rows.map(p => el('tr', { 'data-id': String(p.id), class: 'ds-row', tabindex: '0', title: 'Otwórz paczkę', onclick: () => go('dropshipping/' + p.id),
-        onkeydown: ev => { if (ev.key === 'Enter') go('dropshipping/' + p.id); } },
-      el('td', { class: 'n' }, String(p.id)), el('td', null, el('a', { href: '#/dropshipping/' + p.id, onclick: ev => ev.stopPropagation() }, p.package_name || '(bez nazwy)')), el('td', null, pill(p.status_id)),
-      el('td', null, p.sent_date ? dateStr(p.sent_date).slice(0, 10) : '—'), el('td', null, dateStr(p.created_at) || '—'), el('td', { class: 'ds-desc', title: p.package_description || null }, (p.package_description || '').slice(0, 80)))))))
-      : el('div', { class: 'empty', id: 'dsEmpty' }, L.rows.length ? 'Żadna paczka na tej stronie nie pasuje do filtra.' : 'Brak paczek w wybranym okresie.'),
-    pages > 1 || total > 50 ? pager({ prefix: 'ds', page: L.page, pages, total, noun: ['paczka', 'paczki', 'paczek'], onPage: n => { L.page = n; loadList(); } }) : el('p', { class: 'muted' }, cnt(total, 'paczka', 'paczki', 'paczek'))));
-}
+// ─── Lista paczek (wspólny komponent core/listView.js) ───────────────────────
+// Selly zwraca strony paczek (filtr dat utworzenia po stronie API); status, szukanie i sortowanie działają na wczytanej stronie.
+const PAGE = 50;
+const SORT = { id: p => Number(p.id), name: p => norm(p.package_name), status: p => Number(p.status_id), sent: p => p.sent_date || '', created: p => p.created_at || '' };
+let cache = null;   // ostatnia strona z API: zmiana statusu / szukania / sortowania nie pobiera jej ponownie
+const lv = listView({
+  id: 'ds', route: '/dropshipping', storeKey: 'dropshipping', noun: ['paczka', 'paczki', 'paczek'], loadingText: 'Wczytuję paczki…',
+  columns: [
+    { key: 'id', label: 'ID', sort: true, num: true, tip: 'Numer paczki w Selly', cell: p => String(p.id) },
+    { key: 'name', label: 'Nazwa', sort: true, tip: 'Nazwa paczki dropshipping', cell: p => el('a', { href: '#/dropshipping/' + p.id, class: 'cell-name' }, p.package_name || '(bez nazwy)') },
+    { key: 'status', label: 'Status', sort: true, tip: 'Wstępna → zatwierdzona / wysłana; skasowana = ignorowana', cell: p => pill(p.status_id) },
+    { key: 'sent', label: 'Data wysyłki', sort: true, firstDir: 'desc', tip: 'Data, kiedy paczka została (lub ma zostać) wysłana do dostawcy', cell: p => (p.sent_date ? dateStr(p.sent_date).slice(0, 10) : '—') },
+    { key: 'created', label: 'Utworzona', sort: true, firstDir: 'desc', tip: 'Kiedy paczkę utworzono', cell: p => dateStr(p.created_at) || '—' },
+    { key: 'desc', label: 'Opis', tip: 'Opis paczki (pierwsze znaki)', cell: p => el('td', { class: 'ds-desc', title: p.package_description || null }, (p.package_description || '').slice(0, 80)) },
+  ],
+  defaultSort: { key: 'created', dir: 'desc' }, sizes: [PAGE], defaultSize: PAGE,
+  search: { placeholder: 'Szukaj na stronie: nazwa lub opis', label: 'Szukaj na stronie', tip: 'Filtruje paczki widoczne na tej stronie wyników po nazwie, opisie i numerze' },
+  filters: [
+    { key: 'status', label: 'Status', tip: 'Pokaż tylko paczki w wybranym statusie (na tej stronie wyników)', options: Object.entries(STATUS).map(([k, s]) => [k, s.label]), all: 'wszystkie' },
+    { key: 'from', label: 'Utworzona od', type: 'date', id: 'dsFrom', tip: 'Pokaż paczki utworzone od tego dnia' },
+    { key: 'to', label: 'Utworzona do', type: 'date', id: 'dsTo', tip: 'Pokaż paczki utworzone do tego dnia (włącznie)' },
+  ],
+  load: async st => {
+    const key = [st.page, st.filters.from || '', st.filters.to || ''].join('|');
+    if (cache && cache.key === key) return cache.d;
+    const r = await api('dropshipping:list', { page: st.page, limit: PAGE, from: st.filters.from || undefined, to: st.filters.to || undefined });
+    const rows = r.rows || [], meta = r.meta || {};
+    const d = { rows, total: Math.max(Number(meta.total_count) || 0, rows.length), pageSize: PAGE };
+    cache = { key, d };
+    return d;
+  },
+  view: rows => {
+    const st = lv.state, q = norm(st.q || '');
+    const out = rows.filter(p => (!st.filters.status || String(p.status_id) === st.filters.status) && (!q || norm([p.package_name, p.package_description, p.id].join(' ')).includes(q)));
+    const key = SORT[st.sort];
+    return key ? sortRows(out, { value: key, dir: st.dir }) : out;
+  },
+  open: p => go('dropshipping/' + p.id),
+  empty: 'Brak paczek w wybranym okresie.', emptyFiltered: 'Żadna paczka nie pasuje do filtra.',
+  errorBox: (e, retry) => el('div', { class: 'empty error', id: 'dsError' }, isUnavailable(e) ? MSG_UNAVAILABLE : 'Nie udało się wczytać: ' + (e.message || e), ' ',
+    el('button', { type: 'button', class: 'secondary', onclick: () => { cache = null; retry(); } }, 'Spróbuj ponownie')),
+});
 
 // ─── Karta paczki ───────────────────────────────────────────────────────
 async function loadCard(id) {
@@ -183,21 +184,23 @@ function header() {
   return pageToolbar({ title: 'Dropshipping', sub: 'Paczki zamawiane u dostawców i produkty w paczkach — zmiany zapisują się w Selly', actions });
 }
 function mountRoute() {
-  S.seq++;
+  S.seq++; lv.stop();
   const r = S.route;
   S.root.replaceChildren(header(), el('div', { id: 'dsBody' }));
   registerListKeys({ screen: 'dropshipping', table: 'dsTable', back: 'dsBack', extra: [{ keys: ['n'], label: 'N', desc: 'Nowa paczka', id: 'dsNew' }] });
   if (r === 'nowa') { $('dsBody').replaceChildren(el('section', { class: 'card', id: 'dsCard' }, el('h2', null, 'Nowa paczka'), packageForm({ status_id: '0' }, true))); return; }
   if (/^\d+$/.test(r)) { loadCard(r); return; }
-  loadList();
+  cache = null;
+  $('dsBody').replaceChildren(lv.node);
+  lv.mount(S.query);
 }
 export default {
   id: 'dropshipping',
   title: 'Dropshipping',
   routes: ['', '<id>', 'nowa'],
   mount(root, params) {
-    S.root = root; S.route = (params && params.parts && params.parts[0]) || '';
+    S.root = root; S.route = (params && params.parts && params.parts[0]) || ''; S.query = params && params.query;
     mountRoute();
   },
-  unmount() { S.seq++; },
+  unmount() { S.seq++; lv.stop(); },
 };

@@ -1,8 +1,4 @@
 /* Dropshipping (js/modules/dropshipping.js) — karty, okna i przyciski wspólne z masowe.css / base.css */
-.ds-filters { display: flex; flex-wrap: wrap; gap: var(--s3) var(--s4); align-items: flex-end; margin-bottom: var(--s3); }
-.ds-filters .field-inline { flex-direction: column; align-items: stretch; gap: 4px; font-size: var(--fs-sm); color: var(--muted); }
-.ds-row { cursor: pointer; }
-.ds-row:hover td { background: var(--hover); }
 .ds-desc { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .ds-form { display: grid; gap: var(--s3); max-width: 560px; }
 .ds-form .field-inline { flex-direction: column; align-items: stretch; gap: 4px; font-size: var(--fs-sm); color: var(--muted); }
@@ -14,4 +10,3 @@
 .ds-results, .ds-queue { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .ds-q { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); width: 100%; }
 .ds-q-name { flex: 1 1 220px; }
-#dsTable td.n, #dsTable th.n { text-align: right; font-variant-numeric: tabular-nums; }

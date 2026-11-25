@@ -10,7 +10,6 @@
 .wp-note { font-size: var(--fs-xs); color: var(--muted); margin-top: 4px; max-width: 340px; }
 .wp-title { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #wpTable tr.wp-done td { color: var(--muted); }
-#wpTable td.n, #wpTable th.n { text-align: right; font-variant-numeric: tabular-nums; }
 #wpSample { overflow-x: auto; margin: var(--s2) 0; }
 #wpSample th, #wpSample td { white-space: nowrap; font-size: var(--fs-sm); padding: 4px 8px; text-align: left; }
 #wpHelp ol { margin: var(--s2) 0 0; padding-left: 1.4em; }

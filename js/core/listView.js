@@ -2,11 +2,11 @@
 // zaznaczenie przetrwające zmianę strony z przyklejonym paskiem akcji, stan w adresie, stany ładowania / pusto / błąd,
 // opcjonalnie świeżość (core/liveRefresh.js) i pamięć odczytów (core/cache.js). Logika bez DOM: core/listLogic.js.
 // API i przykład: docs/list-view.md. Identyfikatory elementów = prefiks `id` + nazwa (np. cliTable, cliSelCount, zsPrev).
-import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=9f3bf7d';
-import { go } from './router.js?v=9f3bf7d';
-import { cachedRead } from './cache.js?v=9f3bf7d';
-import { liveRefresh } from './liveRefresh.js?v=9f3bf7d';
-import * as LL from './listLogic.js?v=9f3bf7d';
+import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=b64db56';
+import { go } from './router.js?v=b64db56';
+import { cachedRead } from './cache.js?v=b64db56';
+import { liveRefresh } from './liveRefresh.js?v=b64db56';
+import * as LL from './listLogic.js?v=b64db56';
 
 const td = (c, v) => (v instanceof Node && v.tagName === 'TD' ? v : el('td', { class: [c.num ? 'n' : '', c.cls || ''].filter(Boolean).join(' ') || null }, v == null ? '' : v));
 
@@ -22,6 +22,8 @@ export function listView(o) {
   const S = { st: null, data: null, view: [], total: 0, err: null, seq: 0, sel: new Map(), built: false, filterOpts: {}, only: false };   // only = widok „tylko zaznaczone”
   const u = {};
   const rowId = r => String(o.rowId ? o.rowId(r) : r.id);
+  const noSel = r => (o.select && o.select.disabled && o.select.disabled(r)) || '';   // powód, dla którego wiersza nie można zaznaczyć (albo '')
+  const nFilters = () => LL.activeFilters(S.st) + (o.panelActive ? o.panelActive(S.st) : 0) + (spec.extra && spec.extra.panel ? spec.extra.panel(S.st) : 0);   // filtry w panelu: z `filters` + własne (`panelNodes`)
   const visibleCols = () => cols.filter(c => (!u.cols || u.cols.isOn(c.key)) && !(o.hideCol && o.hideCol(c)));
 
   // ─── Stan ↔ adres ────────────────────────────────────────────────────────
@@ -80,7 +82,7 @@ export function listView(o) {
   }
   function syncFiltersBtn() {
     if (!u.filtersBtn) return;
-    const n = LL.activeFilters(S.st) + (spec.extra && spec.extra.panel ? spec.extra.panel(S.st) : 0), open = u.layout.isOpen();
+    const n = nFilters(), open = u.layout.isOpen();
     u.filtersBtn.textContent = 'Filtry' + (n ? ' (' + n + ')' : '') + (open ? ' ◂' : ' ▸');
     u.filtersBtn.setAttribute('aria-expanded', String(open));
     u.filtersBtn.classList.toggle('on', n > 0);
@@ -88,7 +90,7 @@ export function listView(o) {
   function sync() {
     if (u.search && u.search.value.trim() !== S.st.q) u.search.value = S.st.q;
     for (const c of u.filters) if (document.activeElement !== c.input) c.input.value = S.st.filters[c.f.key] || '';
-    if (LL.activeFilters(S.st) > 0 && !u.layout.isOpen()) u.layout.setOpen(true, false);   // aktywny filtr zawsze widać
+    if (nFilters() > 0 && !u.layout.isOpen()) u.layout.setOpen(true, false);   // aktywny filtr zawsze widać
     u.clearBtn.hidden = !LL.isFiltered(S.st, spec);
     syncFiltersBtn();
     if (o.onSync) o.onSync(S.st);
@@ -164,12 +166,12 @@ export function listView(o) {
     const ids = rows.map(rowId);
     const head = el('tr', null, o.select ? el('th', { class: 'c' }, el('input', { type: 'checkbox', id: p + 'SelAll', 'aria-label': 'Zaznacz wszystkie na tej stronie',
       title: 'Zaznacz lub odznacz wszystkie pozycje na tej stronie (zaznaczenie z innych stron zostaje)',
-      onchange: ev => { for (const r of rows) { if (ev.target.checked) S.sel.set(rowId(r), r); else S.sel.delete(rowId(r)); } syncSel(); } })) : null, vc.map(headCell));
+      onchange: ev => { for (const r of rows) { if (noSel(r)) continue; if (ev.target.checked) S.sel.set(rowId(r), r); else S.sel.delete(rowId(r)); } syncSel(); } })) : null, vc.map(headCell));
     const body = el('tbody');
     for (const r of rows) {
       const id = rowId(r);
-      body.append(el('tr', { class: [o.open ? 'pick' : '', S.sel.has(id) ? 'sel' : '', o.rowClass ? o.rowClass(r) : ''].filter(Boolean).join(' ') || null, 'data-id': id, onclick: o.open ? tapOpen(() => o.open(r)) : null },
-        o.select ? el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz: ' + (o.select.label ? o.select.label(r) : id), checked: S.sel.has(id),
+      body.append(el('tr', { ...(o.rowAttrs ? o.rowAttrs(r) : {}), class: [o.open ? 'pick' : '', S.sel.has(id) ? 'sel' : '', o.rowClass ? o.rowClass(r) : ''].filter(Boolean).join(' ') || null, 'data-id': id, 'data-nosel': noSel(r) ? '1' : null, onclick: o.open ? tapOpen(() => o.open(r)) : null },
+        o.select ? el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz: ' + (o.select.label ? o.select.label(r) : id), checked: S.sel.has(id) && !noSel(r), disabled: !!noSel(r), title: noSel(r) || null,
           onchange: ev => { if (ev.target.checked) S.sel.set(id, r); else S.sel.delete(id); syncSel(); } })) : null,
         vc.map(c => td(c, c.cell ? c.cell(r, api) : r[c.key]))));
     }
@@ -208,7 +210,7 @@ export function listView(o) {
   // ─── Zaznaczenie ─────────────────────────────────────────────────────────
   function syncSel() {
     if (!o.select) return;
-    const trs = [...u.results.querySelectorAll('#' + p + 'Table > tbody > tr[data-id]')];
+    const trs = [...u.results.querySelectorAll('#' + p + 'Table > tbody > tr[data-id]:not([data-nosel])')];
     for (const tr of trs) {
       const on = S.sel.has(tr.dataset.id); tr.classList.toggle('sel', on);
       const cb = tr.querySelector('td.c input[type=checkbox]'); if (cb) cb.checked = on;
@@ -222,7 +224,7 @@ export function listView(o) {
     const n = S.sel.size;
     u.bar.hidden = n === 0;
     if (!n) { u.bar.replaceChildren(); return; }
-    const pageIds = [...u.results.querySelectorAll('#' + p + 'Table > tbody > tr[data-id]')].map(t => t.dataset.id);
+    const pageIds = [...u.results.querySelectorAll('#' + p + 'Table > tbody > tr[data-id]:not([data-nosel])')].map(t => t.dataset.id);
     const i = LL.selectionInfo(S.sel, pageIds);
     const noun = o.select.noun || ['pozycję', 'pozycje', 'pozycji'];
     u.bar.replaceChildren(
@@ -243,6 +245,8 @@ export function listView(o) {
     selection: S.sel,
     selectedRows: () => [...S.sel.values()],
     clearSelection() { S.sel.clear(); syncSel(); },
+    /** Po zmianie `selection` z zewnątrz (np. usunięcie obsłużonych): odśwież pola wyboru i pasek. */
+    syncSelection: () => syncSel(),
     /** Wejście na listę (z routera): stan z adresu, wczytanie danych. */
     mount(query) {
       if (!S.built) build();

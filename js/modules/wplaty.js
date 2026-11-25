@@ -3,11 +3,13 @@
 // 2) panel dopasowuje wpłaty do nieopłaconych zamówień (numer w tytule, kwota, nazwisko/e-mail; punktacja i powody),
 // 3) przeglądasz tabelę (pewne / prawdopodobne / brak) i zaznaczasz, co oznaczyć jako opłacone,
 // 4) zapis przez Worker (payments:apply — do serwera idą wyłącznie numery zamówień i kwoty „zapłacono”), podsumowanie i „Cofnij”.
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, sortTh, norm } from '../core/ui.js?v=9f3bf7d';
-import { api } from '../core/client.js?v=9f3bf7d';
-import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=9f3bf7d';
-import { loadMapping, saveMapping } from './wplatyCsv.js?v=9f3bf7d';
-import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=9f3bf7d';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, norm } from '../core/ui.js?v=b64db56';
+import { listView } from '../core/listView.js?v=b64db56';
+import { sortRows } from '../core/listLogic.js?v=b64db56';
+import { api } from '../core/client.js?v=b64db56';
+import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=b64db56';
+import { loadMapping, saveMapping } from './wplatyCsv.js?v=b64db56';
+import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=b64db56';
 
 const zl = v => money(v) + ' zł';
 const SKEY = 'osa-wplaty-rules', DKEY = 'osa-wplaty-days';
@@ -17,7 +19,7 @@ const LEVEL = {
   none: { label: 'brak dopasowania', tone: 'neutral', tip: 'Nie znaleziono zamówienia, które pasuje do tej wpłaty. Możesz wskazać zamówienie ręcznie (numer w ostatniej kolumnie).' },
 };
 const S = { root: null, seq: 0, orders: null, truncated: false, days: 120, parsed: null, file: null, opts: { decimal: 'auto', separator: '', headerRow: null, mapping: null }, rules: cleanSettings(store(SKEY)),
-  rows: [], filter: 'all', sort: { sort: 'level', dir: 'asc' }, running: false, result: null, undone: false };
+  rows: [], query: null, running: false, result: null, undone: false };
 const $ = id => document.getElementById(id);
 const byNumber = () => { const m = new Map(); for (const o of S.orders || []) m.set(norm(o.number), o); return m; };
 const orderLabel = o => o.number + ' · ' + ([o.firstName, o.lastName].filter(Boolean).join(' ') || o.company || o.email || '—') + ' · do zapłaty ' + zl(o.total - (o.paid || 0));
@@ -147,85 +149,89 @@ async function ensureOrders(force) {
 function rematch() {
   if (!S.parsed || S.parsed.needsMapping || !S.orders) { paintReview(); return; }
   const res = matchTransactions(S.parsed.txs, S.orders, S.rules);
-  S.rows = res.map((r, i) => ({ i, tx: r.tx, cands: r.candidates, notes: r.notes, level: r.level, sel: r.level === 'none' ? '' : r.best.order.id, checked: r.level === 'sure', status: '', manual: false }));
+  S.rows = res.map((r, i) => ({ i, tx: r.tx, cands: r.candidates, notes: r.notes, level: r.level, sel: r.level === 'none' ? '' : r.best.order.id, status: '', manual: false }));
+  seedSelection();
   paintReview();
 }
 
 const orderOf = id => (S.orders || []).find(o => o.id === id);
 const selScore = r => { const c = r.cands.find(x => x.order.id === r.sel); return c ? c : (r.sel ? scorePair(r.tx, orderOf(r.sel), S.rules) : null); };
 
-// ─── Krok 3: tabela przeglądu ───────────────────────────────────────────
+// ─── Krok 3: tabela przeglądu (wspólny komponent core/listView.js) ────────
+// Wiersze są w pamięci (S.rows); „zaznaczone” = zaznaczenie listy (lv.selection, klucz = numer wiersza). Filtr poziomu i sortowanie
+// robi view() — bez stron (wszystko naraz), zaznaczenie przetrwa zmianę filtra.
 const LEVEL_RANK = { sure: 0, probable: 1, none: 2 };
-function sortedRows() {
-  const f = S.filter, list = S.rows.filter(r => f === 'all' || r.level === f);
-  const { sort, dir } = S.sort, sgn = dir === 'asc' ? 1 : -1;
-  const key = {
-    level: r => LEVEL_RANK[r.level] * 1000 - ((selScore(r) || {}).score || 0), date: r => r.tx.date, amount: r => r.tx.amount, payer: r => norm(r.tx.party), title: r => norm(r.tx.title),
-    order: r => { const o = r.sel && orderOf(r.sel); return o ? norm(o.number) : ''; }, score: r => (selScore(r) || {}).score || 0,
-  }[sort] || (() => 0);
-  const empty = v => v === '' || v == null;
-  return list.slice().sort((a, b) => { const x = key(a), y = key(b); if (empty(x) !== empty(y)) return empty(x) ? 1 : -1; return (x < y ? -1 : x > y ? 1 : 0) * sgn || a.i - b.i; });
-}
-function counts() { const c = { sure: 0, probable: 0, none: 0, checked: 0, sum: 0, done: 0 }; for (const r of S.rows) { c[r.level]++; if (r.status === 'ok') c.done++; else if (r.checked && r.sel) { c.checked++; c.sum += r.tx.amount; } } return c; }
-
+const rid = r => String(r.i);
+const SORT = {
+  level: r => LEVEL_RANK[r.level] * 1000 - ((selScore(r) || {}).score || 0), date: r => r.tx.date, amount: r => r.tx.amount, payer: r => norm(r.tx.party), title: r => norm(r.tx.title),
+  order: r => { const o = r.sel && orderOf(r.sel); return o ? norm(o.number) : ''; }, score: r => (selScore(r) || {}).score || 0,
+};
+const NUM_SORT = new Set(['level', 'amount', 'score']);
+const isChecked = r => lv.selection.has(rid(r)) && !!r.sel && r.status !== 'ok';
+const setChecked = (r, on) => { if (on && r.sel && r.status !== 'ok') lv.selection.set(rid(r), r); else lv.selection.delete(rid(r)); };
+function counts() { const c = { sure: 0, probable: 0, none: 0, checked: 0, sum: 0, done: 0 }; for (const r of S.rows) { c[r.level]++; if (r.status === 'ok') c.done++; else if (isChecked(r)) { c.checked++; c.sum += r.tx.amount; } } return c; }
+function syncLevelOptions() { const c = counts(); lv.setOptions('level', [['sure', 'Pewne (' + c.sure + ')'], ['probable', 'Prawdopodobne (' + c.probable + ')'], ['none', 'Brak dopasowania (' + c.none + ')']]); }
+const lv = listView({
+  id: 'wp', route: '/wplaty', rowId: r => String(r.i), storeKey: 'wplaty', title: 'Przejrzyj dopasowania', titleId: 'wpStep3', noun: ['wpłata', 'wpłaty', 'wpłat'], loadingText: 'Wczytuję nieopłacone zamówienia…',
+  columns: [
+    { key: 'date', label: 'Data', sort: true, tip: 'Data księgowania wpłaty w banku', cell: r => r.tx.date },
+    { key: 'amount', label: 'Kwota', sort: true, num: true, tip: 'Kwota wpłaty z wyciągu', cell: r => zl(r.tx.amount) },
+    { key: 'payer', label: 'Płatnik', sort: true, tip: 'Nadawca przelewu wg wyciągu', cell: r => el('td', { title: r.tx.account || null }, r.tx.party || '—') },
+    { key: 'title', label: 'Tytuł', sort: true, tip: 'Tytuł przelewu — tu szukamy numeru zamówienia', cell: r => el('td', { class: 'wp-title', title: r.tx.title }, r.tx.title || '—') },
+    { key: 'order', label: 'Zamówienie', sort: true, tip: 'Dopasowane zamówienie. Możesz wybrać inne z listy pasujących zamówień albo „nie oznaczaj”.', cell: orderCell },
+    { key: 'score', label: 'Wynik', sort: true, num: true, firstDir: 'desc', tipHeader: true, tip: 'Punktacja dopasowania 0–100 (najedź na wynik, aby zobaczyć powody). Zasady punktacji możesz zmienić w „Zasady dopasowania”.', cell: scoreCell },
+  ],
+  defaultSort: { key: 'level', dir: 'asc' }, sizes: [100000], defaultSize: 100000, search: false,
+  filters: [{ key: 'level', label: 'Poziom dopasowania', tip: 'Pokaż tylko wpłaty o wybranym poziomie dopasowania. Zaznaczenie zostaje także dla ukrytych wierszy.', options: [], all: 'wszystkie' }],
+  actions: [
+    el('button', { type: 'button', class: 'secondary', id: 'wpSelSure', title: 'Zaznacz tylko wpłaty ocenione jako pewne (jak domyślnie)', onclick: () => { for (const r of S.rows) setChecked(r, r.level === 'sure'); lv.render(); } }, 'Zaznacz tylko pewne'),
+  ],
+  load: async () => ({ rows: S.rows, total: S.rows.length, pageSize: 100000 }),
+  view: rows => {
+    const st = lv.state, out = rows.filter(r => !st.filters.level || r.level === st.filters.level), key = SORT[st.sort];
+    return key ? sortRows(out, { value: key, num: NUM_SORT.has(st.sort), dir: st.dir }) : out;
+  },
+  above: () => (S.truncated ? el('p', { class: 'muted' }, 'Uwaga: zamówień do dopasowania jest bardzo dużo — wzięto najnowsze 3000. Zawęź zakres dni w zasadach.') : null),
+  onData: () => syncLevelOptions(),
+  rowClass: r => (r.status === 'ok' ? 'wp-done' : ''), rowAttrs: r => ({ 'data-level': r.level }), empty: 'Brak wpłat.', emptyFiltered: 'Żadna wpłata nie ma wybranego poziomu dopasowania.',
+  select: {
+    noun: ['wpłatę', 'wpłaty', 'wpłat'], label: r => 'wpłatę ' + (r.tx.party || r.tx.date),
+    disabled: r => (r.status === 'ok' ? 'To zamówienie zostało już oznaczone jako opłacone' : !r.sel ? 'Najpierw wskaż zamówienie' : ''),
+    actions: () => {
+      const c = counts();
+      return [el('span', { class: 'muted', id: 'wpCount', title: 'Suma zaznaczonych wpłat' }, 'razem ' + zl(c.sum) + (c.done ? ' · już oznaczono ' + c.done : '')),
+        el('button', { type: 'button', class: 'primary', write: 'wplaty', id: 'wpApply', disabled: !c.checked || S.running, title: 'Pokaże podsumowanie do potwierdzenia — nic nie jest zapisywane od razu', onclick: confirmApply }, 'Oznacz jako opłacone (' + c.checked + ')')];
+    },
+  },
+});
+/** Wiersze przeliczone (nowy wyciąg / reguły / zamówienia): zaznaczenie startowe = „pewne”. */
+function seedSelection() { lv.selection.clear(); for (const r of S.rows) setChecked(r, r.level === 'sure'); }
 function paintReview() {
   const box = $('wpReview'); if (!box) return;
   if (!S.parsed) { box.replaceChildren(); return; }
   if (S.parsed.needsMapping) { box.replaceChildren(); return; }
   if (!S.orders) { box.replaceChildren(loadingBox('Wczytuję nieopłacone zamówienia…')); return; }
-  const c = counts();
   if (!S.rows.length) { box.replaceChildren(el('section', { class: 'card bm-card', id: 'wpStep3' }, el('div', { class: 'empty', id: 'wpEmpty' }, 'W pliku nie znaleziono żadnych wpływów (samych obciążeń albo wiersze nie do odczytania). Sprawdź format pliku wyżej.'))); return; }
-  const chip = (k, label, n, tip) => el('button', { type: 'button', class: 'chip', 'data-f': k, 'aria-pressed': String(S.filter === k), title: tip, onclick: () => { S.filter = k; paintReview(); } }, label + ' ', el('b', null, String(n)));
-  const cols = [
-    { label: '', tip: 'Zaznacz, aby oznaczyć zamówienie jako opłacone' },
-    { label: 'Data', sort: 'date', tip: 'Data księgowania wpłaty w banku' }, { label: 'Kwota', sort: 'amount', num: true, tip: 'Kwota wpłaty z wyciągu' },
-    { label: 'Płatnik', sort: 'payer', tip: 'Nadawca przelewu wg wyciągu' }, { label: 'Tytuł', sort: 'title', tip: 'Tytuł przelewu — tu szukamy numeru zamówienia' },
-    { label: 'Zamówienie', sort: 'order', tip: 'Dopasowane zamówienie. Możesz wybrać inne z listy pasujących zamówień albo „nie oznaczaj”.' },
-    { label: 'Wynik', sort: 'score', num: true, tipHeader: true, firstDir: 'desc', tip: 'Punktacja dopasowania 0–100 (najedź na wynik, aby zobaczyć powody). Zasady punktacji możesz zmienić w „Zasady dopasowania”.' },
-  ];
-  const head = el('tr', null, ...cols.map(col => col.sort ? sortTh(col, { sort: S.sort.sort, dir: S.sort.dir }, (s, d) => { S.sort = { sort: s, dir: d }; paintReview(); }) : el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'wpAll', 'aria-label': 'Zaznacz widoczne', title: 'Zaznacz lub odznacz wszystkie widoczne wiersze, które mają dopasowane zamówienie',
-    onclick: ev => { for (const r of sortedRows()) if (r.sel && r.status !== 'ok') r.checked = ev.target.checked; paintReview(); } }))));
-  const rows = sortedRows();
-  const tbody = el('tbody', null, ...rows.map(row));
-  box.replaceChildren(el('section', { class: 'card bm-card', id: 'wpStep3' }, el('h2', null, el('span', { class: 'bm-num' }, '2'), 'Przejrzyj dopasowania'),
-    S.truncated ? el('p', { class: 'muted' }, 'Uwaga: zamówień do dopasowania jest bardzo dużo — wzięto najnowsze 3000. Zawęź zakres dni w zasadach.') : null,
-    el('div', { class: 'bm-chips chips', role: 'group', 'aria-label': 'Filtr poziomu dopasowania' },
-      chip('all', 'Wszystkie', S.rows.length, 'Wszystkie wpłaty z wyciągu'), chip('sure', 'Pewne', c.sure, LEVEL.sure.tip), chip('probable', 'Prawdopodobne', c.probable, LEVEL.probable.tip), chip('none', 'Brak dopasowania', c.none, LEVEL.none.tip)),
-    el('div', { class: 'bm-row' },
-      el('button', { type: 'button', class: 'secondary', id: 'wpSelSure', title: 'Zaznacz tylko wpłaty ocenione jako pewne (jak domyślnie)', onclick: () => { for (const r of S.rows) if (r.status !== 'ok') r.checked = r.level === 'sure' && !!r.sel; paintReview(); } }, 'Zaznacz tylko pewne'),
-      el('button', { type: 'button', class: 'secondary', id: 'wpSelNone', title: 'Odznacz wszystkie wiersze', onclick: () => { for (const r of S.rows) r.checked = false; paintReview(); } }, 'Odznacz wszystko')),
-    el('div', { class: 'table-wrap bm-wrap' }, el('table', { id: 'wpTable' }, el('thead', null, head), tbody)),
-    el('p', { class: 'bm-count', id: 'wpCount', title: 'Liczba zaznaczonych wpłat i ich suma' }, `Zaznaczono ${c.checked} z ${S.rows.length}`, c.checked ? ' · razem ' + zl(c.sum) : '', c.done ? ' · już oznaczono ' + c.done : ''),
-    el('div', { class: 'bm-row bm-apply' },
-      el('button', { type: 'button', class: 'primary', write: 'wplaty', id: 'wpApply', disabled: !c.checked || S.running, title: c.checked ? 'Pokaże podsumowanie do potwierdzenia — nic nie jest zapisywane od razu' : 'Zaznacz co najmniej jedną wpłatę z dopasowanym zamówieniem', onclick: confirmApply },
-        c.checked ? 'Oznacz jako opłacone (' + c.checked + ')' : 'Oznacz jako opłacone'))));
+  syncLevelOptions();
+  if (lv.node.parentNode !== box) { box.replaceChildren(lv.node); lv.mount(S.query); } else lv.reload();
   paintResult();
 }
 
-function row(r) {
-  const pick = r.sel ? selScore(r) : null, o = r.sel ? orderOf(r.sel) : null, lv = LEVEL[r.level];
-  const cb = el('input', { type: 'checkbox', class: 'wp-cb', 'aria-label': 'Oznacz jako opłacone', checked: r.checked && !!r.sel, disabled: !r.sel || r.status === 'ok',
-    title: r.status === 'ok' ? 'To zamówienie zostało już oznaczone jako opłacone' : r.sel ? 'Zaznacz, aby oznaczyć zamówienie jako opłacone' : 'Najpierw wskaż zamówienie',
-    onchange: ev => { r.checked = ev.target.checked; paintCount(); } });
+function orderCell(r) {
+  const o = r.sel ? orderOf(r.sel) : null, pick = r.sel ? selScore(r) : null;
   const sel = el('select', { class: 'wp-sel', 'aria-label': 'Zamówienie dla wpłaty', disabled: r.status === 'ok', title: 'Wybierz właściwe zamówienie spośród najlepiej pasujących',
-    onchange: ev => { r.sel = ev.target.value; r.checked = !!r.sel; r.level = !r.sel ? 'none' : r.cands[0] && r.cands[0].order.id === r.sel && r.level !== 'none' ? r.level : 'probable'; paintReview(); } },
+    onchange: ev => { r.sel = ev.target.value; r.level = !r.sel ? 'none' : r.cands[0] && r.cands[0].order.id === r.sel && r.level !== 'none' ? r.level : 'probable'; setChecked(r, !!r.sel); lv.reload(); } },
     el('option', { value: '' }, '— nie oznaczaj —'), ...r.cands.map(c => el('option', { value: c.order.id, selected: c.order.id === r.sel }, orderLabel(c.order) + ' (' + c.score + ')')),
     r.sel && !r.cands.find(x => x.order.id === r.sel) && o ? el('option', { value: r.sel, selected: true }, orderLabel(o) + ' (ręcznie)') : null);
   const manual = !r.cands.length || r.level === 'none' ? el('input', { type: 'text', class: 'wp-manual', placeholder: 'numer zamówienia', 'aria-label': 'Wpisz numer zamówienia ręcznie', title: 'Wpisz numer zamówienia (np. 1234/2026) i naciśnij Enter, aby przypisać wpłatę ręcznie. Dotyczy tylko nieopłaconych zamówień z wczytanego zakresu.',
-    onkeydown: ev => { if (ev.key !== 'Enter') return; const f = byNumber().get(norm(ev.target.value)); if (!f) { flash(null, 'Nie znaleziono nieopłaconego zamówienia o takim numerze.'); return; } r.sel = f.id; r.checked = true; r.level = 'probable'; r.manual = true; r.notes.push('zamówienie wskazane ręcznie'); paintReview(); } }) : null;
-  const why = pick ? pick.reasons.map(x => x.t + (x.pts ? ' (+' + x.pts + ')' : '')).join('\n') : 'brak dopasowania';
-  const pill = el('span', { class: 'ord-st ' + lv.tone + ' tip', title: lv.label + ': ' + lv.tip + (pick ? '\n\nPowody:\n' + why : '') + (r.notes.length ? '\n\nUwagi:\n' + r.notes.join('\n') : '') }, pick ? String(pick.score) : '—');
-  const tr = el('tr', { 'data-i': String(r.i), 'data-level': r.level, class: r.status === 'ok' ? 'wp-done' : null },
-    el('td', { class: 'c' }, cb), el('td', null, r.tx.date), el('td', { class: 'n' }, zl(r.tx.amount)),
-    el('td', { title: r.tx.account || null }, r.tx.party || '—'), el('td', { class: 'wp-title', title: r.tx.title }, r.tx.title || '—'),
-    el('td', null, sel, manual, r.notes.length || (pick && pick.reasons.some(x => x.warn)) ? el('div', { class: 'wp-note' }, ...r.notes.map(n => el('div', null, n)), ...(pick ? pick.reasons.filter(x => x.warn).map(x => el('div', { class: 'bm-warn' }, x.t)) : [])) : null),
-    el('td', { class: 'n' }, r.status === 'ok' ? el('span', { class: 'ord-st ok', title: 'Zamówienie zostało oznaczone jako opłacone w Selly' }, 'oznaczone') : pill));
-  return tr;
+    onkeydown: ev => { if (ev.key !== 'Enter') return; const f = byNumber().get(norm(ev.target.value)); if (!f) { flash(null, 'Nie znaleziono nieopłaconego zamówienia o takim numerze.'); return; } r.sel = f.id; r.level = 'probable'; r.manual = true; r.notes.push('zamówienie wskazane ręcznie'); setChecked(r, true); lv.reload(); } }) : null;
+  return el('td', null, sel, manual, r.notes.length || (pick && pick.reasons.some(x => x.warn)) ? el('div', { class: 'wp-note' }, ...r.notes.map(n => el('div', null, n)), ...(pick ? pick.reasons.filter(x => x.warn).map(x => el('div', { class: 'bm-warn' }, x.t)) : [])) : null);
 }
-function paintCount() {
-  const c = counts(), n = $('wpCount'), b = $('wpApply');
-  if (n) n.replaceChildren(`Zaznaczono ${c.checked} z ${S.rows.length}`, c.checked ? ' · razem ' + zl(c.sum) : '', c.done ? ' · już oznaczono ' + c.done : '');
-  if (b) { b.disabled = !c.checked || S.running; b.textContent = c.checked ? 'Oznacz jako opłacone (' + c.checked + ')' : 'Oznacz jako opłacone'; }
+function scoreCell(r) {
+  const pick = r.sel ? selScore(r) : null, lev = LEVEL[r.level];
+  const why = pick ? pick.reasons.map(x => x.t + (x.pts ? ' (+' + x.pts + ')' : '')).join('\n') : 'brak dopasowania';
+  const pill = el('span', { class: 'ord-st ' + lev.tone + ' tip', title: lev.label + ': ' + lev.tip + (pick ? '\n\nPowody:\n' + why : '') + (r.notes.length ? '\n\nUwagi:\n' + r.notes.join('\n') : '') }, pick ? String(pick.score) : '—');
+  return el('td', { class: 'n' }, r.status === 'ok' ? el('span', { class: 'ord-st ok', title: 'Zamówienie zostało oznaczone jako opłacone w Selly' }, 'oznaczone') : pill);
 }
 
 // ─── Krok 2: zasady ─────────────────────────────────────────────────────
@@ -245,7 +251,7 @@ function rulesCard() {
 function plan() {
   const items = [], dup = new Set(), seen = new Set();
   for (const r of S.rows) {
-    if (!r.checked || !r.sel || r.status === 'ok') continue;
+    if (!isChecked(r)) continue;
     const o = orderOf(r.sel); if (!o) continue;
     if (seen.has(o.id)) dup.add(o.number); seen.add(o.id);
     items.push({ row: r, order: o, orderId: o.id, from: o.paid, to: newPaid(o, r.tx.amount, S.rules.tolerance) });
@@ -279,14 +285,14 @@ async function runChunks(items, action, onProgress) {
 }
 async function runApply(items) {
   if (S.running) return;
-  S.running = true; paintCount();
+  S.running = true; lv.render();
   const total = items.length;
   const prog = n => { const b = $('wpRunning'); if (b) b.textContent = `Zapisuję w Selly… ${n} z ${total}`; };
   const holder = $('wpResult'); holder.replaceChildren(el('section', { class: 'card bm-card' }, el('p', { id: 'wpRunning', role: 'status' }, `Zapisuję w Selly… 0 z ${total}`)));
   const r = await runChunks(items, 'payments:apply', prog);
   S.running = false;
   const doneIds = new Set(r.done.map(d => d.id));
-  for (const x of items) if (doneIds.has(x.orderId)) { x.row.status = 'ok'; x.row.checked = false; }
+  for (const x of items) if (doneIds.has(x.orderId)) { x.row.status = 'ok'; setChecked(x.row, false); }
   for (const d of r.done) { const o = orderOf(d.id); if (o) o.paid = d.to; }
   S.result = { ...r, at: Date.now(), undone: null }; S.undone = false;
   paintReview();
@@ -315,7 +321,7 @@ function confirmUndo() {
       const u = await runChunks(items, 'payments:undo', () => {});
       S.running = false;
       r.undone = u; const back = new Set(u.done.map(d => d.id));
-      for (const row of S.rows) if (row.sel && back.has(row.sel) && row.status === 'ok') { row.status = ''; row.checked = false; }
+      for (const row of S.rows) if (row.sel && back.has(row.sel) && row.status === 'ok') { row.status = ''; setChecked(row, false); }
       for (const d of u.done) { const o = orderOf(d.id); if (o) o.paid = d.to; }
       paintReview(); flash(null, 'Cofnięto ' + u.done.length + ' z ' + n + '.');
     } });
@@ -326,12 +332,13 @@ export default {
   id: 'wplaty',
   title: 'Import wpłat bankowych',
   routes: [''],
-  mount(root) {
-    if (S.root === root && root.firstChild) return;
+  mount(root, params) {
+    S.query = params && params.query;
+    if (S.root === root && root.firstChild) { if (S.rows.length && lv.node.isConnected) lv.mount(S.query); return; }
     S.root = root; S.days = Number(store(DKEY)) || 120;
     root.replaceChildren(pageToolbar({ title: 'Import wpłat bankowych', sub: 'Wczytaj wyciąg z banku (CSV) i oznacz zamówienia jako opłacone — dopasowanie po numerze, kwocie i nazwisku' }),
       fileCard(), rulesCard(), el('div', { id: 'wpReview' }), el('div', { id: 'wpResult' }));
     if (S.parsed) { paintInfo(); paintReview(); }
   },
-  unmount() { S.seq++; },
+  unmount() { S.seq++; lv.stop(); },
 };

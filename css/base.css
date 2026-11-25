@@ -958,11 +958,11 @@ button:active:not(:disabled) { translate: 0 1px; }
   main.content button:not(.icon):not(.pin):not(.zs-fold) { min-height: 44px; } /* jak system przycisków na telefonie (--ctl-h) */
   main.content a.muted.small[href], main.content a.cell-name { display: inline-flex; align-items: center; min-height: 40px; }
   /* Listy z identyfikującą pierwszą kolumną: przewijanie tabeli w poziomie zostawia ją na widoku */
-  .lv-table th:first-child, .lv-table td:first-child, #dsTable th:first-child, #dsTable td:first-child { position: sticky; left: 0; box-shadow: 1px 0 0 var(--border); }
-  .lv-table th:first-child, #dsTable th:first-child { z-index: 4; }
-  .lv-table td:first-child, #dsTable td:first-child { z-index: 1; background: var(--surface); }
-  .lv-table tbody tr:nth-child(even) > td:first-child, #dsTable tbody tr:nth-child(even) > td:first-child { background: var(--zebra); }
-  .lv-table tbody tr:hover > td:first-child, #dsTable tbody tr:hover > td:first-child, tr.kb-hl > td:first-child { background: var(--hover); }
+  .lv-table th:first-child, .lv-table td:first-child{ position: sticky; left: 0; box-shadow: 1px 0 0 var(--border); }
+  .lv-table th:first-child{ z-index: 4; }
+  .lv-table td:first-child{ z-index: 1; background: var(--surface); }
+  .lv-table tbody tr:nth-child(even) > td:first-child { background: var(--zebra); }
+  .lv-table tbody tr:hover > td:first-child, tr.kb-hl > td:first-child { background: var(--hover); }
   .lv-table tbody tr.sel > td:first-child { background: var(--accent-soft); }
 }
 /* Sterowania zapisu bez prawa zmian w sekcji (core/ui.js gateWrite): wyszarzone, ale fokusowalne — podpowiedź działa z klawiatury */
