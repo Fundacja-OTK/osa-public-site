@@ -417,7 +417,6 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .ord-info { margin-left: auto; }
 .ord-filters { margin-top: var(--s3); }
 .ord-filter-row { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
-.ord-bulk { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: center; margin-top: var(--s3); padding: var(--s2) var(--s3); background: var(--accent-soft); border-radius: var(--r2); }
 .ord-pager { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; justify-content: space-between; margin-top: var(--s3); }
 .ord-dialog { margin-top: var(--s3); border-color: var(--accent); }
 .ord-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }

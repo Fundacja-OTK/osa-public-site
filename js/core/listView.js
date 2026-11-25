@@ -2,11 +2,11 @@
 // zaznaczenie przetrwające zmianę strony z przyklejonym paskiem akcji, stan w adresie, stany ładowania / pusto / błąd,
 // opcjonalnie świeżość (core/liveRefresh.js) i pamięć odczytów (core/cache.js). Logika bez DOM: core/listLogic.js.
 // API i przykład: docs/list-view.md. Identyfikatory elementów = prefiks `id` + nazwa (np. cliTable, cliSelCount, zsPrev).
-import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=5a4d554';
-import { go } from './router.js?v=5a4d554';
-import { cachedRead } from './cache.js?v=5a4d554';
-import { liveRefresh } from './liveRefresh.js?v=5a4d554';
-import * as LL from './listLogic.js?v=5a4d554';
+import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=5bc16dd';
+import { go } from './router.js?v=5bc16dd';
+import { cachedRead } from './cache.js?v=5bc16dd';
+import { liveRefresh } from './liveRefresh.js?v=5bc16dd';
+import * as LL from './listLogic.js?v=5bc16dd';
 
 const td = (c, v) => (v instanceof Node && v.tagName === 'TD' ? v : el('td', { class: [c.num ? 'n' : '', c.cls || ''].filter(Boolean).join(' ') || null }, v == null ? '' : v));
 
@@ -14,7 +14,8 @@ export function listView(o) {
   const p = o.id;
   const cols = o.columns;
   const spec = {
-    sorts: cols.filter(c => LL.sortKeyOf(c)).map(c => ({ key: LL.sortKeyOf(c), num: !!c.num, firstDir: c.firstDir })),
+    // kolumna z kilkoma sortowaniami (`sorts: [{ label, sort, tip, num?, firstDir? }]`, np. „Nr i status”: Nr / Data / Status)
+    sorts: cols.flatMap(c => [...(LL.sortKeyOf(c) ? [{ key: LL.sortKeyOf(c), num: !!c.num, firstDir: c.firstDir }] : []), ...(c.sorts || []).map(x => ({ key: x.sort, num: !!x.num, firstDir: x.firstDir }))]),
     defaultSort: o.defaultSort || null, filters: (o.filters || []).map(f => ({ key: f.key, param: f.param })), filterPrefix: o.filterPrefix || '',
     sizes: o.sizes || [25, 50, 100, 200], defaultSize: o.defaultSize || 50, extra: o.extra,
   };
@@ -63,8 +64,9 @@ export function listView(o) {
     const groups = [];
     for (const c of u.filters) { const t = c.f.section || 'Filtry'; let g = groups.find(x => x.t === t); if (!g) groups.push(g = { t, fold: !!c.f.fold, nodes: [] }); g.nodes.push(c.node); }
     const hasPanel = u.filters.length > 0 || (o.panelNodes && o.panelNodes.length);
-    u.cols = o.columnsStore ? columnMenu({ id: p + 'Cols', storeKey: o.columnsStore, cols: cols.map(c => ({ key: c.key, label: c.label, tip: c.tip, def: c.def, locked: c.locked })), onChange: () => render() }) : null;
-    u.live = o.live ? liveRefresh({ id: p, ...o.live, reload: ({ background }) => load({ background }), busy: () => S.sel.size > 0 || !!(o.live.busy && o.live.busy()) }) : null;
+    u.cols = o.columnsStore ? columnMenu({ id: o.columnsId || p + 'Cols', storeKey: o.columnsStore, cols: cols.map(c => ({ key: c.key, label: c.label, tip: c.tip, def: c.def, locked: c.locked })), onChange: () => render() }) : null;
+    u.live = o.live ? liveRefresh({ id: p, ...o.live, reload: kind => load(kind),
+      busy: () => (o.live.pauseOnSelect !== false && S.sel.size > 0) || !!(o.live.busy && o.live.busy()) }) : null;
     u.filtersBtn = hasPanel ? el('button', { type: 'button', class: 'secondary', id: p + 'FiltersBtn', 'aria-controls': p + 'Filters', 'aria-expanded': 'false',
       title: o.filtersTip || 'Pokaż lub ukryj panel filtrów', onclick: () => { u.layout.setOpen(!u.layout.isOpen()); syncFiltersBtn(); } }, 'Filtry') : null;
     u.results = el('div', { id: p + 'Results' });
@@ -78,7 +80,7 @@ export function listView(o) {
   }
   function syncFiltersBtn() {
     if (!u.filtersBtn) return;
-    const n = LL.activeFilters(S.st), open = u.layout.isOpen();
+    const n = LL.activeFilters(S.st) + (spec.extra && spec.extra.panel ? spec.extra.panel(S.st) : 0), open = u.layout.isOpen();
     u.filtersBtn.textContent = 'Filtry' + (n ? ' (' + n + ')' : '') + (open ? ' ◂' : ' ▸');
     u.filtersBtn.setAttribute('aria-expanded', String(open));
     u.filtersBtn.classList.toggle('on', n > 0);
@@ -93,9 +95,9 @@ export function listView(o) {
   }
 
   // ─── Dane ────────────────────────────────────────────────────────────────
-  function fetchData(st) {
+  function fetchData(st, kind) {
     if (o.source) return cachedRead(o.source.action, o.source.params(st), { ttl: o.source.ttl, personal: o.source.personal, onUpdate: d => { S.data = d; prepare(); if (o.onData) o.onData(d, S.st); render(); } });
-    return o.load(st);
+    return o.load(st, kind || {});
   }
   /** Lista w całości (o.local): wyszukiwanie, filtry, sortowanie i strona po stronie przeglądarki; zaznaczenie przycinane do pasujących. */
   function prepare() {
@@ -114,7 +116,7 @@ export function listView(o) {
     if (!S.data) u.results.replaceChildren(loadingBox(o.loadingText || 'Wczytuję…'));
     else if (!(kind && kind.background)) u.results.classList.add('fade');
     let d;
-    try { d = await fetchData(S.st); } catch (e) {
+    try { d = await fetchData(S.st, kind); } catch (e) {
       if (my !== S.seq) return;
       S.err = e; u.results.classList.remove('fade');
       if (!S.data) { renderError(e); return; }
@@ -130,7 +132,15 @@ export function listView(o) {
     prepare();
     if (u.live) u.live.loaded(S.data.stamp);
     if (o.onData) o.onData(S.data, S.st);
-    render();
+    if (kind && (kind.background || kind.manual)) keepScroll(render); else render();
+  }
+  /** Odświeżenie bez skoku: przewinięcie strony i poziome przewinięcie tabeli zostają. */
+  function keepScroll(fn) {
+    const y = window.scrollY, w = u.results.querySelector('.table-wrap'), x = w ? w.scrollLeft : 0;
+    fn();
+    const w2 = u.results.querySelector('.table-wrap');
+    if (w2 && x) w2.scrollLeft = x;
+    if (Math.abs(window.scrollY - y) > 1) window.scrollTo(window.scrollX, y);
   }
   function retryBtn() { return el('button', { type: 'button', class: 'secondary', id: p + 'Retry', onclick: () => load() }, 'Spróbuj ponownie'); }
   function renderError(e) {
@@ -143,7 +153,7 @@ export function listView(o) {
   // ─── Widok ───────────────────────────────────────────────────────────────
   function headCell(c) {
     const key = LL.sortKeyOf(c);
-    const col = { label: c.label, tip: c.tip || c.label, num: c.num, firstDir: c.firstDir, sort: key || null, tipHeader: c.tipHeader != null ? c.tipHeader : !!c.tip && c.tip !== c.label };
+    const col = { label: c.label, tip: c.tip || c.label, num: c.num, firstDir: c.firstDir, sort: key || null, sorts: c.sorts, tipHeader: c.tipHeader != null ? c.tipHeader : !!c.tip && c.tip !== c.label };
     return sortTh(col, S.st, (sort, dir) => set({ sort, dir }));
   }
   function render() {
@@ -158,22 +168,22 @@ export function listView(o) {
     const body = el('tbody');
     for (const r of rows) {
       const id = rowId(r);
-      body.append(el('tr', { class: [o.open ? 'pick' : '', S.sel.has(id) ? 'sel' : ''].filter(Boolean).join(' ') || null, 'data-id': id, onclick: o.open ? tapOpen(() => o.open(r)) : null },
+      body.append(el('tr', { class: [o.open ? 'pick' : '', S.sel.has(id) ? 'sel' : '', o.rowClass ? o.rowClass(r) : ''].filter(Boolean).join(' ') || null, 'data-id': id, onclick: o.open ? tapOpen(() => o.open(r)) : null },
         o.select ? el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz: ' + (o.select.label ? o.select.label(r) : id), checked: S.sel.has(id),
           onchange: ev => { if (ev.target.checked) S.sel.set(id, r); else S.sel.delete(id); syncSel(); } })) : null,
         vc.map(c => td(c, c.cell ? c.cell(r, api) : r[c.key]))));
     }
     if (!rows.length) {
       const filtered = LL.isFiltered(st, spec);
-      body.append(el('tr', null, el('td', { colspan: String(vc.length + (o.select ? 1 : 0)), class: 'empty' },
-        filtered ? (o.emptyFiltered || 'Brak wyników dla wyszukiwania i filtrów.') : (o.empty || 'Brak pozycji.'), ' ',
-        filtered ? el('button', { type: 'button', class: 'secondary', id: p + 'EmptyClear', onclick: clear }, 'Wyczyść filtry') : (o.emptyAction ? o.emptyAction() : null))));
+      body.append(el('tr', null, el('td', { colspan: String(vc.length + (o.select ? 1 : 0)), class: 'empty', id: p + 'Empty' },
+        ...(o.emptyBox ? [].concat(o.emptyBox(st, filtered)) : [filtered ? (o.emptyFiltered || 'Brak wyników dla wyszukiwania i filtrów.') : (o.empty || 'Brak pozycji.'), ' ',
+        filtered ? el('button', { type: 'button', class: 'secondary', id: p + 'EmptyClear', onclick: clear }, 'Wyczyść filtry') : (o.emptyAction ? o.emptyAction() : null)]))));
     }
     u.results.replaceChildren(S.err ? el('div', { class: 'notice error', role: 'alert' }, 'Nie udało się odświeżyć — pokazuję poprzednie dane. ', retryBtn()) : null,
       ...(o.above ? [].concat(o.above(S.data, st) || []) : []),
       S.only ? el('div', { class: 'notice info', id: p + 'OnlySel', role: 'status' }, 'Pokazuję tylko zaznaczone (' + rows.length + ') — ze wszystkich stron. ',
         el('button', { type: 'button', class: 'link', onclick: () => { S.only = false; render(); } }, 'Wróć do listy')) : null,
-      el('div', { class: 'table-wrap' }, el('table', { id: p + 'Table', class: 'lv-table' }, el('thead', null, head), body)),
+      el('div', { class: 'table-wrap' }, el('table', { id: p + 'Table', class: 'lv-table' + (o.tableClass ? ' ' + o.tableClass : '') }, el('thead', null, head), body)),
       S.only ? null : pagerNode());
     syncSel();
   }
@@ -243,6 +253,8 @@ export function listView(o) {
     },
     stop() { S.seq++; if (u.live) u.live.stop(); },
     reload: kind => load(kind),
+    /** Otwarcie / zwinięcie panelu filtrów z kodu modułu (persist = zapamiętaj wybór). */
+    openFilters(open, persist) { u.layout.setOpen(open, !!persist); syncFiltersBtn(); },
     /** Odświeżenie widoku bez pobierania (np. zwinięcie gałęzi drzewa, nowe nazwy w kolumnie). */
     render: () => { prepare(); render(); },
     set, setFilter, clear,
