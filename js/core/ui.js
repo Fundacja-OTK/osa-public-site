@@ -818,4 +818,4 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=f06e90b';   // pole daty i zakres dat
+export * from './datepicker.js?v=04d1829';   // pole daty i zakres dat

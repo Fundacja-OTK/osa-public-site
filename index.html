@@ -6,66 +6,66 @@
   <!-- CSP: skrypty tylko z tej strony (bez inline), połączenia tylko do serwera głównego (Cloudflare Workers) i zapasowego (Apps Script) -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://osa-panel.osa-panel.workers.dev https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
   <title>Panel OSA</title>
-  <link rel="icon" href="favicon.svg?v=f06e90b" type="image/svg+xml">
-  <link rel="icon" href="icons/icon-32.png?v=f06e90b" type="image/png" sizes="32x32">
-  <link rel="icon" href="icons/icon-16.png?v=f06e90b" type="image/png" sizes="16x16">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=f06e90b">
-  <link rel="manifest" href="manifest.webmanifest?v=f06e90b">
+  <link rel="icon" href="favicon.svg?v=04d1829" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-32.png?v=04d1829" type="image/png" sizes="32x32">
+  <link rel="icon" href="icons/icon-16.png?v=04d1829" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=04d1829">
+  <link rel="manifest" href="manifest.webmanifest?v=04d1829">
   <meta name="theme-color" content="#2f2318" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#120e0a" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="css/base.css?v=f06e90b">
-  <link rel="stylesheet" href="css/shell.css?v=f06e90b">
-  <link rel="stylesheet" href="css/pulpit.css?v=f06e90b">
-  <link rel="stylesheet" href="css/przesylki.css?v=f06e90b">
-  <link rel="stylesheet" href="css/zasob.css?v=f06e90b">
-  <link rel="stylesheet" href="css/zasoby.css?v=f06e90b">
-  <link rel="stylesheet" href="css/klienci.css?v=f06e90b">
-  <link rel="stylesheet" href="css/produkt.css?v=f06e90b">
-  <link rel="stylesheet" href="css/raporty.css?v=f06e90b"><link rel="stylesheet" href="css/raporty-rodziny.css?v=f06e90b"><link rel="stylesheet" href="css/masowe.css?v=f06e90b"><link rel="stylesheet" href="css/dropshipping.css?v=f06e90b"><link rel="stylesheet" href="css/wplaty.css?v=f06e90b">
-  <link rel="stylesheet" href="css/feedback.css?v=f06e90b">
-  <link rel="stylesheet" href="css/konfsklepu.css?v=f06e90b">
-  <link rel="stylesheet" href="css/palette.css?v=f06e90b">
-  <link rel="stylesheet" href="css/embed.css?v=f06e90b">
-  <link rel="stylesheet" href="css/natywne.css?v=f06e90b">
-  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=f06e90b">
-  <link rel="stylesheet" href="css/faktury.css?v=f06e90b">
-  <link rel="stylesheet" href="css/speedmail.css?v=f06e90b">
-  <link rel="stylesheet" href="css/mobile.css?v=f06e90b">
+  <link rel="stylesheet" href="css/base.css?v=04d1829">
+  <link rel="stylesheet" href="css/shell.css?v=04d1829">
+  <link rel="stylesheet" href="css/pulpit.css?v=04d1829">
+  <link rel="stylesheet" href="css/przesylki.css?v=04d1829">
+  <link rel="stylesheet" href="css/zasob.css?v=04d1829">
+  <link rel="stylesheet" href="css/zasoby.css?v=04d1829">
+  <link rel="stylesheet" href="css/klienci.css?v=04d1829">
+  <link rel="stylesheet" href="css/produkt.css?v=04d1829">
+  <link rel="stylesheet" href="css/raporty.css?v=04d1829"><link rel="stylesheet" href="css/raporty-rodziny.css?v=04d1829"><link rel="stylesheet" href="css/masowe.css?v=04d1829"><link rel="stylesheet" href="css/dropshipping.css?v=04d1829"><link rel="stylesheet" href="css/wplaty.css?v=04d1829">
+  <link rel="stylesheet" href="css/feedback.css?v=04d1829">
+  <link rel="stylesheet" href="css/konfsklepu.css?v=04d1829">
+  <link rel="stylesheet" href="css/palette.css?v=04d1829">
+  <link rel="stylesheet" href="css/embed.css?v=04d1829">
+  <link rel="stylesheet" href="css/natywne.css?v=04d1829">
+  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=04d1829">
+  <link rel="stylesheet" href="css/faktury.css?v=04d1829">
+  <link rel="stylesheet" href="css/speedmail.css?v=04d1829">
+  <link rel="stylesheet" href="css/mobile.css?v=04d1829">
   <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, version, backends } -->
   <!-- modulepreload: scripts/preload.js -->
-  <link rel="preload" as="script" href="config.js?v=f06e90b">
-  <link rel="preload" as="script" href="js/preboot.js?v=f06e90b">
-  <link rel="modulepreload" href="js/main.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/shell.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/ui.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/client.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/auth.js?v=f06e90b">
-  <link rel="modulepreload" href="js/lib/panelAuth.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/router.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/errors.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/sellyExits.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/errorHook.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/feedback.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/update.js?v=f06e90b">
-  <link rel="modulepreload" href="js/modules/_placeholder.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/nav.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/palette.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/shortcuts.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/recents.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/preload.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/datepicker.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/api.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/delivery.js?v=f06e90b">
-  <link rel="modulepreload" href="js/core/search.js?v=f06e90b">
-  <script src="config.js?v=f06e90b"></script>
-  <script src="js/preboot.js?v=f06e90b"></script>
-  <script type="module" src="js/main.js?v=f06e90b"></script>
+  <link rel="preload" as="script" href="config.js?v=04d1829">
+  <link rel="preload" as="script" href="js/preboot.js?v=04d1829">
+  <link rel="modulepreload" href="js/main.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/shell.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/ui.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/client.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/auth.js?v=04d1829">
+  <link rel="modulepreload" href="js/lib/panelAuth.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/router.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/errors.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/sellyExits.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/errorHook.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/feedback.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/update.js?v=04d1829">
+  <link rel="modulepreload" href="js/modules/_placeholder.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/nav.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/palette.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/shortcuts.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/recents.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/preload.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/datepicker.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/api.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/delivery.js?v=04d1829">
+  <link rel="modulepreload" href="js/core/search.js?v=04d1829">
+  <script src="config.js?v=04d1829"></script>
+  <script src="js/preboot.js?v=04d1829"></script>
+  <script type="module" src="js/main.js?v=04d1829"></script>
 </head>
 <body>
 <div class="app">
   <header class="topbar">
     <button type="button" class="tb-btn navtoggle" id="navToggle" aria-expanded="false" aria-controls="sidebar" title="Pokaż lub ukryj menu panelu"><span class="sr-only">Menu</span><span aria-hidden="true">☰</span></button>
-    <a class="brand" href="#/pulpit" title="Panel OSA — strona startowa" aria-label="Panel OSA — strona startowa"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64" width="30" height="30" focusable="false"><defs><linearGradient id="bmt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2219"/><stop offset="1" stop-color="#120e0a"/></linearGradient><radialGradient id="bmg" cx="32" cy="31" r="26" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e5a561" stop-opacity=".5"/><stop offset="1" stop-color="#e5a561" stop-opacity="0"/></radialGradient><linearGradient id="bms" x1="0" y1="4" x2="0" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff1d6"/><stop offset=".55" stop-color="#f2c18b"/><stop offset="1" stop-color="#d88b45"/></linearGradient></defs><circle cx="32" cy="31" r="26" fill="url(#bmg)"/><g stroke="url(#bms)" stroke-width="3" stroke-linecap="round"><line x1="32" y1="8" x2="32" y2="56"/><line x1="13" y1="31" x2="51" y2="31"/><g stroke-width="2.4000000000000004"><line x1="23" y1="22" x2="41" y2="40"/><line x1="23" y1="40" x2="41" y2="22"/></g></g><circle fill="url(#bms)" cx="32" cy="8" r="4"/><circle fill="url(#bms)" cx="32" cy="56" r="4"/><circle fill="url(#bms)" cx="13" cy="31" r="4"/><circle fill="url(#bms)" cx="51" cy="31" r="4"/><circle fill="#d0584a" cx="23" cy="22" r="3"/><circle fill="#d0584a" cx="41" cy="22" r="3"/><circle fill="#d0584a" cx="23" cy="40" r="3"/><circle fill="#d0584a" cx="41" cy="40" r="3"/><circle fill="#fffaf2" cx="32" cy="31" r="3.6"/></svg></span><span class="brand-name">Panel OSA</span></a>
+    <a class="brand" href="#/pulpit" title="Panel OSA — strona startowa" aria-label="Panel OSA — strona startowa"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64" width="30" height="30" focusable="false"><defs><radialGradient id="bmG" cx="32" cy="31" r="25" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e5a561" stop-opacity=".5"/><stop offset="1" stop-color="#e5a561" stop-opacity="0"/></radialGradient><linearGradient id="bmS" x1="0" y1="5" x2="0" y2="58" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff1d6"/><stop offset=".55" stop-color="#f2c18b"/><stop offset="1" stop-color="#d88b45"/></linearGradient></defs><circle cx="32" cy="31" r="25" fill="url(#bmG)"/><circle cx="32" cy="31" r="18.5" fill="none" stroke="#c2493c" stroke-width="2.6"/><path fill="#f0b56e" opacity=".8" transform="rotate(45 32 31)" d="M32 20Q33.3 29.7 43 31Q33.3 32.3 32 42Q30.7 32.3 21 31Q30.7 29.7 32 20Z"/><path fill="url(#bmS)" d="M32 5Q34.1 28.9 54 31Q34.1 33.1 32 58Q29.9 33.1 10 31Q29.9 28.9 32 5Z"/><circle fill="#fffaf2" cx="32" cy="31" r="2.4"/></svg></span><span class="brand-name">Panel OSA</span></a>
     <button type="button" class="tb-btn tb-searchbtn" id="tbSearch" hidden aria-haspopup="dialog" title="Szukaj ekranów, zamówień, klientów i produktów (Ctrl+K)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg><span class="sr-only">Szukaj</span></button>
     <div class="tb-right">
       <a class="tb-btn tb-selly" id="tbSelly" href="#" target="_blank" rel="noopener" title="Otwiera tę samą stronę w panelu Selly (nowa karta)" hidden>Selly ↗</a>

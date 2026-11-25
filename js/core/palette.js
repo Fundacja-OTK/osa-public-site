@@ -1,12 +1,12 @@
 // Szybkie wyszukiwanie (Ctrl+K): okno w środku ekranu — ekrany panelu, ostatnio otwarte miejsca i rekordy na żywo
 // (zamówienia, klienci, produkty z istniejących akcji API), prefiksy zam: kli: prod: ekran:. Oraz okno pomocy „?” ze skrótami.
-import { el } from './ui.js?v=f06e90b';
-import { api } from './client.js?v=f06e90b';
-import { go } from './router.js?v=f06e90b';
-import { ITEMS, itemById, icon, menuModel, groupOf, groupById, keywordsOf } from './nav.js?v=f06e90b';
-import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=f06e90b';
-import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=f06e90b';
-import { shortcuts, GOTO } from './shortcuts.js?v=f06e90b';
+import { el } from './ui.js?v=04d1829';
+import { api } from './client.js?v=04d1829';
+import { go } from './router.js?v=04d1829';
+import { ITEMS, itemById, icon, menuModel, groupOf, groupById, keywordsOf } from './nav.js?v=04d1829';
+import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=04d1829';
+import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=04d1829';
+import { shortcuts, GOTO } from './shortcuts.js?v=04d1829';
 
 const MIN_Q = 2, DEBOUNCE = 250, TOP = 5;
 const GOTO_KEY = Object.fromEntries(Object.entries(GOTO).map(([k, id]) => [id, 'G ' + k.toUpperCase()]));
