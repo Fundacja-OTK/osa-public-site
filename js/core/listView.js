@@ -2,11 +2,11 @@
 // zaznaczenie przetrwające zmianę strony z przyklejonym paskiem akcji, stan w adresie, stany ładowania / pusto / błąd,
 // opcjonalnie świeżość (core/liveRefresh.js) i pamięć odczytów (core/cache.js). Logika bez DOM: core/listLogic.js.
 // API i przykład: docs/list-view.md. Identyfikatory elementów = prefiks `id` + nazwa (np. cliTable, cliSelCount, zsPrev).
-import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=5bc16dd';
-import { go } from './router.js?v=5bc16dd';
-import { cachedRead } from './cache.js?v=5bc16dd';
-import { liveRefresh } from './liveRefresh.js?v=5bc16dd';
-import * as LL from './listLogic.js?v=5bc16dd';
+import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=9f3bf7d';
+import { go } from './router.js?v=9f3bf7d';
+import { cachedRead } from './cache.js?v=9f3bf7d';
+import { liveRefresh } from './liveRefresh.js?v=9f3bf7d';
+import * as LL from './listLogic.js?v=9f3bf7d';
 
 const td = (c, v) => (v instanceof Node && v.tagName === 'TD' ? v : el('td', { class: [c.num ? 'n' : '', c.cls || ''].filter(Boolean).join(' ') || null }, v == null ? '' : v));
 
@@ -22,7 +22,7 @@ export function listView(o) {
   const S = { st: null, data: null, view: [], total: 0, err: null, seq: 0, sel: new Map(), built: false, filterOpts: {}, only: false };   // only = widok „tylko zaznaczone”
   const u = {};
   const rowId = r => String(o.rowId ? o.rowId(r) : r.id);
-  const visibleCols = () => cols.filter(c => !u.cols || u.cols.isOn(c.key));
+  const visibleCols = () => cols.filter(c => (!u.cols || u.cols.isOn(c.key)) && !(o.hideCol && o.hideCol(c)));
 
   // ─── Stan ↔ adres ────────────────────────────────────────────────────────
   function set(patch, opts) {

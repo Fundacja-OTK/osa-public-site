@@ -5,20 +5,19 @@
 // — osobna sekcja #/magazyny/ewidencja; nie zmienia stanów w Selly.
 // Trasy: #/magazyny/stany, #/magazyny/zmiana[?p=<id>], #/magazyny/ewidencja, #/magazyny/{porownanie,inwentaryzacja,rozliczenie,ruch,historia,start};
 // dawne #/magazyny/speedmail → #/speedmail.
-import { $, el, plural, store, flash, norm, dateInput, sortMark } from '../core/ui.js?v=5bc16dd';
-import { api } from '../core/client.js?v=5bc16dd';
-import { go } from '../core/router.js?v=5bc16dd';
+import { $, el, plural, store, flash, norm, dateInput, sortMark, filterSection } from '../core/ui.js?v=9f3bf7d';
+import { api } from '../core/client.js?v=9f3bf7d';
+import { listView } from '../core/listView.js?v=9f3bf7d';
+import { go } from '../core/router.js?v=9f3bf7d';
 
 const TEMPLATE = `<div id="modMag"><nav class="viewnav" aria-label="Widok magazynów" id="magnav"></nav><div id="magBody"></div></div>`;
 
 const mag = {
   data: null, loading: false, view: 'stany', err: '',
-  q: '', onlyDiff: false, hideEmpty: false, sort: { key: 'name', dir: 1 },
-  cmp: { q: '', sort: { key: 'name', dir: 1 } },   // porównanie ewidencji z Selly
+  hideEmpty: false, query: null, lvs: {},   // lvs: listy widoków Stany / Porównanie / Historia (core/listView.js); query: parametry adresu bieżącej trasy
   sel: new Map(),                      // „Do rozliczenia”: klucz pozycji → { on, wh }
   form: { type: 'przyjecie', product: '', qty: '', from: '', to: '', note: '' },
   inv: { wh: '', counts: {}, q: '', paste: '', unmatched: [], startDate: '', sort: { key: 'name', dir: 1 } },
-  hist: { sort: { key: 'ms', dir: -1 } },
   ss: null, ssErr: '',                 // stany wg Selly per magazyn (mag:sellyStock; null = niedostępne)
   showSellyWh: false,                  // porównanie: pokaż pod stanem z ewidencji stan wg Selly
   pv: null, pvErr: '', pvLoading: false, pvConfirm: false, pvOp: '',   // ewidencja: wszystkie magazyny wg Selly (#/magazyny/start)
@@ -194,83 +193,80 @@ function sellyCell(s, wid) {
   return s.stale ? el('span', { class: 'tip', title: STALE_TIP }, '≈ ' + nf(x)) : nf(x);
 }
 
+/** Lista widoku (Stany / Porównanie / Historia) przeżywa przerysowania widoku: nowa dopiero po nowych danych (mag.data / mag.ss). */
+function magLv(view, make) {
+  const c = mag.lvs[view];
+  if (c && c.data === mag.data && c.ss === mag.ss) return c.lv;
+  const lv = make();
+  mag.lvs[view] = { data: mag.data, ss: mag.ss, lv };
+  return lv;
+}
+const PRODUCTS_NOUN = ['produkt', 'produkty', 'produktów'];
+const PRODUCT_SEARCH = { placeholder: 'Szukaj po nazwie lub kodzie…', label: 'Szukaj produktu', tip: 'Szuka w nazwie i kodzie produktu' };
+const SIZES = [50, 100, 200, 500];
+
 function magStany() {
-  const d = mag.data, box = el('div'), out = el('div');
-  const q = el('input', { type: 'search', placeholder: 'Szukaj po nazwie lub kodzie…', 'aria-label': 'Szukaj produktu', value: mag.q });
-  const he = el('input', { type: 'checkbox' }); he.checked = mag.hideEmpty;
-  const count = el('span', { class: 'count' });
-  const draw = () => {
-    const qn = norm(mag.q);
-    let whs = d.warehouses;
-    if (mag.hideEmpty) whs = whs.filter(w => d.products.some(p => sellyWhQty(sellyOf(p), w.id) !== 0));
-    const rows = d.products.filter(p => !qn || norm(p.name + ' ' + p.code).includes(qn));
-    count.textContent = rows.length + ' ' + plural(rows.length, 'produkt', 'produkty', 'produktów');
-    const cols = [{ key: 'name', label: 'Produkt', tip: 'Nazwa produktu i jego kod', val: p => p.name, cell: prodCell }];
-    for (const w of whs) cols.push({ key: 'wh:' + w.id, label: w.name + (isSm(w) ? ' *' : ''), num: true,
-      tip: 'Ile sztuk jest w magazynie „' + w.name + '” wg Selly (z ostatniego sprawdzenia). ? = jeszcze nie sprawdzone, ≈ = starsze dane' + (isSm(w) ? '\n\n* ' + SM_TIP : ''),
-      val: p => { const s = sellyOf(p); return s ? sellyWhQty(s, w.id) : null; }, cell: p => sellyCell(sellyOf(p), w.id) });
-    cols.push({ key: 'selly', label: 'Razem', num: true, tip: 'Stan produktu wg Selly łącznie (wszystkie magazyny) — z listy produktów, aktualizowany na bieżąco', val: p => p.selly, cell: p => el('strong', null, nf(p.selly)) });
-    cols.push({ key: 'act', label: '', tip: 'Zmień stan tego produktu w Selly', val: () => null,
-      cell: p => el('a', { href: '#/magazyny/zmiana?p=' + encodeURIComponent(p.id), class: 'btn-quiet small', title: 'Przyjęcie, przesunięcie albo poprawka stanu „' + p.name + '” — zapis w Selly z podglądem' }, 'Zmień') });
-    out.replaceChildren(magTable(cols, rows, mag.sort, draw, qn ? 'Żaden produkt nie pasuje do „' + mag.q + '” — zmień lub wyczyść wyszukiwanie.' : 'Brak produktów w kopii panelu — pojawią się po najbliższej synchronizacji z Selly.'));
-  };
-  q.addEventListener('input', () => { mag.q = q.value; draw(); });
-  he.addEventListener('change', () => { mag.hideEmpty = he.checked; draw(); });
-  const sm = d.warehouses.find(isSm);
-  box.append(el('div', { class: 'card' },
-    el('div', { class: 'toolbar', style: 'margin-top:0' }, q, count, el('span', { class: 'sp' }),
-      el('a', { class: 'btn-secondary', href: '#/magazyny/zmiana', title: 'Przyjęcie, przesunięcie między magazynami albo poprawka stanu — zapis w Selly z podglądem' }, 'Zmień stan'),
-      el('button', { type: 'button', class: 'secondary', title: 'Pobierz ponownie kopię stanów z panelu (bez obciążania Selly)', onclick: () => magLoad() }, '↻ Odśwież')),
-    d.stockError ? el('div', { class: 'notice warn' }, 'Nie udało się pobrać stanów z Selly: ' + d.stockError) : null,
-    magCoverage(),
-    el('details', { class: 'fold' }, el('summary', null, el('span', null, 'Ustawienia zaawansowane')),
-      el('label', { title: 'Chowa kolumny magazynów, w których wszystkie produkty mają stan 0 (kolumna „Razem” nadal liczy wszystkie magazyny)', style: 'display:block;margin-top:8px' }, he, 'Ukryj magazyny, w których wszędzie jest 0')),
-    out,
-    sm ? el('p', { class: 'muted small', id: 'magSmNote' }, '* ' + sm.name + ': stan w Selly nie mówi, co faktycznie leży w SpeedMail — to śledzi ', el('a', { href: '#/speedmail' }, 'Wysyłka SpeedMail'), '.') : null));
-  draw();
-  return box;
+  const d = mag.data, sm = d.warehouses.find(isSm);
+  const whEmpty = w => !d.products.some(p => sellyWhQty(sellyOf(p), w.id) !== 0);
+  const hide = el('input', { type: 'checkbox', id: 'magHideEmpty', checked: mag.hideEmpty, onchange: ev => { mag.hideEmpty = ev.target.checked; lv.render(); } });
+  const lv = magLv('stany', () => listView({
+    id: 'magSt', route: '/magazyny/stany', noun: PRODUCTS_NOUN, search: PRODUCT_SEARCH, sizes: SIZES, defaultSize: 100, sizeStore: 'osa-mag-size',
+    columns: [
+      { key: 'name', label: 'Produkt', sort: true, tip: 'Nazwa produktu i jego kod', value: p => p.name, cell: prodCell },
+      ...d.warehouses.map(w => ({ key: 'wh:' + w.id, wh: w, label: w.name + (isSm(w) ? ' *' : ''), sort: true, num: true,
+        tip: 'Ile sztuk jest w magazynie „' + w.name + '” wg Selly (z ostatniego sprawdzenia). ? = jeszcze nie sprawdzone, ≈ = starsze dane' + (isSm(w) ? '\n\n* ' + SM_TIP : ''),
+        value: p => { const s = sellyOf(p); return s ? sellyWhQty(s, w.id) : null; }, cell: p => sellyCell(sellyOf(p), w.id) })),
+      { key: 'selly', label: 'Razem', sort: true, num: true, tip: 'Stan produktu wg Selly łącznie (wszystkie magazyny) — z listy produktów, aktualizowany na bieżąco', value: p => p.selly, cell: p => el('strong', null, nf(p.selly)) },
+      { key: 'act', label: '', tip: 'Zmień stan tego produktu w Selly',
+        cell: p => el('a', { href: '#/magazyny/zmiana?p=' + encodeURIComponent(p.id), class: 'btn-quiet small', title: 'Przyjęcie, przesunięcie albo poprawka stanu „' + p.name + '” — zapis w Selly z podglądem' }, 'Zmień') },
+    ],
+    defaultSort: { key: 'name', dir: 'asc' }, local: { searchFields: p => [p.name, p.code] }, load: () => ({ rows: mag.data.products }),
+    hideCol: c => !!(mag.hideEmpty && c.wh && whEmpty(c.wh)),
+    empty: 'Brak produktów w kopii panelu — pojawią się po najbliższej synchronizacji z Selly.', emptyFiltered: 'Żaden produkt nie pasuje do wyszukiwania — zmień lub wyczyść wyszukiwanie.',
+    actions: [el('a', { class: 'btn-secondary', href: '#/magazyny/zmiana', title: 'Przyjęcie, przesunięcie między magazynami albo poprawka stanu — zapis w Selly z podglądem' }, 'Zmień stan'),
+      el('button', { type: 'button', class: 'secondary', title: 'Pobierz ponownie kopię stanów z panelu (bez obciążania Selly)', onclick: () => magLoad() }, '↻ Odśwież')],
+    above: () => [d.stockError ? el('div', { class: 'notice warn' }, 'Nie udało się pobrać stanów z Selly: ' + d.stockError) : null, magCoverage()],
+    panelNodes: [filterSection('Ustawienia zaawansowane', el('label', { title: 'Chowa kolumny magazynów, w których wszystkie produkty mają stan 0 (kolumna „Razem” nadal liczy wszystkie magazyny)' }, hide, 'Ukryj magazyny, w których wszędzie jest 0'), { fold: true })],
+  }));
+  hide.checked = mag.hideEmpty;
+  lv.mount(mag.query);
+  return el('div', null, lv.node,
+    sm ? el('p', { class: 'muted small', id: 'magSmNote' }, '* ' + sm.name + ': stan w Selly nie mówi, co faktycznie leży w SpeedMail — to śledzi ', el('a', { href: '#/speedmail' }, 'Wysyłka SpeedMail'), '.') : null);
 }
 
 // ── Porównanie ewidencji fizycznej z Selly ───────────────────────────────
 function magPorownanie() {
-  const d = mag.data, box = el('div'), out = el('div'), c = mag.cmp;
-  const hasSs = !!(mag.ss && mag.ss.stock);
-  const q = el('input', { type: 'search', placeholder: 'Szukaj po nazwie lub kodzie…', 'aria-label': 'Szukaj produktu', value: c.q });
-  const od = el('input', { type: 'checkbox' }); od.checked = mag.onlyDiff;
-  const sw = el('input', { type: 'checkbox', id: 'magShowSellyWh', disabled: !hasSs || null }); sw.checked = mag.showSellyWh;
-  const count = el('span', { class: 'count' });
-  const draw = () => {
-    const qn = norm(c.q);
-    const tot = p => d.warehouses.reduce((s, w) => s + (p.phys[w.id] || 0), 0);
-    const diff = p => (p.selly == null ? null : tot(p) - p.selly);
-    let rows = d.products.filter(p => !qn || norm(p.name + ' ' + p.code).includes(qn));
-    if (mag.onlyDiff) rows = rows.filter(p => diff(p) != null && diff(p) !== 0);
-    count.textContent = rows.length + ' ' + plural(rows.length, 'produkt', 'produkty', 'produktów');
-    const cols = [{ key: 'name', label: 'Produkt', tip: 'Nazwa produktu i jego kod', val: p => p.name, cell: prodCell }];
-    for (const w of d.warehouses) cols.push({ key: 'wh:' + w.id, label: w.name, num: true,
-      tip: 'Ile sztuk jest w magazynie „' + w.name + '” wg ewidencji panelu (policzone i ruchy od ' + magDate(d.startMs) + ')' + (mag.showSellyWh ? '; pod spodem — stan wg Selly' : ''),
-      val: p => (p.phys[w.id] || 0), cell: p => {
-        const ph = nf(p.phys[w.id] || 0);
-        if (!mag.showSellyWh || !hasSs) return ph;
-        const s = sellyOf(p), x = s ? sellyWhQty(s, w.id) : null;
-        return [el('div', null, ph), el('div', { class: 'small ' + (x != null && x !== (p.phys[w.id] || 0) ? 'diffbad' : 'muted') }, 'Selly: ', s ? sellyCell(s, w.id) : unknownCell())];
-      } });
-    cols.push({ key: 'tot', label: 'Razem w ewidencji', num: true, tip: 'Suma ze wszystkich magazynów wg ewidencji panelu', val: tot, cell: p => el('strong', null, nf(tot(p))) });
-    cols.push({ key: 'selly', label: 'Selly', num: true, tip: 'Stan produktu wg Selly (łącznie, wszystkie magazyny)', val: p => p.selly, cell: p => nf(p.selly) });
-    cols.push({ key: 'diff', label: 'Różnica', num: true, tip: 'Ewidencja − Selly. Różna od zera = to, co policzono w panelu, nie zgadza się z Selly', val: diff,
-      cell: p => { const x = diff(p); return x == null ? '—' : el('span', { class: x !== 0 ? 'diffbad' : 'muted', title: x !== 0 ? (x > 0 ? 'W ewidencji jest więcej niż w Selly' : 'W ewidencji jest mniej niż w Selly') : null }, (x > 0 ? '+' : '') + nf(x)); } });
-    out.replaceChildren(magTable(cols, rows, c.sort, draw, mag.onlyDiff ? 'Brak różnic — ewidencja zgadza się z Selly.' : 'Brak produktów.'));
-  };
-  q.addEventListener('input', () => { c.q = q.value; draw(); });
-  od.addEventListener('change', () => { mag.onlyDiff = od.checked; draw(); });
-  sw.addEventListener('change', () => { mag.showSellyWh = sw.checked; draw(); });
-  box.append(el('div', { class: 'card' },
-    el('div', { class: 'toolbar', style: 'margin-top:0' }, q, el('label', { title: 'Pokaż tylko produkty, w których ewidencja różni się od Selly' }, od, 'tylko z różnicą'), count),
-    el('div', { class: 'muted small', style: 'margin-top:8px' }, 'Ewidencja panelu od ' + magDate(d.startMs) + ' (Twoje liczenie i ruchy) obok stanu w Selly. ', el('span', { class: 'tip', title: LEDGER_TIP }, 'Po co?')),
-    el('label', { title: hasSs ? 'W każdej komórce magazynu dopisuje stan wg Selly — różnice są wyróżnione' : 'Stany wg Selly w magazynach są chwilowo niedostępne', style: 'display:block;margin-top:8px' }, sw, 'Pokaż stan wg Selly w każdym magazynie'),
-    out));
-  draw();
-  return box;
+  const d = mag.data, hasSs = !!(mag.ss && mag.ss.stock);
+  const tot = p => d.warehouses.reduce((s, w) => s + (p.phys[w.id] || 0), 0);
+  const diff = p => (p.selly == null ? null : tot(p) - p.selly);
+  const sw = el('input', { type: 'checkbox', id: 'magShowSellyWh', disabled: !hasSs || null, checked: mag.showSellyWh, onchange: ev => { mag.showSellyWh = ev.target.checked; lv.render(); } });
+  const lv = magLv('porownanie', () => listView({
+    id: 'magCmp', route: '/magazyny/porownanie', noun: PRODUCTS_NOUN, search: PRODUCT_SEARCH, sizes: SIZES, defaultSize: 100, sizeStore: 'osa-mag-size',
+    columns: [
+      { key: 'name', label: 'Produkt', sort: true, tip: 'Nazwa produktu i jego kod', value: p => p.name, cell: prodCell },
+      ...d.warehouses.map(w => ({ key: 'wh:' + w.id, label: w.name, sort: true, num: true,
+        tip: 'Ile sztuk jest w magazynie „' + w.name + '” wg ewidencji panelu (policzone i ruchy od ' + magDate(d.startMs) + '); po włączeniu „Pokaż stan wg Selly” pod spodem — stan wg Selly',
+        value: p => (p.phys[w.id] || 0), cell: p => {
+          const ph = nf(p.phys[w.id] || 0);
+          if (!mag.showSellyWh || !hasSs) return ph;
+          const s = sellyOf(p), x = s ? sellyWhQty(s, w.id) : null;
+          return [el('div', null, ph), el('div', { class: 'small ' + (x != null && x !== (p.phys[w.id] || 0) ? 'diffbad' : 'muted') }, 'Selly: ', s ? sellyCell(s, w.id) : unknownCell())];
+        } })),
+      { key: 'tot', label: 'Razem w ewidencji', sort: true, num: true, tip: 'Suma ze wszystkich magazynów wg ewidencji panelu', value: tot, cell: p => el('strong', null, nf(tot(p))) },
+      { key: 'selly', label: 'Selly', sort: true, num: true, tip: 'Stan produktu wg Selly (łącznie, wszystkie magazyny)', value: p => p.selly, cell: p => nf(p.selly) },
+      { key: 'diff', label: 'Różnica', sort: true, num: true, tip: 'Ewidencja − Selly. Różna od zera = to, co policzono w panelu, nie zgadza się z Selly', value: diff,
+        cell: p => { const x = diff(p); return x == null ? '—' : el('span', { class: x !== 0 ? 'diffbad' : 'muted', title: x !== 0 ? (x > 0 ? 'W ewidencji jest więcej niż w Selly' : 'W ewidencji jest mniej niż w Selly') : null }, (x > 0 ? '+' : '') + nf(x)); } },
+    ],
+    defaultSort: { key: 'name', dir: 'asc' }, local: { searchFields: p => [p.name, p.code], match: (p, st) => !st.filters.diff || (diff(p) != null && diff(p) !== 0) },
+    filters: [{ key: 'diff', label: 'Zgodność z Selly', tip: 'Pokaż tylko produkty, w których ewidencja różni się od Selly', all: 'wszystkie', options: [['1', 'tylko z różnicą']] }],
+    load: () => ({ rows: mag.data.products }),
+    empty: 'Brak produktów.', emptyFiltered: 'Brak wyników — przy filtrze „tylko z różnicą” oznacza to, że ewidencja zgadza się z Selly.',
+    intro: [el('div', { class: 'muted small' }, 'Ewidencja panelu od ' + magDate(d.startMs) + ' (Twoje liczenie i ruchy) obok stanu w Selly. ', el('span', { class: 'tip', title: LEDGER_TIP }, 'Po co?'))],
+    panelNodes: [filterSection('Widok', el('label', { title: hasSs ? 'W każdej komórce magazynu dopisuje stan wg Selly — różnice są wyróżnione' : 'Stany wg Selly w magazynach są chwilowo niedostępne' }, sw, 'Pokaż stan wg Selly w każdym magazynie'))],
+  }));
+  sw.checked = mag.showSellyWh;
+  lv.mount(mag.query);
+  return lv.node;
 }
 
 // ── Zmień stan (zapis w Selly) ────────────────────────────────────────────
@@ -756,24 +752,25 @@ function magStart() {
 
 // ── Historia ───────────────────────────────────────────────────────────────
 function magHistoria() {
-  const d = mag.data, box = el('div'), out = el('div');
-  const draw = () => {
-    const cols = [
-      { key: 'ms', label: 'Czas', num: true, tip: 'Kiedy ruch został zapisany', val: m => m.ms, cell: m => el('span', { class: 'nw' }, m.time) },
-      { key: 'type', label: 'Rodzaj', tip: 'Przyjęcie, przesunięcie, wydanie (zamówienie) albo korekta', val: m => MOVE_NAMES[m.type] || m.type, cell: m => MOVE_NAMES[m.type] || m.type },
-      { key: 'prod', label: 'Produkt', tip: 'Produkt, którego dotyczy ruch', val: m => m.productName, cell: m => m.productName },
-      { key: 'qty', label: 'Ilość', num: true, tip: 'Ile sztuk (przy korekcie ze znakiem + lub −)', val: m => m.qty, cell: m => nf(m.qty) },
-      { key: 'from', label: 'Z', tip: 'Magazyn, z którego towar ubył', val: m => whName(m.from), cell: m => whName(m.from) || '—' },
-      { key: 'to', label: 'Do', tip: 'Magazyn, do którego towar trafił', val: m => whName(m.to), cell: m => whName(m.to) || '—' },
-      { key: 'order', label: 'Zamówienie', tip: 'Zamówienie, z którego pochodzi wydanie', val: m => m.orderNumber || m.orderId, cell: m => m.orderNumber || m.orderId || '—' },
-      { key: 'author', label: 'Autor', tip: 'Kto zapisał ruch', val: m => m.author, cell: m => m.author || '—' },
-      { key: 'note', label: 'Notatka', tip: 'Notatka wpisana przy ruchu', val: m => m.note, cell: m => m.note || '' },
-    ];
-    out.replaceChildren(magTable(cols, d.moves, mag.hist.sort, draw, 'Nie zapisano jeszcze żadnych ruchów.'));
-  };
-  box.append(el('div', { class: 'card' }, el('h2', null, 'Historia ewidencji'), el('div', { class: 'muted small' }, 'Ostatnie ruchy w ewidencji panelu (do 200), najnowsze pierwsze. Zmiany stanów w Selly są w historii produktu w Selly.'), out));
-  draw();
-  return box;
+  const lv = magLv('historia', () => listView({
+    id: 'magHist', route: '/magazyny/historia', noun: ['ruch', 'ruchy', 'ruchów'], search: false, sizes: SIZES, defaultSize: 100, sizeStore: 'osa-mag-size',
+    title: 'Historia ewidencji', intro: [el('div', { class: 'muted small' }, 'Ostatnie ruchy w ewidencji panelu (do 200), najnowsze pierwsze. Zmiany stanów w Selly są w historii produktu w Selly.')],
+    columns: [
+      { key: 'ms', label: 'Czas', sort: true, num: true, tip: 'Kiedy ruch został zapisany', value: m => m.ms, cell: m => el('span', { class: 'nw' }, m.time) },
+      { key: 'type', label: 'Rodzaj', sort: true, tip: 'Przyjęcie, przesunięcie, wydanie (zamówienie) albo korekta', value: m => MOVE_NAMES[m.type] || m.type, cell: m => MOVE_NAMES[m.type] || m.type },
+      { key: 'prod', label: 'Produkt', sort: true, tip: 'Produkt, którego dotyczy ruch', value: m => m.productName, cell: m => m.productName },
+      { key: 'qty', label: 'Ilość', sort: true, num: true, tip: 'Ile sztuk (przy korekcie ze znakiem + lub −)', value: m => m.qty, cell: m => nf(m.qty) },
+      { key: 'from', label: 'Z', sort: true, tip: 'Magazyn, z którego towar ubył', value: m => whName(m.from), cell: m => whName(m.from) || '—' },
+      { key: 'to', label: 'Do', sort: true, tip: 'Magazyn, do którego towar trafił', value: m => whName(m.to), cell: m => whName(m.to) || '—' },
+      { key: 'order', label: 'Zamówienie', sort: true, tip: 'Zamówienie, z którego pochodzi wydanie', value: m => m.orderNumber || m.orderId, cell: m => m.orderNumber || m.orderId || '—' },
+      { key: 'author', label: 'Autor', sort: true, tip: 'Kto zapisał ruch', value: m => m.author, cell: m => m.author || '—' },
+      { key: 'note', label: 'Notatka', sort: true, tip: 'Notatka wpisana przy ruchu', value: m => m.note, cell: m => m.note || '' },
+    ],
+    defaultSort: { key: 'ms', dir: 'desc' }, local: {}, load: () => ({ rows: mag.data.moves }), rowId: m => m.id != null ? m.id : m.ms + '|' + m.productName + '|' + m.type,
+    empty: 'Nie zapisano jeszcze żadnych ruchów.',
+  }));
+  lv.mount(mag.query);
+  return lv.node;
 }
 
 let root = null;
@@ -790,7 +787,7 @@ export default {
     if (!VIEW_KEYS.has(v)) { go('/magazyny/' + mag.view, { replace: true }); return; } // brak/nieznany podwidok → ostatni
     if (v === 'start' && mag.view !== 'start') { mag.pv = null; mag.pvErr = ''; mag.pvConfirm = false; }   // świeży podgląd przy każdym wejściu
     if (v === 'zmiana' && params.query && params.query.get('p')) { mag.chgPid = params.query.get('p'); mag.chg.plan = null; mag.chg.result = null; mag.chg.err = ''; }   // „Zmień” przy produkcie
-    mag.view = v;
+    mag.view = v; mag.query = (params && params.query) || null;
     if (!mag.data && !mag.loading) magLoad(); else magRender();
   },
   unmount() { /* stan i DOM zostają — kontener jest tylko ukrywany */ },
