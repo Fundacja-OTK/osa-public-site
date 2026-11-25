@@ -1,10 +1,11 @@
 // „Wysyłka SpeedMail” → zakładka Paczki zleceń (sekcja 7 specyfikacji): każda przekazana paczka jest zapisana (Zlecenia_SM) —
 // plik .xlsx w stałym układzie kolumn do pobrania w każdej chwili, statusy w Selly („Złożone SpeedMail” → „Przyjęte SpeedMail”) z ponowieniem,
-// anulowanie zlecenia (towar wraca na stan) i świadome ponowne przekazanie (z powodem — blokada duplikatów).
-import { el, cnt, sortTh, flash } from '../core/ui.js?v=c5d5baa';
-import { api } from '../core/client.js?v=c5d5baa';
-import { go } from '../core/router.js?v=c5d5baa';
-import { S, WRITE, STATUS_WRITE, dmy, notice, statusName, needText, freshBar, loadError, skeleton, timeOf, save, reload, runStatus, jobBusy, downloadBatch, copyBatch } from './speedmailKit.js?v=c5d5baa';
+// anulowanie zlecenia (towar wraca na stan) i świadome ponowne przekazanie (z powodem — blokada duplikatów); raport wysyłek SpeedMail (speedmailImport.js).
+import { el, cnt, sortTh, flash } from '../core/ui.js?v=0e25d7c';
+import { api } from '../core/client.js?v=0e25d7c';
+import { go } from '../core/router.js?v=0e25d7c';
+import { S, WRITE, STATUS_WRITE, dmy, notice, statusName, needText, freshBar, loadError, skeleton, timeOf, save, reload, runStatus, jobBusy, downloadBatch, copyBatch } from './speedmailKit.js?v=0e25d7c';
+import { shipCard } from './speedmailImport.js?v=0e25d7c';
 
 const SORTS = { no: b => b.no, day: b => b.day, orders: b => b.orders, cancelled: b => b.cancelled, author: b => b.author };
 const details = new Map();   // nr paczki → { t, v } | { err } | { loading }
@@ -36,7 +37,7 @@ export function viewBatches() {
   if (err) box.append(err);
   if (S.dlg && (S.dlg.kind === 'cancel' || S.dlg.kind === 'resend')) box.append(dialog());
   if (Q.no) box.append(detail(Q));
-  if (!e) { if (!err) box.append(skeleton(5)); return box; }
+  if (!e) { if (!err) box.append(skeleton(5)); box.append(shipCard()); return box; }
   const val = SORTS[Q.sort], sign = Q.dir === 'desc' ? -1 : 1;
   const rows = e.v.batches.slice().sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number' ? x - y : collator.compare(x, y)) * sign || b.no - a.no; });
   const cols = [
@@ -58,6 +59,7 @@ export function viewBatches() {
         el('td', { class: 'nw', title: 'Zapisano o ' + timeOf(b.ms) }, dmy(b.day)), el('td', { class: 'n' }, String(b.orders)), el('td', { class: 'n' }, b.cancelled ? String(b.cancelled) : ''), el('td', null, b.author),
         el('td', { class: 'nw' }, el('button', { type: 'button', class: 'ghost small', title: 'Pobierz tabelę zleceń tej paczki (.xlsx) — ilości w opakowaniach SpeedMail, stały układ kolumn', onclick: () => downloadBatch(b.no) }, 'Pobierz .xlsx'))))
         : el('tr', null, el('td', { colspan: '6', class: 'empty' }, 'Nie przekazano jeszcze żadnej paczki. ', el('a', { href: '#/speedmail/zamowienia?dec=sm' }, 'Wybierz zamówienia do SpeedMail →'))))))));
+  box.append(shipCard());
   return box;
 }
 

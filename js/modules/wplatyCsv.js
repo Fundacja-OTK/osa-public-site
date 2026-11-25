@@ -43,8 +43,8 @@ export function detectSeparator(text) {
   return best;
 }
 
-/** Parser CSV (RFC 4180 + dowolny separator): cudzysłowy, "" jako cudzysłów, nowe linie w polach. */
-export function parseCsv(text, sep) {
+/** Parser CSV (RFC 4180 + dowolny separator): cudzysłowy, "" jako cudzysłów, nowe linie w polach. keepEmpty — zostaw puste wiersze (numeracja jak w pliku). */
+export function parseCsv(text, sep, keepEmpty) {
   const rows = []; let row = [], cur = '', q = false, i = 0;
   const n = text.length;
   while (i < n) {
@@ -59,7 +59,7 @@ export function parseCsv(text, sep) {
     cur += ch; i++;
   }
   if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
-  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+  return keepEmpty ? rows : rows.filter(r => r.some(c => String(c).trim() !== ''));
 }
 
 /** Nagłówek w postaci porównywalnej: małe litery, bez polskich znaków, '#', zbędnych spacji; „a / b” → „a/b”. */

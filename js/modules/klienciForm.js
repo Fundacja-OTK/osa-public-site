@@ -1,11 +1,11 @@
 // Formularz klienta (dodawanie i edycja) — walidacja po stronie przeglądarki lustrzana do Workera (clients.js), który i tak sprawdza wszystko.
 // Podstawy na wierzchu, reszta w zwijanych sekcjach (faktura, ceny i grupa, zaawansowane). Zapis wysyła tylko zmienione pola.
-import { el, dateInput } from '../core/ui.js?v=c5d5baa';
+import { el, dateInput } from '../core/ui.js?v=0e25d7c';
 
 const isOn = v => v === true || v === 1 || v === '1' || v === 'true';
 // Walidatory (czysta logika, wspólna z importem CSV): klienciValid.js
-export { nipError, postcodeError, emailError, phoneError, fixPostcode } from './klienciValid.js?v=c5d5baa';
-import { nipError, postcodeError, emailError, phoneError, fixPostcode } from './klienciValid.js?v=c5d5baa';
+export { nipError, postcodeError, emailError, phoneError, fixPostcode } from './klienciValid.js?v=0e25d7c';
+import { nipError, postcodeError, emailError, phoneError, fixPostcode } from './klienciValid.js?v=0e25d7c';
 
 /** Opis pól: sec = sekcja, req = wymagane przy dodawaniu, kind = rodzaj kontrolki. */
 const SPEC = [

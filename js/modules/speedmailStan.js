@@ -1,9 +1,11 @@
 // „Wysyłka SpeedMail” → zakładka Stan w SpeedMail (sekcje 5–6 specyfikacji): stan = wysłane + dosyłki − zlecone ± korekty,
 // zlecone w ostatnich 7 dniach, dni zapasu, przewidywane wyczerpanie, alert (zielony / żółty / czerwony / stop), alert przedsprzedaży.
-// Dosyłki i korekty (zwrot od klienta, uszkodzenie, inwentaryzacja) — formularz w zwijanym panelu; historia z sm:list.
-import { el, sortTh, statusPill, store } from '../core/ui.js?v=c5d5baa';
-import { go } from '../core/router.js?v=c5d5baa';
-import { S, SM, WRITE, nf, dmy, notice, tile, prodOf, freshBar, loadError, fold, save, reload, jobBusy } from './speedmailKit.js?v=c5d5baa';
+// Dosyłki i korekty (zwrot od klienta, uszkodzenie, inwentaryzacja) — formularz w zwijanym panelu; import dosyłki z pliku dostawcy
+// (speedmailImport.js); historia z sm:list.
+import { el, sortTh, statusPill, store } from '../core/ui.js?v=0e25d7c';
+import { go } from '../core/router.js?v=0e25d7c';
+import { S, SM, WRITE, nf, dmy, notice, tile, prodOf, freshBar, loadError, fold, save, reload, jobBusy } from './speedmailKit.js?v=0e25d7c';
+import { deliveryCard } from './speedmailImport.js?v=0e25d7c';
 
 const LEVEL_ORDER = { stop: 0, red: 1, yellow: 2, green: 3, none: 4 };
 const SORTS = { name: r => r.name, level: r => LEVEL_ORDER[r.level], stock: r => r.stock, packs: r => r.packs, sent: r => r.sent, topups: r => r.topups, ordered: r => r.ordered, corr: r => r.corr,
@@ -70,7 +72,7 @@ export function viewStock() {
     el('div', { class: 'table-wrap' }, el('table', { id: 'smStockTable' },
       el('thead', null, el('tr', null, cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))))),
       el('tbody', null, rows.length ? rows.map(r => rowEl(r, parts, t)) : el('tr', null, el('td', { colspan: String(cols.length), class: 'empty' }, 'Żaden produkt nie wymaga uwagi.')))))));
-  box.append(moveCard(v, all), historyCard());
+  box.append(moveCard(v, all), deliveryCard(v), historyCard());
   return box;
 }
 

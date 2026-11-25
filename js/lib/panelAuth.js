@@ -70,7 +70,7 @@
     'dashboard:get',
     'bulk:list', 'bulk:get', 'bulk:meta', 'bulk:preview', 'bulk:select',
     'mag:init', 'mag:orders', 'mag:settled',
-    'sm:init', 'sm:list', 'sm:get', 'sm:pace',
+    'sm:init', 'sm:list', 'sm:get', 'sm:pace', 'sm:shipMatch',
     // stany wg Selly per magazyn (kopia D1) i podgląd startu; mag:sellyRefresh — jak orders:invoiceScan: tylko odczyt w Selly, porcja ≤ 15, budżet minutowy
     'mag:sellyStock', 'mag:sellyPreview', 'mag:sellyRefresh', 'mag:sellyLive',
     'res:list', 'res:get', 'res:options',

@@ -2,11 +2,11 @@
 // zaznaczenie przetrwające zmianę strony z przyklejonym paskiem akcji, stan w adresie, stany ładowania / pusto / błąd,
 // opcjonalnie świeżość (core/liveRefresh.js) i pamięć odczytów (core/cache.js). Logika bez DOM: core/listLogic.js.
 // API i przykład: docs/list-view.md. Identyfikatory elementów = prefiks `id` + nazwa (np. cliTable, cliSelCount, zsPrev).
-import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=c5d5baa';
-import { go } from './router.js?v=c5d5baa';
-import { cachedRead } from './cache.js?v=c5d5baa';
-import { liveRefresh } from './liveRefresh.js?v=c5d5baa';
-import * as LL from './listLogic.js?v=c5d5baa';
+import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=0e25d7c';
+import { go } from './router.js?v=0e25d7c';
+import { cachedRead } from './cache.js?v=0e25d7c';
+import { liveRefresh } from './liveRefresh.js?v=0e25d7c';
+import * as LL from './listLogic.js?v=0e25d7c';
 
 const td = (c, v) => (v instanceof Node && v.tagName === 'TD' ? v : el('td', { class: [c.num ? 'n' : '', c.cls || ''].filter(Boolean).join(' ') || null }, v == null ? '' : v));
 

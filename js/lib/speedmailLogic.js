@@ -35,7 +35,7 @@
     anulowanie: { label: 'Anulowanie zlecenia', sign: 1, tip: 'Zamówienie anulowane po przekazaniu do SpeedMail — towar wraca na stan' },
   };
   const ORDERED = 'zlecone';
-  const LIMITS = { products: 200, ids: 10, bundles: 100, parts: 20, couriers: 30, open: 30, points: 30, text: 120, orders: 500, moves: 200, note: 200, qty: 1e7 };
+  const LIMITS = { products: 200, ids: 10, bundles: 100, parts: 20, couriers: 30, open: 30, points: 30, text: 120, orders: 500, moves: 200, note: 200, qty: 1e7, ship: 2000, refs: 50 };
 
   // ─── Konfiguracja domyślna (sekcje 2, 3, 4, 6 i 8 specyfikacji) ─────────────────────────────────────────────
 
@@ -533,9 +533,37 @@
     });
   }
 
+  /** Numer paczki zleceń z odnośnika „SM-20261124-007” (albo samej liczby „7”) → 7; 0, gdy to nie jest numer paczki. */
+  function parseRef(v) {
+    const s = String(v == null ? '' : v).trim();
+    const m = /SM-?\s*\d{8}\s*-\s*0*(\d{1,6})(?!\d)/i.exec(s) || /^(?:nr\s*|paczka\s*(?:nr\s*)?)?0*(\d{1,6})$/i.exec(s);
+    const n = m ? Number(m[1]) : 0;
+    return n >= 1 && n <= 1e6 ? n : 0;
+  }
+
+  /**
+   * Wejście sm:shipMatch (raport wysyłek SpeedMail — plik czytany w przeglądarce): same numery zamówień i numery paczek.
+   * numbers: teksty 1–40 znaków bez znaków sterujących (numer zamówienia Selly albo id), ≤ LIMITS.ship; refs: numery paczek (liczby) ≤ LIMITS.refs.
+   */
+  function shipInput(p) {
+    const nums = p.numbers === undefined ? [] : p.numbers, refs = p.refs === undefined ? [] : p.refs;
+    if (!Array.isArray(nums) || !Array.isArray(refs)) throw fail(400, 'Nieprawidłowe dane raportu.');
+    if (!nums.length && !refs.length) throw fail(400, 'Raport nie zawiera numerów zamówień ani paczek.');
+    if (nums.length > LIMITS.ship) throw fail(400, 'Za dużo numerów zamówień naraz (maks. ' + LIMITS.ship + ').');
+    if (refs.length > LIMITS.refs) throw fail(400, 'Za dużo numerów paczek naraz (maks. ' + LIMITS.refs + ').');
+    const numbers = [...new Set(nums.map(x => {
+      if (typeof x !== 'string' && typeof x !== 'number') throw fail(400, 'Nieprawidłowy numer zamówienia.');
+      const s = String(x).trim();
+      if (!s || s.length > 40 || /[\u0000-\u001f<>]/.test(s)) throw fail(400, 'Nieprawidłowy numer zamówienia.');
+      return s;
+    }))];
+    const nos = [...new Set(refs.map(x => { const n = Number(x); if (!Number.isInteger(n) || n < 1 || n > 1e6) throw fail(400, 'Nieprawidłowy numer paczki.'); return n; }))];
+    return { numbers, refs: nos };
+  }
+
   const api = { MOVE_KINDS, ORDERED, LIMITS, REASONS, LEVELS, plain, isDay, dayNum, addDays, r3, nf, ddmm,
     defaultConfig, checkConfig, index, explode, isCourier, stockOf, plan, selectionUse, stockRows, batchRef, tableProducts, smTable, curveAt, pace,
-    defaultStatuses, effectiveStatuses, orderIds, checkMoves };
+    defaultStatuses, effectiveStatuses, orderIds, checkMoves, parseRef, shipInput };
   globalThis.OSA_SPEEDMAIL = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
