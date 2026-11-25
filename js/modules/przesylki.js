@@ -1,9 +1,11 @@
-// Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS), tworzenie listów przewozowych
-// w porcjach, etykiety, zmiana statusu nadanych oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
+// Moduł „Przesyłki”: kolejka zamówień do nadania per przewoźnik (InPost, DPD, DHL, Orlen Paczka, UPS — listy przez API; Furgonetka,
+// Rohlig Suus, Poczta Polska — kolejka + link do Selly), filtry / strony / sortowanie w adresie, tworzenie listów w porcjach, etykiety,
+// zmiana statusu oraz przypisanie sposobów dostawy do przewoźników (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, orders:meta, orders:setStatus).
-import { el, plural, store, flash, norm, menuButton, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput } from '../core/ui.js?v=70a8836';
-import { api, ctx } from '../core/client.js?v=70a8836';
-import { registerListKeys } from '../core/listKeys.js?v=70a8836';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=9174fa9';
+import { api, ctx } from '../core/client.js?v=9174fa9';
+import { go } from '../core/router.js?v=9174fa9';
+import { registerListKeys } from '../core/listKeys.js?v=9174fa9';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -11,9 +13,11 @@ const COURIER_FALLBACK = [{ key: 'inpost', name: 'InPost' }, { key: 'dpd', name:
 const OTHER = {
   fedex: { name: 'FedEx', title: 'FedEx — przez magazyn SpeedMail', text: 'Przesyłki FedEx nie są nadawane z panelu — idą przez magazyn SpeedMail, poza Selly. Zamówienia do wysyłki SpeedMail przygotujesz w module Magazyny.',
     href: '#/speedmail', link: 'Otwórz wysyłkę SpeedMail →', tip: 'Przechodzi do kreatora wysyłki SpeedMail', external: false },
-  furgonetka: { name: 'Furgonetka', title: 'Furgonetka — tylko w panelu Selly', text: 'Furgonetka to pośrednik bez API, więc listów nie utworzymy stąd. Użyj listy „Przesyłki Furgonetka” w panelu Selly.',
-    query: '?a=furgonetka.przesylki', link: 'Otwórz Furgonetkę w panelu Selly ↗', tip: 'Otwiera listę przesyłek Furgonetki w panelu administracyjnym Selly w nowej karcie', external: true },
 };
+// Przewoźnicy bez tworzenia listów przez API (jak MANUAL w Workerze); native = podgląd listy z Selly w panelu (adminNative.js)
+const MANUAL_FALLBACK = [{ key: 'furgonetka', name: 'Furgonetka.pl', screen: 'furgonetka.przesylki' }, { key: 'suus', name: 'Rohlig Suus', screen: 'suus.przesylki' }, { key: 'poczta', name: 'Poczta Polska', screen: 'enadawca.przesylki' }];
+const NATIVE = { furgonetka: 'furgonetka', suus: 'suus' };
+const DL_KEY = 'osa-ship-dl';   // identyfikatory zamówień, których etykiety pobrano w tej przeglądarce
 
 // ─── Parametry listu wg przewoźnika ─────────────────────────────────────────
 // type: select | checks | flag | text | date; adv — schowane w „Więcej opcji”. Wartości: select/text/date → tekst, checks → tablica, flag → bool.
@@ -79,23 +83,26 @@ const PARAMS = {
 const PARAMS_KEY = 'osa-ship-params2-';
 const S = {
   root: null, ui: {}, meta: null, metaErr: null, metaLoading: false, ordMeta: null,
-  view: 'inpost', route: null,
-  rows: [], note: '', loading: false, err: '', sel: new Map(), lockers: new Map(), numOf: new Map(),
-  sort: { sort: 'date', dir: 'asc' }, counts: {}, seq: 0, routeSeq: 0, params: {},
+  view: 'inpost', route: null, Q: null, built: '', loaded: false,
+  rows: [], total: 0, note: '', loading: false, err: '', sel: new Map(), lockers: new Map(), numOf: new Map(),
+  counts: {}, seq: 0, routeSeq: 0, params: {}, dl: new Set((() => { const v = store(DL_KEY); return Array.isArray(v) ? v.map(String) : []; })()),
 };
 
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
 const couriers = () => (S.meta && S.meta.couriers && S.meta.couriers.length ? S.meta.couriers : COURIER_FALLBACK);
-const courierName = k => { const c = couriers().find(x => x.key === k); return c ? c.name : k; };
+const manuals = () => ((S.meta && S.meta.manual && S.meta.manual.length ? S.meta.manual : MANUAL_FALLBACK).map(m => Object.assign({ native: NATIVE[m.key] || '' }, m)));
+const manualOf = k => manuals().find(x => x.key === k) || null;
+const courierName = k => { const c = couriers().find(x => x.key === k) || manualOf(k); return c ? c.name : k; };
 const maxBatch = () => Math.max(1, Number(S.meta && S.meta.maxBatch) || 10);
 const statuses = () => (S.ordMeta && S.ordMeta.statuses) || [];
 const statusName = id => { const s = statuses().find(x => String(x.id) === String(id)); return s ? s.name : (id == null || id === '' ? '—' : 'Status ' + id); };
-const lockerOf = r => (S.lockers.has(r.id) ? S.lockers.get(r.id) : (r.locker || ''));
+const lockerOf = r => (S.lockers.has(String(r.id)) ? S.lockers.get(String(r.id)) : (r.locker || ''));
 const safeFile = s => String(s).replace(/[\\/:*?"<>|\s]+/g, '-');
 const isCourier = k => !!k && couriers().some(c => c.key === k);
+const isCarrier = k => isCourier(k) || !!manualOf(k);
 const LOCKER_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/i;   // jak w Workerze (shipping.js)
 /** Paczkomat zmieniony w kolejce względem zamówienia (pusty / taki sam → null). */
-const lockerChange = r => { const v = S.lockers.has(r.id) ? S.lockers.get(r.id).toUpperCase() : ''; return v && v !== String(r.locker || '').toUpperCase() ? v : null; };
+const lockerChange = r => { const v = S.lockers.has(String(r.id)) ? S.lockers.get(String(r.id)).toUpperCase() : ''; return v && v !== String(r.locker || '').toUpperCase() ? v : null; };
 const isCourierService = key => key === 'inpost' && /courier/.test(buildParams('inpost').service || '');
 
 function unavailableBox(extra) {
@@ -188,111 +195,282 @@ function paramsPanel(key) {
       el('div', { class: 'ship-form' }, adv.map(d => paramField(key, d)))) : null);
 }
 
-// ─── Powłoka: segmenty ──────────────────────────────────────────────────────
+// ─── Stan widoku ↔ adres: #/przesylki/<kurier>?status=3,5&q=..&page=2&size=50&sort=total&dir=desc ──
+// Filtry, strona i sortowanie żyją w adresie (link do widoku działa, „Wstecz” wraca do poprzedniego).
+
+const SIZES = [10, 25, 50, 100], DEF_SIZE = 25;
+const SORTS = ['date', 'age', 'number', 'client', 'total', 'status', 'tracking', 'delivery', 'locker'];
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const numStr = s => (s !== '' && Number.isFinite(Number(s)) ? s : '');
+const csvIds = s => String(s || '').split(',').map(x => x.trim()).filter(x => /^\d{1,12}$/.test(x)).slice(0, 50).join(',');
+
+function readQ(query) {
+  const g = k => String((query && query.get(k)) || '').slice(0, 300);
+  const size = Number(g('size'));
+  return {
+    q: g('q').trim().slice(0, 100), status: csvIds(g('status')), from: DAY.test(g('from')) ? g('from') : '', to: DAY.test(g('to')) ? g('to') : '',
+    vmin: numStr(g('vmin')), vmax: numStr(g('vmax')), deliv: csvIds(g('deliv')),
+    label: ['with', 'all'].includes(g('label')) ? g('label') : 'none', locker: ['bad', 'missing'].includes(g('locker')) ? g('locker') : '',
+    page: Math.max(1, parseInt(g('page'), 10) || 1), size: SIZES.includes(size) ? size : DEF_SIZE,
+    sort: SORTS.includes(g('sort')) ? g('sort') : 'date', dir: g('dir') === 'desc' ? 'desc' : 'asc',
+  };
+}
+function qsOf(Q) {
+  const p = new URLSearchParams();
+  for (const k of ['q', 'status', 'from', 'to', 'vmin', 'vmax', 'deliv', 'locker']) if (Q[k]) p.set(k, Q[k]);
+  if (Q.label && Q.label !== 'none') p.set('label', Q.label);
+  if (Q.size && Q.size !== DEF_SIZE) p.set('size', String(Q.size));
+  if (Q.sort !== 'date' || Q.dir !== 'asc') { p.set('sort', Q.sort); p.set('dir', Q.dir); }
+  if (Q.page > 1) p.set('page', String(Q.page));
+  const s = p.toString();
+  return s ? '?' + s : '';
+}
+/** Zakładki przewoźników niosą filtry wspólne (status, daty, etykieta, rozmiar strony) — reszta dotyczy jednego przewoźnika. */
+const tabQs = () => (S.Q ? qsOf({ status: S.Q.status, from: S.Q.from, to: S.Q.to, label: S.Q.label, size: S.Q.size, sort: 'date', dir: 'asc', page: 1 }) : '');
+const activeFilters = Q => ['status', 'from', 'to', 'vmin', 'vmax', 'deliv', 'locker'].filter(k => Q[k]).length + (Q.label !== 'none' ? 1 : 0);
+
+/** Zmiana filtrów / strony: nowy adres (replace — bez wpisu w historii, np. pisanie w wyszukiwarce). */
+function setQ(patch, replace) {
+  const n = Object.assign({}, S.Q, patch);
+  if (!('page' in patch)) n.page = 1;
+  const h = '/przesylki/' + S.view + qsOf(n);
+  if (location.hash === '#' + h) { S.Q = n; loadQueue(); return; }
+  go(h, replace ? { replace: true } : undefined);
+}
+
+// ─── Powłoka: zakładki przewoźników ────────────────────────────────────────
+
+const MONO = { inpost: 'IP', dpd: 'DPD', dhl: 'DHL', orlenpaczka: 'OP', ups: 'UPS', furgonetka: 'F', suus: 'RS', poczta: 'PP', fedex: 'FX' };
+// Ekrany przesyłek przewoźnika w panelu Selly (docs/selly-screens; wyszukiwanie po numerze zamówienia: parametr `st`)
+const SELLY_SCREEN = { inpost: 'inpost.listOrders', dpd: 'dpd.przesylki', orlenpaczka: 'pwr.przesylki' };
+const screenOf = k => (manualOf(k) && manualOf(k).screen) || SELLY_SCREEN[k] || '';
+// Śledzenie u przewoźnika (strony publiczne; numer w parametrze, zakodowany)
+const TRACK_URL = { inpost: 'https://inpost.pl/sledzenie-przesylek?number=', dpd: 'https://tracktrace.dpd.com.pl/parcelDetails?typ=1&p1=',
+  dhl: 'https://www.dhl.com/pl-pl/home/sledzenie.html?tracking-id=', ups: 'https://www.ups.com/track?loc=pl_PL&tracknum=', poczta: 'https://emonitoring.poczta-polska.pl/?numer=' };
 
 function build() {
   const u = S.ui;
-  u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Przewoźnik' });
+  u.segs = el('nav', { class: 'ord-segs ship-segs', 'aria-label': 'Przewoźnik' });
   u.body = el('div', { class: 'ship-body' });
   S.root.append(el('div', { class: 'ship-wrap' },
     el('div', { class: 'card' },
-      el('div', { class: 'card-head' }, el('h2', null, 'Przesyłki'), el('div', { class: 'sub' }, 'Zamówienia do nadania, listy przewozowe i etykiety — osobno dla każdego przewoźnika.')),
+      el('div', { class: 'card-head' }, el('h2', { id: 'shipTitle' }, 'Przesyłki'), el('div', { class: 'sub' }, 'Zamówienia do nadania, listy przewozowe i etykiety — osobno dla każdego przewoźnika. Liczba przy przewoźniku = zamówienia bez etykiety.')),
       u.segs),
     u.body));
 }
 
 function renderSegs() {
-  const seg = (id, label, tip) => el('a', { class: 'chip', id: 'shipSeg-' + id, href: '#/przesylki/' + id, 'aria-current': S.view === id ? 'page' : null, title: tip }, label);
+  const qs = tabQs(), withSt = !!(S.Q && (S.Q.status || S.Q.from || S.Q.to));
+  const seg = (id, label, tip, n) => el('a', { class: 'chip ship-seg', id: 'shipSeg-' + id, href: '#/przesylki/' + id + (id === 'ustawienia' || OTHER[id] ? '' : qs), 'aria-current': S.view === id ? 'page' : null, title: tip },
+    MONO[id] ? el('span', { class: 'ship-ico', 'aria-hidden': 'true' }, MONO[id]) : null, label,
+    n != null ? el('span', { class: 'ord-n', title: cnt(n, 'zamówienie', 'zamówienia', 'zamówień') + ' bez etykiety (numeru przesyłki)' + (withSt ? ' w wybranych statusach / datach' : '') + ' ze sposobem dostawy przypisanym do ' + label }, String(n)) : null);
   S.ui.segs.replaceChildren(
-    ...couriers().map(c => seg(c.key, c.name + (S.counts[c.key] != null ? ' (' + S.counts[c.key] + ')' : ''), 'Kolejka zamówień do nadania przez ' + c.name)),
+    ...couriers().map(c => seg(c.key, c.name, 'Kolejka do nadania przez ' + c.name + ' — listy przewozowe tworzysz stąd (przez integrację w Selly)', S.counts[c.key])),
+    ...manuals().map(c => seg(c.key, c.name, c.name + ': kolejka zamówień tutaj, a przesyłkę tworzysz w panelu Selly (Selly nie udostępnia tego przez API)', S.counts[c.key])),
     seg('fedex', 'FedEx', 'FedEx idzie przez magazyn SpeedMail — poza Selly'),
-    seg('furgonetka', 'Furgonetka', 'Furgonetka to pośrednik bez API — tylko panel Selly'),
     seg('ustawienia', 'Ustawienia przewoźników ⚙', 'Przypisz sposoby dostawy ze sklepu do przewoźników — od tego zależy, co trafia do kolejki'));
 }
 
-// ─── Kolejka ────────────────────────────────────────────────────────────────
+// ─── Kolejka: dane ──────────────────────────────────────────────────────────
 
-async function loadQueue() {
-  const my = ++S.seq, u = S.ui, key = S.view;
-  S.loading = true; S.err = '';
-  if (u.results) u.results.replaceChildren(loadingBox('Pobieram zamówienia do nadania…'));
-  const p = { courier: key, withTracking: !!store('osa-ship-withtrack') };
-  const st = store('osa-ship-status'); if (st) p.statusIds = [String(st)];
-  try {
-    const r = await api('shipping:queue', p);
-    if (my !== S.seq) return;
-    S.rows = r.rows || []; S.note = r.note || ''; S.counts[key] = S.rows.length;
-    for (const x of S.rows) S.numOf.set(String(x.id), x.number || x.id);
-    for (const id of [...S.sel.keys()]) { const fresh = S.rows.find(x => String(x.id) === String(id)); if (fresh) S.sel.set(id, fresh); else S.sel.delete(id); }
-  } catch (e) {
-    if (my !== S.seq) return;
-    S.rows = []; S.err = isUnavailable(e) ? MSG_UNAVAILABLE : (e.message || 'Nie udało się pobrać kolejki.');
-  }
-  S.loading = false; renderSegs();
-  renderQueue();
+function queueParams(Q) {
+  const p = { courier: S.view, page: Q.page, pageSize: Q.size, sort: Q.sort, dir: Q.dir, label: Q.label };
+  if (Q.q) p.q = Q.q;
+  if (Q.status) p.statusIds = Q.status.split(',');
+  if (Q.from) p.dateFrom = Q.from;
+  if (Q.to) p.dateTo = Q.to;
+  if (Q.vmin) p.valueMin = Number(Q.vmin);
+  if (Q.vmax) p.valueMax = Number(Q.vmax);
+  if (Q.deliv) p.deliveryIds = Q.deliv.split(',');
+  if (Q.locker) p.locker = Q.locker;
+  return p;
 }
 
 const SORT_VAL = {
-  number: r => r.number, date: r => r.date, client: r => fullName(r.firstName, r.lastName) || r.company, city: r => r.city, locker: r => lockerOf(r),
-  status: r => statusName(r.statusId), total: r => (r.total == null || r.total === '' ? null : Number(r.total)), tracking: r => r.tracking,
+  number: r => Number(r.id), date: r => r.date, age: r => r.date, client: r => norm(fullName(r.lastName, r.firstName) || r.company), city: r => r.city, locker: r => lockerOf(r),
+  status: r => statusName(r.statusId), total: r => (r.total == null || r.total === '' ? null : Number(r.total)), tracking: r => r.tracking, delivery: r => r.delivery,
 };
-function sortedRows() {
-  const { sort, dir } = S.sort, f = SORT_VAL[sort] || SORT_VAL.date, k = dir === 'asc' ? 1 : -1;
-  return S.rows.slice().sort((a, b) => {
+/** Zapasowy backend zwraca całą kolejkę bez `total` — wtedy filtrujemy, sortujemy i dzielimy na strony tutaj (te same reguły co Worker). */
+function localPage(all, Q) {
+  const st = Q.status ? Q.status.split(',') : [], dv = Q.deliv ? Q.deliv.split(',') : [], q = norm(Q.q);
+  const rows = all.filter(r => (!st.length || st.includes(String(r.statusId))) && (!dv.length || dv.includes(String(r.deliveryId)))
+    && (Q.label === 'all' || (Q.label === 'with' ? !!r.tracking : !r.tracking))
+    && (!Q.from || String(r.date).slice(0, 10) >= Q.from) && (!Q.to || String(r.date).slice(0, 10) <= Q.to)
+    && (!Q.vmin || Number(r.total) >= Number(Q.vmin)) && (!Q.vmax || Number(r.total) <= Number(Q.vmax))
+    && (Q.locker !== 'bad' || (lockerOf(r) && !LOCKER_RE.test(lockerOf(r)))) && (Q.locker !== 'missing' || !lockerOf(r))
+    && (!q || norm([r.number, r.firstName, r.lastName, r.company, r.city, r.postcode, r.tracking, r.locker, r.delivery].join(' ')).includes(q)));
+  const f = SORT_VAL[Q.sort] || SORT_VAL.date, k = (Q.dir === 'asc' ? 1 : -1) * (Q.sort === 'age' ? -1 : 1);
+  rows.sort((a, b) => {
     const x = f(a), y = f(b), ex = x == null || x === '', ey = y == null || y === '';
     if (ex || ey) return ex && ey ? 0 : ex ? 1 : -1;
     return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'pl', { numeric: true })) * k;
   });
+  return { rows: rows.slice((Q.page - 1) * Q.size, Q.page * Q.size), total: rows.length, waiting: all.filter(r => !r.tracking).length };
 }
 
+async function loadQueue() {
+  const my = ++S.seq, u = S.ui, Q = S.Q, key = S.view;
+  S.loading = true; S.err = '';
+  if (u.results) { if (!S.loaded) u.results.replaceChildren(loadingBox('Pobieram zamówienia do nadania…')); else u.results.setAttribute('aria-busy', 'true'); }
+  try {
+    const r = await api('shipping:queue', queueParams(Q));
+    if (my !== S.seq) return;
+    S.note = r.note || '';
+    if (r.total == null) {   // zapas / starszy backend: cała kolejka naraz
+      const v = localPage(r.rows || [], Q);
+      S.rows = v.rows; S.total = v.total; S.counts[key] = v.waiting;
+    } else {
+      S.rows = r.rows || []; S.total = Number(r.total) || 0;
+      if (r.counts) Object.assign(S.counts, r.counts);
+    }
+    for (const x of S.rows) { S.numOf.set(String(x.id), x.number || x.id); if (S.sel.has(String(x.id))) S.sel.set(String(x.id), x); }
+    S.loaded = true;
+  } catch (e) {
+    if (my !== S.seq) return;
+    S.rows = []; S.total = 0; S.err = isUnavailable(e) ? MSG_UNAVAILABLE : (e.message || 'Nie udało się pobrać kolejki.');
+  }
+  S.loading = false;
+  if (u.results) u.results.removeAttribute('aria-busy');
+  const pages = Math.max(1, Math.ceil(S.total / Q.size));
+  if (!S.err && Q.page > pages && S.total > 0) { setQ({ page: pages }, true); return; }
+  renderSegs();
+  renderQueue();
+}
+
+// ─── Kolejka: tabela ────────────────────────────────────────────────────────
+
+const ageDays = d => { const t = Date.parse(String(d || '').replace(' ', 'T')); return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 864e5)) : null; };
+const ageText = n => (n == null ? '—' : n === 0 ? 'dziś' : cnt(n, 'dzień', 'dni', 'dni'));
+const isDownloaded = id => S.dl.has(String(id));
+function markDownloaded(ids) {
+  for (const id of ids) S.dl.add(String(id));
+  store(DL_KEY, [...S.dl].slice(-3000));   // tylko identyfikatory zamówień (bez danych klientów)
+}
+const short = (s, n) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s);
+
 function columns(key) {
+  const manual = !!manualOf(key);
   const cols = [
-    { label: 'Zamówienie', sort: 'date', firstDir: 'asc', tip: 'Numer zamówienia i data złożenia. Kliknij numer, aby otworzyć zamówienie.' },
-    { label: 'Klient (wysyłka)', sort: 'client', tip: 'Odbiorca przesyłki — dane z adresu wysyłki zamówienia' },
-    { label: 'Miasto, kod', sort: 'city', tip: 'Miejscowość i kod pocztowy z adresu wysyłki' },
+    { label: 'Zamówienie', sorts: [{ sort: 'number', label: 'Nr', tip: 'Sortuj po numerze zamówienia' }, { sort: 'date', label: 'Data', tip: 'Sortuj po dacie złożenia (najpierw najstarsze)', firstDir: 'asc' }],
+      tip: 'Numer zamówienia (otwiera szczegóły w panelu), data złożenia i zamówione produkty' },
+    { label: 'Wiek', sort: 'age', num: true, tip: 'Ile dni minęło od złożenia zamówienia. Wyróżnione — czeka 3 dni lub dłużej.', tipHeader: true },
+    { label: 'Odbiorca', sort: 'client', tip: 'Dane do wysyłki z zamówienia: imię i nazwisko lub firma, ulica, kod pocztowy i miejscowość', tipHeader: true },
+    { label: 'Dostawa', sort: 'delivery', tip: 'Sposób dostawy wybrany przez klienta (od niego zależy przewoźnik — patrz „Ustawienia przewoźników”)', tipHeader: true },
   ];
-  if (key === 'inpost') cols.push({ label: 'Paczkomat', sort: 'locker', tip: 'Paczkomat odbiorcy wybrany w zamówieniu. Możesz go poprawić — przy tworzeniu listu nowy kod zapiszemy w zamówieniu w Selly (stamtąd czyta go integracja InPost).', tipHeader: true });
+  if (key === 'inpost') cols.push({ label: 'Paczkomat', sort: 'locker', tip: 'Paczkomat odbiorcy wybrany w zamówieniu. Możesz go poprawić — przy tworzeniu listu nowy kod zapiszemy w zamówieniu w Selly (stamtąd czyta go integracja InPost). Nieprawidłowy kod jest podświetlony.', tipHeader: true });
   cols.push(
-    { label: 'Produkty', tip: 'Zamówione produkty z ilościami. Najedź na tekst, aby zobaczyć pełną listę.', tipHeader: true },
-    { label: 'Wartość', sort: 'total', num: true, tip: 'Wartość zamówienia (zł) i informacja, czy jest opłacone', tipHeader: true },
-    { label: 'Status', sort: 'status', tip: 'Aktualny status zamówienia w Selly' },
-    { label: 'Nr przesyłki', sort: 'tracking', tip: 'Numer przesyłki po utworzeniu listu przewozowego. Puste = jeszcze nienadane.', tipHeader: true });
+    { label: 'Wartość', sort: 'total', num: true, tip: 'Wartość zamówienia z dostawą (zł) i informacja, czy jest opłacone', tipHeader: true },
+    { label: 'Status', sort: 'status', tip: 'Aktualny status zamówienia w Selly (kolor wg rodzaju statusu)', tipHeader: true },
+    { label: 'Notatki', tip: 'Uwaga do zamówienia (⚑, wpisana w panelu) i komentarz klienta. Najedź, aby zobaczyć całość.', tipHeader: true },
+    { label: 'Przesyłka', sort: 'tracking', tip: manual ? 'Numer przesyłki, jeśli została już utworzona w Selly. Puste = jeszcze nienadane.'
+      : 'Stan listu przewozowego: brak, utworzony (numer przesyłki) albo etykieta już pobrana w tej przeglądarce', tipHeader: true },
+    { label: 'Akcje', tip: manual ? 'Utworzenie przesyłki w panelu Selly i inne akcje dla zamówienia' : 'Utworzenie listu przewozowego, pobranie etykiety i inne akcje dla zamówienia', tipHeader: true });
   return cols;
 }
 
-function selectedRows() { return [...S.sel.values()]; }
+/** Małe menu „▾” w wierszu: linki (<a>, działa Ctrl+klik) i akcje. items: [{ label, href?, ext?, run?, tip, write? }] */
+function rowMenu(r, items) {
+  const btn = el('button', { type: 'button', class: 'ghost small-btn ship-more', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': 'Więcej akcji dla zamówienia ' + (r.number || r.id),
+    title: 'Więcej akcji: zamówienie w panelu i w Selly, śledzenie, zmiana statusu' }, '▾');
+  const pop = el('div', { class: 'menu-pop', role: 'menu', hidden: true }, items.filter(Boolean).map(it => (it.href
+    ? el('a', { class: 'menu-item', role: 'menuitem', href: it.href, title: it.tip || null, target: it.ext ? '_blank' : null, rel: it.ext ? 'noopener' : null, onclick: () => close() }, it.label)
+    : el('button', { type: 'button', class: 'menu-item', role: 'menuitem', title: it.tip || null, write: it.write || null, onclick: () => { close(); it.run(); } }, it.label))));
+  const wrap = el('span', { class: 'menu ship-rowmenu' }, btn, pop);
+  const onDoc = ev => { if (!wrap.contains(ev.target)) close(); };
+  function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); }
+  btn.addEventListener('click', () => {
+    if (!pop.hidden) { close(); return; }
+    pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); document.addEventListener('mousedown', onDoc, true);
+    const f = pop.querySelector('.menu-item'); if (f) f.focus();
+  });
+  wrap.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !pop.hidden) { ev.stopPropagation(); close(); btn.focus(); } });
+  return wrap;
+}
+
+function sellyScreenUrl(key, r) {
+  const scr = screenOf(key);
+  return scr ? adminUrl() + '?a=' + scr + (r ? '&st=' + encodeURIComponent(r.number || r.id) : '') : '';
+}
+
+function rowActions(key, r) {
+  const m = manualOf(key), name = courierName(key), scr = screenOf(key);
+  const orderSelly = adminUrl() + '?a=zamowienia.view&id=' + encodeURIComponent(r.id);
+  let main;
+  if (m) {
+    main = el('a', { class: 'btn-secondary small ship-selly', 'data-id': r.id, href: sellyScreenUrl(key, r) || orderSelly, target: '_blank', rel: 'noopener',
+      title: (scr ? 'Otwiera w nowej karcie ekran „Przesyłki ' + name + '” w panelu Selly wyszukany po numerze ' + (r.number || r.id) + ' — tam kliknij „Utwórz przesyłkę”.' : 'Otwiera zamówienie w panelu Selly w nowej karcie.')
+        + ' ' + name + ' nie udostępnia tworzenia przesyłek przez API, więc nie robimy tego stąd.' }, r.tracking ? 'Zobacz w Selly ↗' : 'Utwórz w Selly ↗');
+  } else if (r.tracking) {
+    main = el('button', { type: 'button', class: 'secondary small-btn ship-lbl', 'data-id': r.id, title: 'Pobierz etykietę PDF tej przesyłki (nr ' + r.tracking + ')',
+      onclick: ev => downloadLabels([{ id: r.id, tracking: r.tracking }], ev.target) }, 'Pobierz etykietę');
+  } else {
+    main = el('button', { type: 'button', class: 'primary small-btn ship-mk', write: 'przesylki', 'data-id': r.id,
+      title: 'Utworzy list przewozowy ' + name + ' dla tego zamówienia (najpierw pokażemy podsumowanie do potwierdzenia)', onclick: () => startCreate([r]) }, 'Utwórz przesyłkę');
+  }
+  const track = r.tracking && TRACK_URL[key] ? TRACK_URL[key] + encodeURIComponent(r.tracking) : '';
+  return el('div', { class: 'ship-acts' }, main, rowMenu(r, [
+    { label: 'Otwórz zamówienie', href: '#/zamowienia/' + encodeURIComponent(r.id), tip: 'Szczegóły zamówienia w panelu (Ctrl+klik — nowa karta)' },
+    { label: 'Zamówienie w Selly ↗', href: orderSelly, ext: true, tip: 'Otwiera to zamówienie w panelu administracyjnym Selly w nowej karcie' },
+    !m && scr ? { label: 'Przesyłki ' + name + ' w Selly ↗', href: sellyScreenUrl(key, r), ext: true, tip: 'Ekran przesyłek ' + name + ' w Selly, wyszukany po numerze zamówienia' } : null,
+    track ? { label: 'Śledź przesyłkę ↗', href: track, ext: true, tip: 'Strona śledzenia przesyłki u przewoźnika ' + name + ' (nowa karta)' } : null,
+    { label: 'Zmień status…', write: ['przesylki', 'zamowienia'], tip: 'Zmień status tego zamówienia w Selly', run: () => startStatus([String(r.id)]) },
+  ]));
+}
+
+function shipState(key, r) {
+  const m = manualOf(key);
+  if (!r.tracking) return el('span', { class: 'muted ship-none', title: m ? 'Przesyłka nie została jeszcze utworzona w Selly' : 'List przewozowy jeszcze nie utworzony' }, m ? 'nienadana' : 'brak listu');
+  const got = !m && isDownloaded(r.id);
+  return [el('div', { class: 'nw ship-trk' }, r.tracking),
+    el('div', { class: 'cell-sub' }, el('span', { class: 'ship-st' + (got ? ' ok' : ''), title: m ? 'Przesyłka utworzona w Selly' : got ? 'Etykieta tej przesyłki była już pobrana w tej przeglądarce' : 'List utworzony — etykiety jeszcze nie pobierano w tej przeglądarce' },
+      m ? 'utworzona w Selly' : got ? 'etykieta pobrana' : 'list utworzony'))];
+}
 
 function renderQueue() {
-  const u = S.ui, key = S.view;
+  const u = S.ui, key = S.view, Q = S.Q;
   if (!u.results) return;
+  syncControls();
+  const note = document.getElementById('shipNote');
+  if (note) note.replaceChildren(S.note ? el('div', { class: 'notice warn', role: 'status' }, S.note) : '');
   if (S.err) {
     u.results.replaceChildren(el('div', { class: 'empty error' }, S.err, el('div', null, el('button', { type: 'button', class: 'secondary', onclick: loadQueue }, 'Spróbuj ponownie'))));
+    u.pagerTop.replaceChildren(); u.pagerBot.replaceChildren();
     renderBar(); return;
   }
-  const rows = sortedRows(), isIn = key === 'inpost';
+  const rows = S.rows, isIn = key === 'inpost', cols = columns(key);
   const head = el('tr', null,
-    el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'shipSelAll', 'aria-label': 'Zaznacz wszystkie', title: 'Zaznacz lub odznacz wszystkie zamówienia w kolejce',
-      onchange: ev => { for (const r of S.rows) { if (ev.target.checked) S.sel.set(r.id, r); else S.sel.delete(r.id); } syncSel(); } })),
-    columns(key).map(c => sortTh(c, S.sort, (sort, dir) => { S.sort = { sort, dir }; renderQueue(); })));
+    el('th', { class: 'c' }, el('input', { type: 'checkbox', id: 'shipSelAll', 'aria-label': 'Zaznacz wszystkie na tej stronie', title: 'Zaznacz lub odznacz wszystkie zamówienia na tej stronie. Zaznaczenie z innych stron zostaje.',
+      onchange: ev => { for (const r of S.rows) { if (ev.target.checked) S.sel.set(String(r.id), r); else S.sel.delete(String(r.id)); } syncSel(); } })),
+    cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir }))));
   const body = el('tbody');
   for (const r of rows) {
-    const name = fullName(r.firstName, r.lastName) || r.company || '—';
-    body.append(el('tr', { 'data-id': r.id, class: S.sel.has(r.id) ? 'sel' : null },
-      el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz zamówienie ' + r.number, onchange: ev => { if (ev.target.checked) S.sel.set(r.id, r); else S.sel.delete(r.id); syncSel(); } })),
-      el('td', { class: 'nw' }, el('a', { href: '#/zamowienia/' + encodeURIComponent(r.id), class: 'cell-name', title: 'Otwórz zamówienie ' + r.number }, r.number || r.id), el('div', { class: 'cell-sub' }, dateStr(r.date))),
-      el('td', null, el('div', { class: 'cell-name' }, name), r.company && fullName(r.firstName, r.lastName) ? el('div', { class: 'cell-sub' }, r.company) : null),
-      el('td', null, [r.postcode, r.city].filter(Boolean).join(' ')),
-      isIn ? el('td', null, el('input', { type: 'text', class: 'ship-locker' + (lockerOf(r) && !LOCKER_RE.test(lockerOf(r)) ? ' bad' : ''), 'data-id': r.id, value: lockerOf(r), placeholder: 'brak', 'aria-label': 'Paczkomat dla zamówienia ' + r.number,
-        title: 'Paczkomat odbiorcy (np. WAW01M), wybrany przez klienta w zamówieniu. Jeśli go poprawisz, przy tworzeniu listu zapiszemy nowy kod w zamówieniu w Selly.',
-        oninput: ev => { const v = ev.target.value.trim(); S.lockers.set(r.id, v); ev.target.classList.toggle('bad', !!v && !LOCKER_RE.test(v)); } })) : null,
-      el('td', { class: 'ord-prods' }, r.productsText ? el('span', { title: r.productsText }, r.productsText.length > 60 ? r.productsText.slice(0, 58).trimEnd() + '…' : r.productsText) : ''),
-      el('td', { class: 'n nw' }, r.total == null || r.total === '' ? null : money(r.total), el('div', { class: 'cell-sub' }, r.paid ? 'opłacone' : 'nieopłacone')),
-      el('td', null, el('span', { class: 'ord-st neutral', title: 'Status zamówienia: ' + statusName(r.statusId) }, statusName(r.statusId))),
-      el('td', { class: 'nw' }, r.tracking ? [el('span', null, r.tracking), ' ', el('button', { type: 'button', class: 'ghost small-btn ship-lbl', 'data-id': r.id, title: 'Pobierz etykietę PDF tej przesyłki',
-        onclick: ev => downloadLabels([{ id: r.id, tracking: r.tracking }], ev.target) }, 'Etykieta')] : '')));
+    const name = fullName(r.firstName, r.lastName), age = ageDays(r.date), notes = [r.attention ? '⚑ ' + r.attention : '', r.comment || ''].filter(Boolean).join(' · ');
+    const st = statusName(r.statusId);
+    body.append(el('tr', { 'data-id': r.id, class: S.sel.has(String(r.id)) ? 'sel' : null },
+      el('td', { class: 'c' }, el('input', { type: 'checkbox', 'aria-label': 'Zaznacz zamówienie ' + (r.number || r.id), onchange: ev => { if (ev.target.checked) S.sel.set(String(r.id), r); else S.sel.delete(String(r.id)); syncSel(); } })),
+      el('td', { class: 'ship-no' }, el('a', { href: '#/zamowienia/' + encodeURIComponent(r.id), class: 'cell-name', title: 'Otwórz zamówienie ' + (r.number || r.id) }, r.number || r.id),
+        el('div', { class: 'cell-sub nw' }, dateStr(r.date)),
+        r.productsText ? el('div', { class: 'cell-sub ship-prods', title: r.productsText }, short(r.productsText, 60)) : null),
+      el('td', { class: 'n nw' + (age != null && age >= 3 ? ' ship-old' : ''), title: age == null ? null : 'Złożone ' + (age === 0 ? 'dziś' : ageText(age) + ' temu') + ' (' + dateStr(r.date) + ')' }, ageText(age)),
+      el('td', { class: 'ship-addr' }, el('div', { class: 'cell-name' }, name || r.company || '—'), name && r.company ? el('div', { class: 'cell-sub' }, r.company) : null,
+        r.street ? el('div', { class: 'cell-sub' }, r.street) : null, el('div', { class: 'cell-sub' }, [r.postcode, r.city].filter(Boolean).join(' '))),
+      el('td', null, el('div', null, r.delivery || '—'), !isIn && r.locker ? el('div', { class: 'cell-sub', title: 'Punkt odbioru wybrany w zamówieniu' }, 'punkt: ' + r.locker) : null),
+      isIn ? el('td', null, el('input', { type: 'text', class: 'ship-locker' + (lockerOf(r) && !LOCKER_RE.test(lockerOf(r)) ? ' bad' : ''), 'data-id': r.id, value: lockerOf(r), placeholder: 'brak', 'aria-label': 'Paczkomat dla zamówienia ' + (r.number || r.id),
+        title: 'Paczkomat odbiorcy (np. WAW01M), wybrany przez klienta w zamówieniu. Jeśli go poprawisz, przy tworzeniu listu zapiszemy nowy kod w zamówieniu w Selly. Czerwona ramka = nieprawidłowy kod.',
+        oninput: ev => { const v = ev.target.value.trim(); S.lockers.set(String(r.id), v); ev.target.classList.toggle('bad', !!v && !LOCKER_RE.test(v)); } })) : null,
+      el('td', { class: 'n nw' }, r.total == null || r.total === '' ? null : money(r.total), el('div', { class: 'cell-sub' }, Number(r.paid) > 0 ? 'opłacone' : 'nieopłacone')),
+      el('td', null, statusPill(st, orderStatusTone(st), 'Status zamówienia: ' + st)),
+      el('td', { class: 'ship-notes' }, notes ? el('span', { title: notes, class: r.attention ? 'ship-attn' : null }, short(notes, 80)) : ''),
+      el('td', null, shipState(key, r)),
+      el('td', { class: 'ship-act' }, rowActions(key, r))));
   }
-  if (!rows.length) body.append(el('tr', null, el('td', { colspan: String(columns(key).length + 1), class: 'empty' }, emptyText())));
-  u.results.replaceChildren(el('div', { class: 'table-wrap' }, el('table', { id: 'shipTable' }, el('thead', null, head), body)));
+  if (!rows.length) body.append(el('tr', null, el('td', { colspan: String(cols.length + 1), class: 'empty' }, emptyText())));
+  u.results.replaceChildren(el('div', { class: 'table-wrap' }, el('table', { id: 'shipTable', class: 'ship-table' }, el('thead', null, head), body)));
+  const pages = Math.max(1, Math.ceil(S.total / Q.size));
+  const pg = (prefix, sizes) => pager({ prefix, page: Q.page, pages, total: S.total, noun: ['zamówienie', 'zamówienia', 'zamówień'], onPage: p => setQ({ page: p }),
+    sizes: sizes ? SIZES : null, size: Q.size, onSize: n => setQ({ size: n }) });
+  u.pagerTop.replaceChildren(pg('ship', true));
+  u.pagerBot.replaceChildren(S.total > Q.size ? pg('shipB', false) : '');
   syncSel();
 }
 
@@ -300,7 +478,8 @@ function emptyText() {
   const mapped = ((S.meta && S.meta.deliveries) || []).some(d => d.courier === S.view);
   if (!mapped) return el('span', { id: 'shipNoMap' }, 'Żaden sposób dostawy nie jest przypisany do przewoźnika ' + courierName(S.view) + ', więc kolejka jest pusta. ',
     el('a', { href: '#/przesylki/ustawienia', title: 'Przypisz sposoby dostawy do przewoźników' }, 'Przypisz sposoby dostawy w ustawieniach →'));
-  return 'Brak zamówień do nadania.' + (store('osa-ship-withtrack') ? '' : ' Zamówienia z numerem przesyłki są ukryte — włącz „Pokaż także nadane”.');
+  if (activeFilters(S.Q) || S.Q.q) return el('span', null, 'Brak zamówień pasujących do filtrów. ', el('button', { type: 'button', class: 'link', onclick: clearFilters }, 'Wyczyść filtry'));
+  return 'Brak zamówień do nadania — wszystkie mają już etykietę. Aby je zobaczyć, w „Filtruj” wybierz Etykieta: „z etykietą” lub „wszystkie”.';
 }
 
 function syncSel() {
@@ -310,58 +489,118 @@ function syncSel() {
     const cb = tr.querySelector('input[type=checkbox]'); if (cb) cb.checked = on;
   }
   const all = u.results.querySelector('#shipSelAll');
-  if (all) { const n = S.rows.filter(r => S.sel.has(r.id)).length; all.checked = S.rows.length > 0 && n === S.rows.length; all.indeterminate = n > 0 && n < S.rows.length; }
+  if (all) { const n = S.rows.filter(r => S.sel.has(String(r.id))).length; all.checked = S.rows.length > 0 && n === S.rows.length; all.indeterminate = n > 0 && n < S.rows.length; }
   renderBar();
 }
 
+/** Przyklejony dolny pasek akcji masowych (jak „Zapisz” w Selly): liczba zaznaczonych — także z innych stron. */
 function renderBar() {
-  const u = S.ui, n = S.sel.size;
+  const u = S.ui, n = S.sel.size, key = S.view, m = manualOf(key);
   if (!u.bar) return;
   const sel = selectedRows(), withT = sel.filter(r => r.tracking), noT = sel.filter(r => !r.tracking);
+  const off = sel.filter(r => !S.rows.some(x => String(x.id) === String(r.id))).length;
   u.bar.replaceChildren(
-    el('strong', { id: 'shipSelCount' }, n ? 'Zaznaczono: ' + n : 'Nic nie zaznaczono'),
-    el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipCreate', disabled: !noT.length,
-      title: noT.length ? 'Utworzy listy przewozowe u przewoźnika dla zaznaczonych zamówień bez numeru przesyłki (najpierw poprosimy o potwierdzenie)'
-        : n ? 'Zaznaczone zamówienia mają już numer przesyłki — list przewozowy istnieje' : 'Najpierw zaznacz zamówienia w tabeli',
-      onclick: startCreate }, 'Utwórz listy przewozowe (' + noT.length + ')'),
-    el('button', { type: 'button', class: 'secondary', id: 'shipLabelsSel', disabled: !withT.length,
-      title: withT.length ? 'Pobierz etykiety PDF zaznaczonych zamówień, które mają numer przesyłki (kilka — archiwum ZIP)' : 'Żadne z zaznaczonych zamówień nie ma jeszcze listu przewozowego',
-      onclick: ev => downloadLabels(withT.map(r => ({ id: r.id, tracking: r.tracking })), ev.target) }, 'Pobierz etykiety (' + withT.length + ')'),
+    el('span', null, el('strong', { id: 'shipSelCount' }, n ? 'Zaznaczono: ' + n : 'Nic nie zaznaczono'),
+      off ? el('span', { class: 'muted small', id: 'shipSelOff', title: 'Zaznaczenie zostaje po przejściu na inną stronę — akcje obejmą wszystkie zaznaczone' }, ' (w tym ' + off + ' z innych stron)') : null),
+    el('button', { type: 'button', class: 'ghost', id: 'shipSelClear', disabled: !n, title: n ? 'Odznacz wszystkie zamówienia (na wszystkich stronach)' : 'Nic nie jest zaznaczone', onclick: () => { S.sel.clear(); syncSel(); } }, 'Wyczyść zaznaczenie'),
+    el('span', { class: 'spacer' }),
     el('button', { type: 'button', class: 'secondary', write: ['przesylki', 'zamowienia'], id: 'shipStatusSel', disabled: !n,
       title: n ? 'Zmień status zaznaczonych zamówień w Selly (np. na „Nadane” po oddaniu paczek)' : 'Najpierw zaznacz zamówienia w tabeli',
-      onclick: () => startStatus(sel.map(r => String(r.id))) }, 'Zmień status (' + n + ')'),
-    el('button', { type: 'button', class: 'ghost', id: 'shipSelClear', disabled: !n, title: n ? 'Odznacz wszystkie zamówienia' : 'Nic nie jest zaznaczone', onclick: () => { S.sel.clear(); syncSel(); } }, 'Wyczyść zaznaczenie'));
+      onclick: () => startStatus(selectedRows().map(r => String(r.id))) }, 'Zmień status (' + n + ')'),
+    m ? (screenOf(key) ? sellyLink('Przesyłki ' + courierName(key) + ' w Selly ↗', sellyScreenUrl(key), 'Otwiera ekran przesyłek ' + courierName(key) + ' w panelu Selly — tam utworzysz przesyłki (Selly nie udostępnia tego przez API)') : null)
+      : el('button', { type: 'button', class: 'secondary', id: 'shipLabelsSel', disabled: !withT.length,
+        title: withT.length ? 'Pobierz etykiety PDF zaznaczonych zamówień, które mają numer przesyłki (kilka — archiwum ZIP)' : 'Żadne z zaznaczonych zamówień nie ma jeszcze listu przewozowego',
+        onclick: ev => downloadLabels(withT.map(r => ({ id: r.id, tracking: r.tracking })), ev.target) }, 'Pobierz etykiety (' + withT.length + ')'),
+    m ? null : el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipCreate', disabled: !noT.length,
+      title: noT.length ? 'Utworzy listy przewozowe u przewoźnika dla zaznaczonych zamówień bez numeru przesyłki (najpierw poprosimy o potwierdzenie)'
+        : n ? 'Zaznaczone zamówienia mają już numer przesyłki — list przewozowy istnieje' : 'Najpierw zaznacz zamówienia w tabeli',
+      onclick: () => startCreate() }, 'Utwórz listy przewozowe (' + noT.length + ')'));
+}
+
+// ─── Kolejka: filtry ────────────────────────────────────────────────────────
+
+function clearFilters() { setQ({ q: '', status: '', from: '', to: '', vmin: '', vmax: '', deliv: '', locker: '', label: 'none' }); }
+
+function buildFilters(key) {
+  const f = S.ui.f = {};
+  f.status = multiSelect({ id: 'shipStatusF', all: 'Wszystkie statusy', short: 'Status', noun: 'Status', none: false, tip: 'Tylko zamówienia w wybranych statusach (np. „Opłacone”) — można zaznaczyć kilka. Wpływa też na liczby przy przewoźnikach.', onChange: csv => setQ({ status: csv }) });
+  f.label = el('select', { id: 'shipLabelF', 'aria-label': 'Etykieta', title: 'Domyślnie widać tylko zamówienia bez etykiety (do nadania). „Z etykietą” — np. aby pobrać etykiety jeszcze raz.', onchange: ev => setQ({ label: ev.target.value }) },
+    el('option', { value: 'none' }, 'bez etykiety (do nadania)'), el('option', { value: 'with' }, 'z etykietą (nadane)'), el('option', { value: 'all' }, 'wszystkie'));
+  f.range = dateRange({ idFrom: 'shipFrom', idTo: 'shipTo', titleFrom: 'Zamówienia złożone od tego dnia (włącznie)', titleTo: 'Zamówienia złożone do tego dnia (włącznie)', onChange: r => { if (r.from !== S.Q.from || r.to !== S.Q.to) setQ(r); } });
+  const num = (id, label, tip, k) => el('input', { type: 'number', id, min: '0', step: '0.01', inputmode: 'decimal', class: 'ship-num', 'aria-label': label, title: tip, placeholder: label,
+    onchange: ev => setQ({ [k]: numStr(ev.target.value.trim()) }) });
+  f.vmin = num('shipVmin', 'od zł', 'Wartość zamówienia co najmniej (zł, z dostawą)', 'vmin');
+  f.vmax = num('shipVmax', 'do zł', 'Wartość zamówienia najwyżej (zł, z dostawą)', 'vmax');
+  f.deliv = multiSelect({ id: 'shipDelivF', all: 'Wszystkie sposoby dostawy', short: 'Dostawa', noun: 'Sposób dostawy', none: false, tip: 'Tylko wybrane sposoby dostawy spośród przypisanych do tego przewoźnika', onChange: csv => setQ({ deliv: csv }) });
+  f.locker = key === 'inpost' ? el('select', { id: 'shipLockerF', 'aria-label': 'Paczkomat', title: 'Znajdź zamówienia z błędnym kodem paczkomatu (np. literówka) albo bez paczkomatu — przed utworzeniem listów', onchange: ev => setQ({ locker: ev.target.value }) },
+    el('option', { value: '' }, 'wszystkie'), el('option', { value: 'bad' }, 'nieprawidłowy kod paczkomatu'), el('option', { value: 'missing' }, 'bez paczkomatu')) : null;
+  return [
+    filterSection('Etykieta', f.label, { tip: 'Czy zamówienie ma już list przewozowy (numer przesyłki)' }),
+    filterSection('Status zamówienia', f.status.node),
+    filterSection('Data zamówienia', f.range.node),
+    filterSection('Wartość zamówienia', el('div', { class: 'ship-vrange' }, f.vmin, el('span', { class: 'muted' }, '–'), f.vmax), { tip: 'Zakres wartości zamówienia z dostawą, w złotych' }),
+    filterSection('Sposób dostawy', f.deliv.node),
+    f.locker ? filterSection('Paczkomat', f.locker, { tip: 'Sprawdzenie kodów paczkomatów odbiorców (InPost)' }) : null,
+    el('button', { type: 'button', class: 'ghost', id: 'shipFClear', title: 'Usuń wszystkie filtry i wyszukiwanie (zostaje widok „bez etykiety”)', onclick: clearFilters }, 'Wyczyść filtry'),
+  ].filter(Boolean);
+}
+
+/** Kontrolki ← adres (po każdej zmianie trasy / wczytaniu). */
+function syncControls() {
+  const u = S.ui, f = u.f, Q = S.Q;
+  if (!f) return;
+  if (document.activeElement !== u.search) u.search.value = Q.q;
+  f.label.value = Q.label;
+  f.status.set(statuses().map(s => ({ key: String(s.id), label: s.name })), Q.status);
+  f.range.from.value = Q.from; f.range.to.value = Q.to;
+  f.vmin.value = Q.vmin; f.vmax.value = Q.vmax;
+  f.deliv.set(((S.meta && S.meta.deliveries) || []).filter(d => d.courier === S.view).map(d => ({ key: String(d.id), label: d.name })), Q.deliv);
+  if (f.locker) f.locker.value = Q.locker;
+  const n = activeFilters(Q);
+  u.filtersBtn.textContent = 'Filtruj' + (n ? ' (' + n + ')' : '');
+  u.filtersBtn.classList.toggle('on', n > 0);
+  u.filtersBtn.setAttribute('aria-expanded', String(u.layout.isOpen()));
 }
 
 function renderCourier() {
-  const u = S.ui, key = S.view, name = courierName(key);
-  const stSel = el('select', { id: 'shipStatus', 'aria-label': 'Status zamówień', title: 'Pokaż tylko zamówienia w wybranym statusie (np. „Opłacone”). Wybór jest zapamiętywany.',
-    onchange: ev => { store('osa-ship-status', ev.target.value || null); loadQueue(); } },
-    el('option', { value: '' }, 'Wszystkie statusy'), statuses().map(s => el('option', { value: String(s.id) }, s.name)));
-  stSel.value = String(store('osa-ship-status') || '');
-  const wt = el('input', { type: 'checkbox', id: 'shipWithTracking', checked: !!store('osa-ship-withtrack'), onchange: ev => { store('osa-ship-withtrack', ev.target.checked); loadQueue(); } });
-  u.bar = el('div', { class: 'ord-bulk ship-bar', id: 'shipBar' });
+  const u = S.ui, key = S.view, name = courierName(key), m = manualOf(key);
+  u.search = el('input', { type: 'search', id: 'shipSearch', placeholder: 'Szukaj: numer, nazwisko, firma, miasto, kod, paczkomat, nr przesyłki', 'aria-label': 'Szukaj w kolejce',
+    title: 'Szuka w numerze zamówienia, imieniu i nazwisku odbiorcy, firmie, mieście, kodzie pocztowym, paczkomacie, numerze przesyłki i sposobie dostawy',
+    oninput: debounce(() => { const v = u.search.value.trim(); if (v !== S.Q.q) setQ({ q: v }, true); }, 350) });
+  u.filtersBtn = el('button', { type: 'button', class: 'secondary', id: 'shipFiltersBtn', 'aria-controls': 'shipFilters', 'aria-expanded': 'false',
+    title: 'Pokaż lub ukryj filtry: etykieta, status, data, wartość, sposób dostawy' + (key === 'inpost' ? ', nieprawidłowy paczkomat' : '') + '. Liczba w nawiasie = aktywne filtry. Wybór jest zapamiętywany.',
+    onclick: () => { u.layout.setOpen(!u.layout.isOpen()); syncControls(); } }, 'Filtruj');
+  u.bar = el('div', { class: 'save-bar ship-bar', id: 'shipBar', role: 'region', 'aria-label': 'Akcje dla zaznaczonych zamówień' });
   u.dlg = el('div', { id: 'shipDlg' });
   u.results = el('div', { id: 'shipResults' });
+  u.pagerTop = el('div', { class: 'ship-pager' }); u.pagerBot = el('div', { class: 'ship-pager' });
+  u.layout = filterLayout({ key: 'przesylki', panelId: 'shipFilters', panelNodes: buildFilters(key), mainNodes: [u.pagerTop, u.dlg, u.results, u.pagerBot] });
   registerListKeys({ screen: 'przesylki', table: 'shipTable', select: true, extra: [{ keys: ['r'], label: 'R', desc: 'Odśwież kolejkę', id: 'shipReload' }] });
-  u.body.replaceChildren(el('div', { class: 'card' },
-    el('div', { class: 'card-head' }, el('h2', null, 'Do nadania — ' + name), el('div', { class: 'sub' }, 'Zamówienia ze sposobem dostawy przypisanym do przewoźnika ' + name + ', jeszcze bez numeru przesyłki.')),
-    el('div', { class: 'toolbar' },
-      el('label', { class: 'field-inline' }, 'Status', stSel),
-      el('label', { class: 'field-inline', title: 'Domyślnie widzisz tylko zamówienia bez numeru przesyłki. Włącz, by zobaczyć także już nadane (np. aby pobrać etykietę).' }, wt, ' Pokaż także nadane'),
-      el('button', { type: 'button', class: 'secondary', id: 'shipReload', title: 'Pobierz kolejkę ponownie z Selly', onclick: loadQueue }, 'Odśwież'),
+  u.body.replaceChildren(el('div', { class: 'card', id: 'shipCard' },
+    el('div', { class: 'card-head' }, el('h2', null, (m ? 'Przesyłki — ' : 'Do nadania — ') + name),
+      el('div', { class: 'sub' }, m ? 'Zamówienia ze sposobem dostawy przypisanym do ' + name + '. Przesyłki tego przewoźnika tworzysz w panelu Selly — przy każdym zamówieniu jest link „Utwórz w Selly ↗”.'
+        : 'Zamówienia ze sposobem dostawy przypisanym do przewoźnika ' + name + '. Zaznacz je i kliknij „Utwórz listy przewozowe” na dole albo „Utwórz przesyłkę” w wierszu.')),
+    m ? el('div', { class: 'notice info', id: 'shipManualNote', role: 'note' }, name + ' nie udostępnia tworzenia przesyłek przez API Selly, więc nie robimy tego stąd. Tu masz kolejkę z filtrami i zmianą statusu; „Utwórz w Selly ↗” otwiera ekran przesyłek ' + name + ' w Selly wyszukany po numerze zamówienia.',
+      m.native ? [' ', el('a', { href: '#/' + m.native, title: 'Podgląd listy przesyłek ' + name + ' z Selly w panelu' }, 'Podgląd przesyłek ' + name + ' →')] : null) : null,
+    el('div', { class: 'toolbar' }, u.search, u.filtersBtn,
+      el('button', { type: 'button', class: 'secondary', id: 'shipReload', title: 'Wczytaj kolejkę ponownie (z kopii zamówień panelu — bez zapytań do Selly)', onclick: loadQueue }, 'Odśwież'),
       el('span', { class: 'spacer' }),
       el('a', { href: '#/przesylki/ustawienia', class: 'muted small', title: 'Zmień przypisanie sposobów dostawy do przewoźników' }, 'Ustawienia przewoźników')),
-    S.note ? el('div', { class: 'notice warn', role: 'status' }, S.note) : null,
-    paramsPanel(key), u.bar, u.dlg, u.results));
+    el('div', { id: 'shipNote' }),
+    m ? null : paramsPanel(key), u.layout.node, u.bar));
+  S.built = key;
+  syncControls();
   renderBar();
-  loadQueue().then(() => { const n = S.ui.body.querySelector('.card .notice'); if (n && !S.note) n.remove(); });
 }
+
+function selectedRows() { return [...S.sel.values()]; }
 
 // ─── Tworzenie listów ───────────────────────────────────────────────────────
 
-function startCreate() {
-  const host = S.ui.dlg, key = S.view, rows = selectedRows().filter(r => !r.tracking), name = courierName(key);
+/** rows: jedno zamówienie z przycisku w wierszu albo (domyślnie) zaznaczone bez numeru przesyłki. */
+function startCreate(given) {
+  const host = S.ui.dlg, key = S.view, rows = (given || selectedRows()).filter(r => !r.tracking), name = courierName(key);
+  if (manualOf(key)) return;
   if (!rows.length) return;
   const changed = key === 'inpost' ? rows.filter(r => lockerChange(r)) : [];
   const badLocker = key === 'inpost' ? rows.filter(r => { const v = lockerOf(r); return v && !LOCKER_RE.test(v); }) : [];
@@ -397,7 +636,7 @@ function startCreate() {
       if (key === 'inpost') {
         // Paczkomat odbiorcy integracja Selly bierze z zamówienia — wysyłamy tylko poprawione (Worker zapisze je w zamówieniu)
         const per = {};
-        for (const id of chunk) { const r = S.rows.find(x => String(x.id) === id); const v = r ? lockerChange(r) : null; if (v) per[id] = { locker: v }; }
+        for (const id of chunk) { const r = rows.find(x => String(x.id) === id) || S.rows.find(x => String(x.id) === id); const v = r ? lockerChange(r) : null; if (v) per[id] = { locker: v }; }
         if (Object.keys(per).length) p.perOrder = per;
       }
       try {
@@ -502,7 +741,7 @@ async function downloadLabels(items, btn) {
   for (const it of items) {
     try {
       const r = await api('shipping:label', { courier: key, orderId: String(it.id) });
-      files.push({ name: 'etykieta-' + safeFile(S.numOf.get(String(it.id)) || it.id) + '.pdf', data: b64Bytes(r.content), type: r.type || 'application/pdf' });
+      files.push({ id: String(it.id), name: 'etykieta-' + safeFile(S.numOf.get(String(it.id)) || it.id) + '.pdf', data: b64Bytes(r.content), type: r.type || 'application/pdf' });
     } catch (e) { errors.push({ it, msg: (S.numOf.get(String(it.id)) || it.id) + ': ' + (e.message || 'błąd') }); }
     if (bar) bar.value = files.length + errors.length;
   }
@@ -518,6 +757,8 @@ async function downloadLabels(items, btn) {
     else flash('', 'Nie pobrano etykiet: ' + errors.slice(0, 3).map(x => x.msg).join('; ') + (errors.length > 3 ? ' …' : ''));
   }
   if (!files.length) return;
+  markDownloaded(files.map(f => f.id));
+  if (S.ui.results && S.ui.results.isConnected && S.rows.length) renderQueue();
   if (files.length === 1) saveBlob(new Blob([files[0].data], { type: files[0].type }), files[0].name, 'Pobrano etykietę');
   else saveBlob(zipStored(files.map(f => ({ name: f.name, data: f.data })), 'application/zip'), 'etykiety-' + key + '-' + today() + '.zip', 'Pobrano etykiety (' + files.length + ') w archiwum ZIP');
 }
@@ -530,7 +771,9 @@ function renderSettings(msg) {
   const selects = new Map();
   const rows = dels.map(d => {
     const sel = el('select', { id: 'shipMap-' + d.id, 'aria-label': 'Przewoźnik dla: ' + d.name, title: 'Przewoźnik, którego listy przewozowe dotyczą zamówień z tym sposobem dostawy' },
-      el('option', { value: '' }, '— brak / automatycznie —'), couriers().map(c => el('option', { value: c.key }, c.name)));
+      el('option', { value: '' }, '— brak / automatycznie —'),
+      el('optgroup', { label: 'Listy przewozowe z panelu' }, couriers().map(c => el('option', { value: c.key }, c.name))),
+      el('optgroup', { label: 'Przesyłki tworzone w Selly' }, manuals().map(c => el('option', { value: c.key }, c.name))));
     sel.value = d.courier || ''; selects.set(String(d.id), sel);
     return el('tr', null, el('td', null, d.name), el('td', null, sel),
       el('td', { class: 'muted small' }, d.courier ? (d.manual ? el('span', { class: 'tip', title: 'Przypisane przez Ciebie ręcznie' }, 'ręcznie') : el('span', { class: 'tip', title: 'Przewoźnik rozpoznany po nazwie sposobu dostawy' }, 'wg nazwy')) : ''));
@@ -567,19 +810,23 @@ async function mountRoute() {
   const my = ++S.routeSeq, u = S.ui;
   if (!S.meta) {
     u.body.replaceChildren(el('div', { class: 'card' }, loadingBox('Wczytuję przesyłki…')));
+    S.built = '';
     await ensureMeta();
     if (my !== S.routeSeq) return;
     if (!S.meta) { u.body.replaceChildren(unavailableBox(S.metaErr && !isUnavailable(S.metaErr) ? 'Nie udało się otworzyć przesyłek: ' + S.metaErr.message : MSG_UNAVAILABLE)); return; }
   }
   const part = S.route;
-  const view = part === 'ustawienia' || OTHER[part] ? part : isCourier(part) ? part : (isCourier(store('osa-ship-courier')) ? store('osa-ship-courier') : 'inpost');
-  if (view !== S.view) { S.sel.clear(); S.rows = []; S.note = ''; S.lockers.clear(); }
+  const view = part === 'ustawienia' || OTHER[part] ? part : isCarrier(part) ? part : (isCarrier(store('osa-ship-courier')) ? store('osa-ship-courier') : 'inpost');
+  if (view !== S.view) { S.sel.clear(); S.rows = []; S.total = 0; S.note = ''; S.lockers.clear(); S.loaded = false; S.built = ''; }
   S.view = view;
-  if (isCourier(view)) store('osa-ship-courier', view);
+  S.Q = S.routeQ;
+  if (isCarrier(view)) store('osa-ship-courier', view);
   renderSegs();
-  if (view === 'ustawienia') renderSettings();
-  else if (OTHER[view]) renderOther(view);
-  else renderCourier();
+  if (view === 'ustawienia') { S.built = ''; renderSettings(); return; }
+  if (OTHER[view]) { S.built = ''; renderOther(view); return; }
+  // Ten sam przewoźnik, inne filtry / strona: bez przebudowy (wyszukiwarka nie traci fokusu), tylko nowe dane
+  if (S.built !== view || !S.ui.results || !S.ui.results.isConnected) renderCourier();
+  loadQueue();
 }
 
 export default {
@@ -589,6 +836,7 @@ export default {
   mount(el0, params) {
     if (!S.root) { S.root = el0; build(); }
     S.route = (params && params.parts && params.parts[0]) || '';
+    S.routeQ = readQ(params && params.query);
     mountRoute();
   },
   unmount() { S.seq++; S.routeSeq++; },

@@ -631,6 +631,17 @@ export function filterSection(title, body, { fold = false, open = false, tip } =
   return el('details', { class: 'fp-sec fold', open }, el('summary', { title: tip || null }, title), body);
 }
 
+/** Ton plakietki statusu zamówienia z jego nazwy (Selly API nie podaje kolorów statusów): ok | warn | bad | acc | info | neutral. */
+export function orderStatusTone(name) {
+  const n = norm(name);
+  if (/anul|zwrot|odrzuc/.test(n)) return 'bad';
+  if (/nieoplac|zlozon|oczek|nowe|nowy/.test(n)) return 'warn';
+  if (/wyslan|nadan|kurier|w drodze/.test(n)) return 'info';
+  if (/zrealiz|dostarcz|odebran|zakoncz/.test(n)) return 'ok';
+  if (/oplac|realizacj|przygot|pakow|potwierdz/.test(n)) return 'acc';
+  return 'neutral';
+}
+
 /** Kolorowa plakietka statusu (ton: ok | warn | bad | acc | info | neutral). */
 export const statusPill = (text, tone, tip) => el('span', { class: 'ord-st ' + (tone || 'neutral'), title: tip || 'Status: ' + text }, text);
 
@@ -699,4 +710,4 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=70a8836';   // pole daty i zakres dat
+export * from './datepicker.js?v=9174fa9';   // pole daty i zakres dat

@@ -1,20 +1,20 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=70a8836';
-import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange } from '../core/ui.js?v=70a8836';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=70a8836';
-import { api, ctx } from '../core/client.js?v=70a8836';
-import { go, setLeaveGuard } from '../core/router.js?v=70a8836';
-import { noteVisit } from '../core/recents.js?v=70a8836';
-import { registerListKeys } from '../core/listKeys.js?v=70a8836';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=70a8836';
-import { cachedRead } from '../core/cache.js?v=70a8836';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=70a8836';
-import { showNewOrder } from './zamowienieNowe.js?v=70a8836';
-import { showInvoices } from './zamowieniaFaktury.js?v=70a8836';
-import { createFilterUi } from './zamowieniaFiltry.js?v=70a8836';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=70a8836';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=70a8836';
+import { photoSrc } from '../core/photo.js?v=9174fa9';
+import { gateWrite, el, tapOpen, plural, debounce, store, flash, norm, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, fetchAllRows, pageToolbar, filterLayout, thumb, columnMenu, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=9174fa9';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=9174fa9';
+import { api, ctx } from '../core/client.js?v=9174fa9';
+import { go, setLeaveGuard } from '../core/router.js?v=9174fa9';
+import { noteVisit } from '../core/recents.js?v=9174fa9';
+import { registerListKeys } from '../core/listKeys.js?v=9174fa9';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=9174fa9';
+import { cachedRead } from '../core/cache.js?v=9174fa9';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=9174fa9';
+import { showNewOrder } from './zamowienieNowe.js?v=9174fa9';
+import { showInvoices } from './zamowieniaFaktury.js?v=9174fa9';
+import { createFilterUi } from './zamowieniaFiltry.js?v=9174fa9';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=9174fa9';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=9174fa9';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['date', 'number', 'status', 'total'];
@@ -47,15 +47,7 @@ const statusName = id => { const s = S.meta && S.meta.statuses.find(x => String(
 const nameIn = (list, id) => { const x = (list || []).find(y => String(y.id) === String(id)); return x ? x.name : String(id); };
 const sellyOrderUrl = id => adminUrl() + '?a=zamowienia.view&id=' + encodeURIComponent(id);
 
-function statusTone(name) {
-  const n = norm(name);
-  if (/anul|zwrot|odrzuc/.test(n)) return 'bad';
-  if (/nieoplac|zlozon|oczek|nowe|nowy/.test(n)) return 'warn';
-  if (/wyslan|nadan|kurier|w drodze/.test(n)) return 'info';
-  if (/zrealiz|dostarcz|odebran|zakoncz/.test(n)) return 'ok';
-  if (/oplac|realizacj|przygot|pakow/.test(n)) return 'acc';
-  return 'neutral';
-}
+const statusTone = orderStatusTone;
 const statusPill = (id, name) => { const nm = name || statusName(id); return el('span', { class: 'ord-st ' + statusTone(nm), title: 'Status zamówienia: ' + nm }, nm); };
 
 function unavailableBox(extra) {

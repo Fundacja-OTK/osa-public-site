@@ -1,20 +1,40 @@
-/* Moduł Przesyłki: formularz parametrów, pasek akcji, tabela kolejki */
+/* Moduł Przesyłki: zakładki przewoźników, formularz parametrów, tabela kolejki, dolny pasek akcji */
 .ship-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
+.ship-seg { display: inline-flex; align-items: center; gap: 6px; }
+.ship-ico { display: inline-block; min-width: 22px; padding: 0 4px; border-radius: var(--r1); background: var(--surface-2); color: var(--muted);
+  font-size: var(--fs-xs); font-weight: 700; line-height: 18px; text-align: center; letter-spacing: .02em; }
+.chip[aria-current=page] .ship-ico { background: var(--accent); color: var(--surface); }
 .ship-params { margin-top: var(--s3); border: 1px solid var(--border); border-radius: var(--r2); padding: var(--s2) var(--s3); }
 .ship-params > summary, .ship-more > summary { cursor: pointer; font-weight: 600; }
 .ship-form { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s2); align-items: flex-end; }
 .ship-f { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
 .ship-checks { border: 0; padding: 0; margin: 0; flex-direction: row; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .ship-check { display: inline-flex; align-items: center; gap: 4px; flex-direction: row; }
-.ship-bar { position: sticky; top: 0; z-index: 5; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
 .ship-locker { width: 8em; }
+.ship-locker.bad { border-color: var(--no); box-shadow: 0 0 0 2px var(--no-soft); }
 .ship-done, .ord-fails { max-height: 220px; overflow: auto; padding-left: var(--s4); }
 .ship-status-row { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; margin-top: var(--s3); }
+.ship-vrange { display: flex; gap: var(--s2); align-items: center; }
+.ship-num { width: 7em; }
+.ship-pager:empty { display: none; }
+/* Tabela: gęstość jak w Selly, ale czytelnie */
 #shipTable tr.sel { background: var(--accent-soft); }
-.ship-locker.bad { border-color: var(--no); box-shadow: 0 0 0 2px var(--no-soft); }
-/* Telefon: pasek akcji — przyciski na pełną szerokość, parametry jeden pod drugim */
+#shipTable td { vertical-align: top; }
+.ship-addr { min-width: 160px; }
+.ship-prods { max-width: 240px; }
+.ship-notes { max-width: 220px; font-size: var(--fs-sm); }
+.ship-attn { color: var(--warn); }
+td.ship-old { color: var(--no); font-weight: 700; }
+.ship-trk { font-variant-numeric: tabular-nums; }
+.ship-st { font-weight: 600; color: var(--accent); }
+.ship-st.ok { color: var(--ok); }
+.ship-acts { display: flex; gap: 4px; align-items: center; justify-content: flex-end; white-space: nowrap; }
+.ship-acts > :first-child { margin-top: 0; }
+.ship-rowmenu .menu-pop { min-width: 220px; }
+.ship-rowmenu a.menu-item { text-decoration: none; }
+/* Pasek akcji masowych — przyklejony do dołu ekranu (jak „Zapisz” w Selly); bazowy wygląd: .save-bar */
+.ship-bar .spacer { flex: 1; }
 @media (max-width: 640px) {
-  .ship-bar > button { flex: 1 1 100%; }
   .ship-f { min-width: 0; flex: 1 1 100%; }
-  .ship-bar { position: static; }
+  .ship-bar > button, .ship-bar > a { flex: 1 1 100%; }
 }
