@@ -22,8 +22,8 @@ export const SECTIONS = [
     { id: 'wplaty', title: 'Import wpłat bankowych', a: 'zamowienia.importWplat', kind: 'osa', tip: 'Wczytaj wyciąg z banku (CSV), zobacz dopasowanie wpłat do zamówień i oznacz opłacone — wyciąg zostaje w przeglądarce' },
     '-',
     { id: 'przesylki', title: 'Przesyłki — do nadania', a: 'inpost.listOrders', kind: 'osa', tip: 'Kolejka zamówień do nadania u wszystkich przewoźników naraz (InPost, DPD, DHL, Orlen Paczka, UPS), masowe etykiety' },
-    { id: 'furgonetka', title: 'Przesyłki Furgonetka.pl', a: 'furgonetka.przesylki', kind: 'osa', tip: 'Przesyłki nadane przez Furgonetkę (tylko podgląd, dane z Selly na Twojej sesji)' },
-    { id: 'suus', title: 'Przesyłki Suus', a: 'suus.przesylki', kind: 'osa', tip: 'Przesyłki Suus / Rohlig (tylko podgląd, dane z Selly na Twojej sesji)' },
+    { id: 'furgonetka', title: 'Przesyłki Furgonetka.pl', a: 'furgonetka.przesylki', kind: 'osa', menu: false, tip: 'Przesyłki nadane przez Furgonetkę (tylko podgląd, dane z Selly na Twojej sesji)' },
+    { id: 'suus', title: 'Przesyłki Suus', a: 'suus.przesylki', kind: 'osa', menu: false, tip: 'Przesyłki Suus / Rohlig (tylko podgląd, dane z Selly na Twojej sesji)' },
     '-',
     { id: 'reklamacje', title: 'Reklamacje', a: 'reklamacje', kind: 'osa', tip: 'Reklamacje z Selly: lista, filtry, karta i zmiana statusu, pracownika, RMA i uwag (na Twojej sesji Selly)' },
     { id: 'zwroty', title: 'Zwroty', a: 'zwroty', kind: 'resource' },
@@ -250,7 +250,7 @@ export const keywordsOf = i => [SYNONYMS[i.id] || '', (SECTIONS.find(s => s.id =
  * visible(pozycja) → bool (uprawnienia). Pozycje „w planie” (kind 'soon') są na końcu swojej grupy, nigdy w głównym menu.
  */
 export function menuModel(visible) {
-  const vis = i => !!i && (!visible || visible(i));
+  const vis = i => !!i && i.menu !== false && (!visible || visible(i));   // menu:false = tylko przekierowanie (np. dawne listy przewoźników)
   const primary = PRIMARY.map(p => itemById(p.id) && { ...itemById(p.id), icon: p.icon, ...(p.label ? { label: p.label } : {}) }).filter(i => vis(i) && i.kind !== 'soon');
   const taken = new Set(primary.map(i => i.id));
   const groups = GROUPS.map(g => {

@@ -6,53 +6,53 @@
   <!-- CSP: skrypty tylko z tej strony (bez inline), połączenia tylko do serwera głównego (Cloudflare Workers) i zapasowego (Apps Script) -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://osa-panel.osa-panel.workers.dev https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
   <title>Panel OSA</title>
-  <link rel="stylesheet" href="css/base.css?v=9174fa9">
-  <link rel="stylesheet" href="css/shell.css?v=9174fa9">
-  <link rel="stylesheet" href="css/pulpit.css?v=9174fa9">
-  <link rel="stylesheet" href="css/przesylki.css?v=9174fa9">
-  <link rel="stylesheet" href="css/zasob.css?v=9174fa9">
-  <link rel="stylesheet" href="css/zasoby.css?v=9174fa9">
-  <link rel="stylesheet" href="css/klienci.css?v=9174fa9">
-  <link rel="stylesheet" href="css/produkt.css?v=9174fa9">
-  <link rel="stylesheet" href="css/raporty.css?v=9174fa9"><link rel="stylesheet" href="css/raporty-rodziny.css?v=9174fa9"><link rel="stylesheet" href="css/masowe.css?v=9174fa9"><link rel="stylesheet" href="css/dropshipping.css?v=9174fa9"><link rel="stylesheet" href="css/wplaty.css?v=9174fa9">
-  <link rel="stylesheet" href="css/feedback.css?v=9174fa9">
-  <link rel="stylesheet" href="css/konfsklepu.css?v=9174fa9">
-  <link rel="stylesheet" href="css/palette.css?v=9174fa9">
-  <link rel="stylesheet" href="css/embed.css?v=9174fa9">
-  <link rel="stylesheet" href="css/natywne.css?v=9174fa9">
-  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=9174fa9">
-  <link rel="stylesheet" href="css/faktury.css?v=9174fa9">
-  <link rel="stylesheet" href="css/speedmail.css?v=9174fa9">
-  <link rel="stylesheet" href="css/mobile.css?v=9174fa9">
+  <link rel="stylesheet" href="css/base.css?v=a753217">
+  <link rel="stylesheet" href="css/shell.css?v=a753217">
+  <link rel="stylesheet" href="css/pulpit.css?v=a753217">
+  <link rel="stylesheet" href="css/przesylki.css?v=a753217">
+  <link rel="stylesheet" href="css/zasob.css?v=a753217">
+  <link rel="stylesheet" href="css/zasoby.css?v=a753217">
+  <link rel="stylesheet" href="css/klienci.css?v=a753217">
+  <link rel="stylesheet" href="css/produkt.css?v=a753217">
+  <link rel="stylesheet" href="css/raporty.css?v=a753217"><link rel="stylesheet" href="css/raporty-rodziny.css?v=a753217"><link rel="stylesheet" href="css/masowe.css?v=a753217"><link rel="stylesheet" href="css/dropshipping.css?v=a753217"><link rel="stylesheet" href="css/wplaty.css?v=a753217">
+  <link rel="stylesheet" href="css/feedback.css?v=a753217">
+  <link rel="stylesheet" href="css/konfsklepu.css?v=a753217">
+  <link rel="stylesheet" href="css/palette.css?v=a753217">
+  <link rel="stylesheet" href="css/embed.css?v=a753217">
+  <link rel="stylesheet" href="css/natywne.css?v=a753217">
+  <link rel="stylesheet" href="css/zamowienie-nowe.css?v=a753217">
+  <link rel="stylesheet" href="css/faktury.css?v=a753217">
+  <link rel="stylesheet" href="css/speedmail.css?v=a753217">
+  <link rel="stylesheet" href="css/mobile.css?v=a753217">
   <!-- config.js generuje scripts/deploy-panel.ps1: window.OSA_CONFIG = { backendUrl, version, backends } -->
   <!-- modulepreload: scripts/preload.js -->
-  <link rel="preload" as="script" href="config.js?v=9174fa9">
-  <link rel="preload" as="script" href="js/preboot.js?v=9174fa9">
-  <link rel="modulepreload" href="js/main.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/shell.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/ui.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/client.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/auth.js?v=9174fa9">
-  <link rel="modulepreload" href="js/lib/panelAuth.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/router.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/errors.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/sellyExits.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/errorHook.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/feedback.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/update.js?v=9174fa9">
-  <link rel="modulepreload" href="js/modules/_placeholder.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/nav.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/palette.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/shortcuts.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/recents.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/preload.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/datepicker.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/api.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/delivery.js?v=9174fa9">
-  <link rel="modulepreload" href="js/core/search.js?v=9174fa9">
-  <script src="config.js?v=9174fa9"></script>
-  <script src="js/preboot.js?v=9174fa9"></script>
-  <script type="module" src="js/main.js?v=9174fa9"></script>
+  <link rel="preload" as="script" href="config.js?v=a753217">
+  <link rel="preload" as="script" href="js/preboot.js?v=a753217">
+  <link rel="modulepreload" href="js/main.js?v=a753217">
+  <link rel="modulepreload" href="js/core/shell.js?v=a753217">
+  <link rel="modulepreload" href="js/core/ui.js?v=a753217">
+  <link rel="modulepreload" href="js/core/client.js?v=a753217">
+  <link rel="modulepreload" href="js/core/auth.js?v=a753217">
+  <link rel="modulepreload" href="js/lib/panelAuth.js?v=a753217">
+  <link rel="modulepreload" href="js/core/router.js?v=a753217">
+  <link rel="modulepreload" href="js/core/errors.js?v=a753217">
+  <link rel="modulepreload" href="js/core/sellyExits.js?v=a753217">
+  <link rel="modulepreload" href="js/core/errorHook.js?v=a753217">
+  <link rel="modulepreload" href="js/core/feedback.js?v=a753217">
+  <link rel="modulepreload" href="js/core/update.js?v=a753217">
+  <link rel="modulepreload" href="js/modules/_placeholder.js?v=a753217">
+  <link rel="modulepreload" href="js/core/nav.js?v=a753217">
+  <link rel="modulepreload" href="js/core/palette.js?v=a753217">
+  <link rel="modulepreload" href="js/core/shortcuts.js?v=a753217">
+  <link rel="modulepreload" href="js/core/recents.js?v=a753217">
+  <link rel="modulepreload" href="js/core/preload.js?v=a753217">
+  <link rel="modulepreload" href="js/core/datepicker.js?v=a753217">
+  <link rel="modulepreload" href="js/core/api.js?v=a753217">
+  <link rel="modulepreload" href="js/core/delivery.js?v=a753217">
+  <link rel="modulepreload" href="js/core/search.js?v=a753217">
+  <script src="config.js?v=a753217"></script>
+  <script src="js/preboot.js?v=a753217"></script>
+  <script type="module" src="js/main.js?v=a753217"></script>
 </head>
 <body>
 <div class="app">
