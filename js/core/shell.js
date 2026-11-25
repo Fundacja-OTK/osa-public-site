@@ -1,22 +1,22 @@
 // Powłoka aplikacji: górny pasek (wyszukiwarki, Selly ↗, konto i motyw), boczne menu: Pulpit, krótka lista codzienna,
 // zwijane grupy z resztą ekranów (pełne menu panelu Selly — core/nav.js), „Ostatnie”, szybkie wyszukiwanie (Ctrl+K lub „/”),
 // okruszki i tytuł strony, logowanie/start, stopka.
-import { $, el, store, pageError, refreshWriteGates, loadingBox } from './ui.js?v=786f98f';
-import { api, ctx, ENV, apiInfo, onApiInfo, canWriteSection, READONLY_TIP } from './client.js?v=786f98f';
-import { signOut, freshToken, hasToken, sessionLogin, adoptBoot, completePerms } from './auth.js?v=786f98f';
-import { canSee } from '../lib/panelAuth.js?v=786f98f';
-import { register, getModule, go, startRouter, parseHash, leaveMessage, prefetch } from './router.js?v=786f98f';
-import { initErrorReporting } from './errors.js?v=786f98f';
-import { initSellyExits } from './sellyExits.js?v=786f98f';
-import { setReporter } from './errorHook.js?v=786f98f';
-import { initFeedback } from './feedback.js?v=786f98f';
-import { watchVersion, showNewVersion } from './update.js?v=786f98f';
-import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=786f98f';
-import { ITEMS, itemById, icon, menuModel, groupOf, groupById } from './nav.js?v=786f98f';
-import { initPalette, openPalette } from './palette.js?v=786f98f';
-import { installShortcuts, shortcuts } from './shortcuts.js?v=786f98f';
-import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS, bindRecents } from './recents.js?v=786f98f';
-import { warmModule, moduleUrlOf, prefetchOnIntent } from './preload.js?v=786f98f';
+import { $, el, store, pageError, refreshWriteGates, loadingBox } from './ui.js?v=6d8ea70';
+import { api, ctx, ENV, apiInfo, onApiInfo, canWriteSection, READONLY_TIP } from './client.js?v=6d8ea70';
+import { signOut, freshToken, hasToken, sessionLogin, adoptBoot, completePerms } from './auth.js?v=6d8ea70';
+import { canSee } from '../lib/panelAuth.js?v=6d8ea70';
+import { register, getModule, go, startRouter, parseHash, leaveMessage, prefetch } from './router.js?v=6d8ea70';
+import { initErrorReporting } from './errors.js?v=6d8ea70';
+import { initSellyExits } from './sellyExits.js?v=6d8ea70';
+import { setReporter } from './errorHook.js?v=6d8ea70';
+import { initFeedback } from './feedback.js?v=6d8ea70';
+import { watchVersion, showNewVersion } from './update.js?v=6d8ea70';
+import { createPlaceholder, SELLY_ADMIN } from '../modules/_placeholder.js?v=6d8ea70';
+import { ITEMS, itemById, icon, menuModel, groupOf, groupById } from './nav.js?v=6d8ea70';
+import { initPalette, openPalette } from './palette.js?v=6d8ea70';
+import { installShortcuts, shortcuts } from './shortcuts.js?v=6d8ea70';
+import { loadRecents, noteVisit, hashOf, TYPES, RECENT_MAX, RECENT_DAYS, bindRecents } from './recents.js?v=6d8ea70';
+import { warmModule, moduleUrlOf, prefetchOnIntent } from './preload.js?v=6d8ea70';
 
 const ROUTE_KEY = 'osa-route';
 const RECORD_MODS = new Set(['zamowienia', 'klienci', 'produkty']);   // karta rekordu zapisuje się sama (z nazwą)
@@ -32,31 +32,31 @@ export const sellyHref = a => adminUrl() + (a ? '?a=' + a : '');
  * scripts/bust-cache.js dopisuje do literału ?v=<wersja>, a core/preload.js odczytuje z niego adres pliku (wstępne pobranie zależności).
  */
 const LAZY = {
-  pulpit: () => import('../modules/pulpit.js?v=786f98f'),
-  zamowienia: () => import('../modules/zamowienia.js?v=786f98f'), produkty: () => import('../modules/produkty.js?v=786f98f'), klienci: () => import('../modules/klienci.js?v=786f98f'),
-  magazyny: () => import('../modules/magazyny.js?v=786f98f'), licencje: () => import('../modules/licencje.js?v=786f98f'), uzytkownicy: () => import('../modules/uzytkownicy.js?v=786f98f'),
-  speedmail: () => import('../modules/speedmail.js?v=786f98f'),
-  przesylki: () => import('../modules/przesylki.js?v=786f98f'),
-  dropshipping: () => import('../modules/dropshipping.js?v=786f98f'),
-  wplaty: () => import('../modules/wplaty.js?v=786f98f'),
-  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=786f98f'),
-  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=786f98f'),
-  raporty: () => import('../modules/raporty.js?v=786f98f'),
+  pulpit: () => import('../modules/pulpit.js?v=6d8ea70'),
+  zamowienia: () => import('../modules/zamowienia.js?v=6d8ea70'), produkty: () => import('../modules/produkty.js?v=6d8ea70'), klienci: () => import('../modules/klienci.js?v=6d8ea70'),
+  magazyny: () => import('../modules/magazyny.js?v=6d8ea70'), licencje: () => import('../modules/licencje.js?v=6d8ea70'), uzytkownicy: () => import('../modules/uzytkownicy.js?v=6d8ea70'),
+  speedmail: () => import('../modules/speedmail.js?v=6d8ea70'),
+  przesylki: () => import('../modules/przesylki.js?v=6d8ea70'),
+  dropshipping: () => import('../modules/dropshipping.js?v=6d8ea70'),
+  wplaty: () => import('../modules/wplaty.js?v=6d8ea70'),
+  'zgloszenia-osa': () => import('../modules/zgloszeniaOsa.js?v=6d8ea70'),
+  'selly-zmiany': () => import('../modules/sellyZmiany.js?v=6d8ea70'),
+  raporty: () => import('../modules/raporty.js?v=6d8ea70'),
   // konfiguracja sklepu — natywne ekrany „strona ustawień” (modules/konfSklepu.js)
-  konf: () => import('../modules/konfSklepu.js?v=786f98f').then(m => ({ default: m.konf })), 'panel-konf': () => import('../modules/konfSklepu.js?v=786f98f').then(m => ({ default: m.panelKonf })),
-  'wyglad-konf': () => import('../modules/konfSklepu.js?v=786f98f').then(m => ({ default: m.wygladKonf })), znaki: () => import('../modules/konfSklepu.js?v=786f98f').then(m => ({ default: m.znaki })),
-  jezyki: () => import('../modules/konfSklepu.js?v=786f98f').then(m => ({ default: m.jezyki })), dostepnosc: () => import('../modules/konfSklepu.js?v=786f98f').then(m => ({ default: m.dostepnosc })),
+  konf: () => import('../modules/konfSklepu.js?v=6d8ea70').then(m => ({ default: m.konf })), 'panel-konf': () => import('../modules/konfSklepu.js?v=6d8ea70').then(m => ({ default: m.panelKonf })),
+  'wyglad-konf': () => import('../modules/konfSklepu.js?v=6d8ea70').then(m => ({ default: m.wygladKonf })), znaki: () => import('../modules/konfSklepu.js?v=6d8ea70').then(m => ({ default: m.znaki })),
+  jezyki: () => import('../modules/konfSklepu.js?v=6d8ea70').then(m => ({ default: m.jezyki })), dostepnosc: () => import('../modules/konfSklepu.js?v=6d8ea70').then(m => ({ default: m.dostepnosc })),
   // marketplace, integracje, treści, konfiguracja zamówień — natywne ekrany „strona ustawień” (modules/konfSklepu.js)
   ...Object.fromEntries(['allegro', 'allegro-aukcje', 'empik', 'allegro-wysylka', 'allegro-operatorzy', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-porownywarki', 'int-przesylki', 'int-fk', 'int-dodatkowe', 'ai', 'slajdy', 'ksztalty', 'dostawy-konf', 'statusy-konf']
-    .map(id => [id, () => import('../modules/konfSklepu.js?v=786f98f').then(m => ({ default: m.extra[id] }))])),
-  reklamacje: () => import('../modules/reklamacje.js?v=786f98f'), oferty: () => import('../modules/oferty.js?v=786f98f'),
+    .map(id => [id, () => import('../modules/konfSklepu.js?v=6d8ea70').then(m => ({ default: m.extra[id] }))])),
+  reklamacje: () => import('../modules/reklamacje.js?v=6d8ea70'), oferty: () => import('../modules/oferty.js?v=6d8ea70'),
   // === administracja i system (podgląd): ekrany tylko do odczytu, jeden moduł (modules/adminNative.js) ===
-  ...Object.fromEntries(['allegro-aukcje-lista', 'allegro-zdarzenia', 'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki', 'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus'].map(id => [id, () => import('../modules/adminNative.js?v=786f98f').then(m => ({ default: m.views[id] }))])),
+  ...Object.fromEntries(['allegro-aukcje-lista', 'allegro-zdarzenia', 'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki', 'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus'].map(id => [id, () => import('../modules/adminNative.js?v=6d8ea70').then(m => ({ default: m.views[id] }))])),
   // treści (CMS): natywne ekrany z jednego pliku
-  ...Object.fromEntries(['cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy'].map(id => [id, () => import('../modules/tresci.js?v=786f98f').then(m => ({ default: m.screens[id] }))])),
+  ...Object.fromEntries(['cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy'].map(id => [id, () => import('../modules/tresci.js?v=6d8ea70').then(m => ({ default: m.screens[id] }))])),
   // === sprzedaż (kupony, koszyki) ===
-  kupony: () => import('../modules/kupony.js?v=786f98f'), koszyki: () => import('../modules/koszyki.js?v=786f98f'),
-  'zmiana-cen': () => import('../modules/masowe.js?v=786f98f'), 'zmiana-danych': () => import('../modules/masowe.js?v=786f98f').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=786f98f').then(m => ({ default: m.modes.kat })),
+  kupony: () => import('../modules/kupony.js?v=6d8ea70'), koszyki: () => import('../modules/koszyki.js?v=6d8ea70'),
+  'zmiana-cen': () => import('../modules/masowe.js?v=6d8ea70'), 'zmiana-danych': () => import('../modules/masowe.js?v=6d8ea70').then(m => ({ default: m.modes.dane })), 'zmiana-kategorii': () => import('../modules/masowe.js?v=6d8ea70').then(m => ({ default: m.modes.kat })),
 };
 
 /**
@@ -355,7 +355,7 @@ export function startShell(modules = []) {
   for (const m of modules) register(m);
   for (const [id, load] of Object.entries(LAZY)) if (!getModule(id)) register(lazyModule(id, (itemById(id) || {}).title || '', load, m => m.default));
   // Ekrany uniwersalne (lista → karta → formularz ze specyfikacji API): kind 'resource'
-  const zasob = () => import('../modules/zasob.js?v=786f98f');
+  const zasob = () => import('../modules/zasob.js?v=6d8ea70');
   for (const i of ITEMS) if (i.kind === 'resource' && !getModule(i.id)) register(lazyModule(i.id, i.title, zasob, m => m.createResource(i.id)));
   // Pozycje bez własnego ekranu: strona „w planie / tylko w Selly” z linkiem
   for (const i of ITEMS) if (!getModule(i.id)) register(createPlaceholder({ id: i.id, title: i.title, sellyQuery: i.a ? '?a=' + i.a : '', adminUrl, kind: i.kind, tip: i.tip }));

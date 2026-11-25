@@ -1,6 +1,6 @@
 // Porzucone koszyki (Selly ?a=carts) — natywny ekran tylko do odczytu: lista z filtrami (sklep, klient, sortowanie), produkty i dane z Selly.
 // Dane właścicieli koszyków są pokazane tak jak w Selly zalogowanemu użytkownikowi; linki do klienta i zamówienia prowadzą do panelu OSA.
-import { createNative } from './sellyNative.js?v=786f98f';
+import { createNative } from './sellyNative.js?v=6d8ea70';
 
 /** Link z Selly (?a=klienci.*&id= / ?a=zamowienia.*&id=) → trasa panelu OSA; inne linki zostają linkami do Selly. */
 export function panelLink(href) {

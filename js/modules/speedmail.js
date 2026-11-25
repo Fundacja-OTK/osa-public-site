@@ -3,16 +3,16 @@
 // paczki — przekazane paczki zleceń (plik .xlsx, statusy, anulowanie); tempo — sprzedaż wobec prognozy; ustawienia — lista produktów SM,
 // rozbicia, terminy, progi. Dane i zapisy: akcje sm:* (Worker + D1), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: shared/speedmail.js → lib/speedmailLogic.js (ta sama na serwerze). Bez danych osobowych.
-import { $, el } from '../core/ui.js?v=786f98f';
-import { go, addLeaveGuard } from '../core/router.js?v=786f98f';
-import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop } from './speedmailKit.js?v=786f98f';
-import { viewOrders } from './speedmailZam.js?v=786f98f';
+import { $, el } from '../core/ui.js?v=6d8ea70';
+import { go, addLeaveGuard } from '../core/router.js?v=6d8ea70';
+import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop } from './speedmailKit.js?v=6d8ea70';
+import { viewOrders } from './speedmailZam.js?v=6d8ea70';
 // Zakładki poza domyślną (Zamówienia) ładują się dopiero po otwarciu — mniej plików przy pierwszym wejściu.
 const LAZY = {
-  stan: () => import('./speedmailStan.js?v=786f98f').then(m => m.viewStock),
-  paczki: () => import('./speedmailPaczki.js?v=786f98f').then(m => m.viewBatches),
-  tempo: () => import('./speedmailTempo.js?v=786f98f').then(m => m.viewPace),
-  ustawienia: () => import('./speedmailUst.js?v=786f98f').then(m => { settingsDirty = m.settingsDirty; return m.viewSettings; }),
+  stan: () => import('./speedmailStan.js?v=6d8ea70').then(m => m.viewStock),
+  paczki: () => import('./speedmailPaczki.js?v=6d8ea70').then(m => m.viewBatches),
+  tempo: () => import('./speedmailTempo.js?v=6d8ea70').then(m => m.viewPace),
+  ustawienia: () => import('./speedmailUst.js?v=6d8ea70').then(m => { settingsDirty = m.settingsDirty; return m.viewSettings; }),
 };
 const VIEWS = { zamowienia: viewOrders };
 let settingsDirty = () => false;

@@ -299,22 +299,24 @@
     });
     const lack = need => Object.keys(need).filter(k => need[k] > Math.max(0, avail[k] || 0) + 1e-9)
       .map(k => ({ key: k, name: ix.prod.get(k).name, unit: ix.prod.get(k).unit, lack: r3(need[k] - Math.max(0, avail[k] || 0)) }));
+    // Ile SM ma na każdy produkt zamówienia w chwili przydziału (przed odjęciem tego zamówienia) → r.have; zwraca braki
+    const lackOf = r => { r.have = Object.keys(r.need).map(k => { const p = ix.prod.get(k) || {}; return { key: k, name: p.name || k, unit: p.unit || '', pack: p.pack || 1, packName: p.packName || '', need: r.need[k], have: r3(Math.max(0, avail[k] || 0)) }; }); return lack(r.need); };
     const take = need => { for (const k in need) avail[k] = r3((avail[k] || 0) - need[k]); };
     const lackText = miss => miss.slice(0, 3).map(x => x.name + ' (brakuje ' + nf(x.lack) + ' ' + x.unit + ')').join(', ') + (miss.length > 3 ? ' (+' + (miss.length - 3) + ')' : '');
     const waitText = r => (r.waits ? ' · przedsprzedaż: SpeedMail wyśle od ' + ddmm(D.presaleStart) : '');
     const byDate = (a, b) => (a.o.date < b.o.date ? -1 : a.o.date > b.o.date ? 1 : String(a.o.orderId) < String(b.o.orderId) ? -1 : 1);
     for (const r of rows.filter(x => x.forced).sort(byDate)) {
-      r.missing = lack(r.need); r.stock = r.missing.length ? 'brak' : 'ok'; take(r.need);
+      r.missing = lackOf(r); r.stock = r.missing.length ? 'brak' : 'ok'; take(r.need);
       Object.assign(r, { result: 'sm', code: 'manual-sm', rule: 0, reason: 'Oznaczone ręcznie: do SpeedMail' + (r.note ? ' — ' + r.note : '') + (r.missing.length ? ' · UWAGA, brak towaru: ' + lackText(r.missing) : '') + waitText(r) });
     }
     for (const r of rows.filter(x => x.eligible).sort(byDate)) {
-      r.missing = lack(r.need);
+      r.missing = lackOf(r);
       if (r.missing.length) { Object.assign(r, { result: 'my', code: 'stock', rule: 5, stock: 'brak', reason: 'Brak towaru w SpeedMail: ' + lackText(r.missing) }); continue; }
       take(r.need);
       Object.assign(r, { result: 'sm', code: 'ok', rule: 0, stock: 'ok', reason: 'Spełnia reguły, towar jest w SpeedMail' + waitText(r) });
     }
     // Zamówienia „my” z reguł 1–3 bez produktów spoza listy: informacyjnie, czy SM miałby na nie towar (po przydziale pozostałych)
-    for (const r of rows) if (r.stock === '?') { r.missing = lack(r.need); r.stock = r.missing.length ? 'brak' : 'ok'; }
+    for (const r of rows) if (r.stock === '?') { r.missing = lackOf(r); r.stock = r.missing.length ? 'brak' : 'ok'; }
     return { rows, left: avail };
   }
 

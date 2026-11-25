@@ -2,10 +2,10 @@
 // wydruk i rozliczenie. Selly API nie ma listy faktur sklepu, więc lista czyta kopię w bazie panelu (orders:invoiceList), a przycisk
 // „Uzupełnij z Selly” sprawdza porcjami zamówienia jeszcze niesprawdzone (orders:invoiceScan; po jednym zapytaniu do Selly na zamówienie,
 // z przerwami i bezpiecznikiem limitu API). Wystawianie faktur zostaje w Selly (numeracja) — zob. zamowieniaFakturyKit.js.
-import { el, gateWrite, debounce, money, cnt, plural, sortTh, pager, pageToolbar, loadingBox, downloadMenuButton, sellyLink, syncedLabel, flash } from '../core/ui.js?v=786f98f';
-import { dateRange } from '../core/datepicker.js?v=786f98f';
-import { api, ctx } from '../core/client.js?v=786f98f';
-import { INV_STATUS, invStatusPill, isOverdue, invoiceEditor, printButton } from './zamowieniaFakturyKit.js?v=786f98f';
+import { el, gateWrite, debounce, money, cnt, plural, sortTh, pager, pageToolbar, loadingBox, downloadMenuButton, sellyLink, syncedLabel, flash } from '../core/ui.js?v=6d8ea70';
+import { dateRange } from '../core/datepicker.js?v=6d8ea70';
+import { api, ctx } from '../core/client.js?v=6d8ea70';
+import { INV_STATUS, invStatusPill, isOverdue, invoiceEditor, printButton } from './zamowieniaFakturyKit.js?v=6d8ea70';
 
 const SIZE = 50;
 const PAUSE_MS = 4000;   // przerwa między porcjami „Uzupełnij z Selly” (≤ 15 zapytań / 4 s — z zapasem pod limitem Selly ~500/min)
