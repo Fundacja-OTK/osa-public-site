@@ -1,8 +1,8 @@
 // Lista kompletacyjna do druku (#/zamowienia/kompletacja?ids=1,2,3): zbiorcza lista produktów + kartki pakowania per zamówienie.
 // Dane: orders:get z kopii D1 (live:false — bez zapytań do Selly) i products:list (lokalizacja magazynowa, też D1). Tylko odczyt;
 // adres odbiorcy jest wyłącznie na kartce (potrzebny fizycznie), renderowany z wczytanych danych — nic nie jest zapisywane ani logowane.
-import { el, loadingBox, downloadCsv, plural, dateStr, fullName } from '../core/ui.js?v=bdda14c';
-import { api } from '../core/client.js?v=bdda14c';
+import { el, loadingBox, downloadCsv, plural, dateStr, fullName } from '../core/ui.js?v=f06e90b';
+import { api } from '../core/client.js?v=f06e90b';
 
 const MAX_ORDERS = 100, MAX_LOOKUPS = 80, PAR = 4;
 const V = { box: null, seq: 0 };

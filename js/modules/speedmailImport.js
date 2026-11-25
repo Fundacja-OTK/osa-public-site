@@ -3,11 +3,11 @@
 //   shipCard() w zakładce Paczki: raport wysyłek SpeedMail → które zamówienia paczek SM wysłał, a które nie (sm:shipMatch, tylko numery) →
 //   na żądanie, po podglądzie i potwierdzeniu: numery przesyłek w Selly (orders:update tracking_code) i status (orders:setStatus).
 // Pliki czytane wyłącznie w przeglądarce; nie są nigdzie zapisywane. Nic nie dzieje się automatycznie.
-import { el, cnt, flash } from '../core/ui.js?v=bdda14c';
-import { api } from '../core/client.js?v=bdda14c';
-import { S, SM, WRITE, STATUS_WRITE, nf, dmy, notice, tile, prodOf, fold, reload, runStatus, jobBusy, statusName } from './speedmailKit.js?v=bdda14c';
-import * as L from './speedmailImportLogic.js?v=bdda14c';
-import { runThrottled } from './klienciImportLogic.js?v=bdda14c';
+import { el, cnt, flash } from '../core/ui.js?v=f06e90b';
+import { api } from '../core/client.js?v=f06e90b';
+import { S, SM, WRITE, STATUS_WRITE, nf, dmy, notice, tile, prodOf, fold, reload, runStatus, jobBusy, statusName } from './speedmailKit.js?v=f06e90b';
+import * as L from './speedmailImportLogic.js?v=f06e90b';
+import { runThrottled } from './klienciImportLogic.js?v=f06e90b';
 
 const ORD_WRITE = ['zamowienia'];               // jak reguła orders:update (shared/panelAuth.js)
 const TRACK_GAP_MS = 400;                       // przerwa między zapisami w Selly (limit API ~500/min)

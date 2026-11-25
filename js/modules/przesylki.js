@@ -3,10 +3,10 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone, selOffNote } from '../core/ui.js?v=bdda14c';
-import { api, ctx } from '../core/client.js?v=bdda14c';
-import { go } from '../core/router.js?v=bdda14c';
-import { registerListKeys } from '../core/listKeys.js?v=bdda14c';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone, selOffNote } from '../core/ui.js?v=f06e90b';
+import { api, ctx } from '../core/client.js?v=f06e90b';
+import { go } from '../core/router.js?v=f06e90b';
+import { registerListKeys } from '../core/listKeys.js?v=f06e90b';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -226,11 +226,13 @@ function readQ(query) {
     label: ['with', 'all'].includes(g('label')) ? g('label') : 'none', locker: ['bad', 'missing'].includes(g('locker')) ? g('locker') : '',
     page: Math.max(1, parseInt(g('page'), 10) || 1), size: SIZES.includes(size) ? size : DEF_SIZE,
     sort: SORTS.includes(g('sort')) ? g('sort') : 'date', dir: g('dir') === 'desc' ? 'desc' : 'asc',
+    scope: ['all', 'mapped'].includes(g('scope')) ? g('scope') : '',   // '' = domyślnie (serwer: „wszystkie”, gdy nic nie przypisano)
+    inspect: /^\d{1,12}$/.test(g('inspect')) ? g('inspect') : '',     // jednorazowo: „Sprawdź budowę formularza” z karty zamówienia
   };
 }
 function qsOf(Q) {
   const p = new URLSearchParams();
-  for (const k of ['q', 'status', 'from', 'to', 'vmin', 'vmax', 'deliv', 'locker']) if (Q[k]) p.set(k, Q[k]);
+  for (const k of ['q', 'status', 'from', 'to', 'vmin', 'vmax', 'deliv', 'locker', 'scope']) if (Q[k]) p.set(k, Q[k]);
   if (Q.label && Q.label !== 'none') p.set('label', Q.label);
   if (Q.size && Q.size !== DEF_SIZE) p.set('size', String(Q.size));
   if (Q.sort !== 'date' || Q.dir !== 'asc') { p.set('sort', Q.sort); p.set('dir', Q.dir); }
@@ -289,6 +291,7 @@ function renderSegs() {
 
 function queueParams(Q) {
   const p = { courier: S.view, page: Q.page, pageSize: Q.size, sort: Q.sort, dir: Q.dir, label: Q.label };
+  if (Q.scope) p.scope = Q.scope;
   if (Q.q) p.q = Q.q;
   if (Q.status) p.statusIds = Q.status.split(',');
   if (Q.from) p.dateFrom = Q.from;
@@ -329,7 +332,7 @@ async function loadQueue() {
   try {
     const r = await api('shipping:queue', queueParams(Q));
     if (my !== S.seq) return;
-    S.note = r.note || '';
+    S.note = r.note || ''; S.scope = r.scope || ''; S.mapped = r.mapped;
     if (r.total == null) {   // zapas / starszy backend: cała kolejka naraz
       const v = localPage(r.rows || [], Q);
       S.rows = v.rows; S.total = v.total; S.counts[key] = v.waiting;
@@ -452,6 +455,7 @@ function renderQueue() {
   const u = S.ui, key = S.view, Q = S.Q;
   if (!u.results) return;
   syncControls();
+  syncScope();
   const note = document.getElementById('shipNote');
   if (note) note.replaceChildren(S.note ? el('div', { class: 'notice warn', role: 'status' }, S.note) : '');
   if (S.err) {
@@ -618,10 +622,11 @@ function renderCourier() {
         : 'Zamówienia ze sposobem dostawy przypisanym do przewoźnika ' + name + '. Zaznacz je i kliknij „Utwórz listy przewozowe” na dole albo „Utwórz przesyłkę” w wierszu.')),
     m ? el('div', { class: 'notice info', id: 'shipManualNote', role: 'note' }, manualNote(key, name),
       m.native ? [' ', el('a', { href: '#/' + m.native, title: 'Podgląd listy przesyłek ' + name + ' z Selly w panelu' }, 'Podgląd przesyłek ' + name + ' →')] : null) : null,
-    el('div', { class: 'toolbar' }, u.search, u.filtersBtn,
+    el('div', { class: 'toolbar' }, u.search, u.filtersBtn, scopeSwitch(name),
       el('button', { type: 'button', class: 'secondary', id: 'shipReload', title: 'Wczytaj kolejkę ponownie (z kopii zamówień panelu — bez zapytań do Selly)', onclick: loadQueue }, '↻ Odśwież'),
       el('span', { class: 'spacer' }),
       el('a', { href: '#/przesylki/ustawienia', class: 'muted small', title: 'Zmień przypisanie sposobów dostawy do przewoźników' }, 'Ustawienia przewoźników')),
+    el('div', { id: 'shipScopeHint' }),
     el('div', { id: 'shipNote' }),
     m ? null : paramsPanel(key), u.layout.node, u.bar));
   S.built = key;
@@ -630,6 +635,22 @@ function renderCourier() {
 }
 
 function selectedRows() { return [...S.sel.values()]; }
+
+// ─── Zakres kolejki: przypisane do przewoźnika / wszystkie (jak w Selly) ───────
+function scopeSwitch(name) {
+  const b = (v, label, tip) => el('button', { type: 'button', class: 'chip', 'data-scope': v, 'aria-pressed': 'false', title: tip, onclick: () => setQ({ scope: v }) }, label);
+  return el('span', { class: 'ship-scope', id: 'shipScope', role: 'group', 'aria-label': 'Które zamówienia pokazać' },
+    b('mapped', 'Tylko przypisane do przewoźnika', 'Zamówienia ze sposobem dostawy przypisanym do ' + name + ' w „Ustawieniach przewoźników”'),
+    b('all', 'Wszystkie zamówienia (jak w Selly)', 'Wszystkie zamówienia, jak na ekranie przewoźnika w Selly — każde można nadać przez ' + name));
+}
+function syncScope() {
+  const sc = S.scope || (S.Q && S.Q.scope) || 'mapped';
+  for (const x of document.querySelectorAll('#shipScope [data-scope]')) x.setAttribute('aria-pressed', String(x.dataset.scope === sc));
+  const hint = document.getElementById('shipScopeHint');
+  if (hint) hint.replaceChildren(S.mapped === 0 && manualOf(S.view) ? el('div', { class: 'notice info', role: 'note', id: 'shipScopeNote' },
+    'Żaden sposób dostawy nie jest przypisany do ' + courierName(S.view) + ' — pokazujemy wszystkie zamówienia (jak w Selly). ',
+    el('a', { href: '#/przesylki/ustawienia', title: 'Przypisz sposoby dostawy do przewoźników — wtedy „Tylko przypisane” pokaże kolejkę tego przewoźnika' }, 'Ustawienia przewoźników →')) : '');
+}
 
 // ─── Przewoźnicy bez API: formularz Selly ───────────────────────────────────
 
@@ -1051,6 +1072,7 @@ async function mountRoute() {
   // Ten sam przewoźnik, inne filtry / strona: bez przebudowy (wyszukiwarka nie traci fokusu), tylko nowe dane
   if (S.built !== view || !S.ui.results || !S.ui.results.isConnected) renderCourier();
   loadQueue();
+  if (S.Q.inspect && manualOf(view) && manualOf(view).inspect && ctx.boot && ctx.boot.isAdmin) { const id = S.Q.inspect; S.Q.inspect = ''; startInspect({ id }); }
 }
 
 export default {

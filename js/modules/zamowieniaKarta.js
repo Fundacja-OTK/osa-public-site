@@ -1,8 +1,8 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=bdda14c';
-import { api } from '../core/client.js?v=bdda14c';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=bdda14c';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=f06e90b';
+import { api, ctx } from '../core/client.js?v=f06e90b';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=f06e90b';
 const gw = e => gateWrite(e, 'zamowienia');   // bez prawa zmian w sekcji: wyszarzone z podpowiedzią (core/ui.js)
 
 const EDIT_KEY = 'osa-ord-edit';
@@ -588,8 +588,13 @@ export function buildOrderCard(deps) {
         ['Wymagana data realizacji', dayOf(o.required_completion_date)]]),
       // Szybkie „Oznacz jako opłacone” — też przez podgląd zmian (jedno pole: Zapłacono)
       extraView: o => {
+        // administrator: budowa formularza przesyłki przewoźnika bez API (Przesyłki → „Sprawdź budowę formularza (Selly)”) — dostępna z każdego zamówienia
+        const insp = ctx.boot && ctx.boot.isAdmin ? el('details', { class: 'menu ord-ship-insp', id: 'ordShipInspect' },
+          el('summary', { class: 'ghost small-btn', title: 'Tylko administrator: otwiera formularz „Utwórz przesyłkę” przewoźnika z Selly dla tego zamówienia i pokazuje samą budowę (bez zapisu w Selly)' }, 'Sprawdź budowę formularza (Selly) ▾'),
+          el('div', { class: 'menu-pop' }, [['furgonetka', 'Furgonetka.pl'], ['suus', 'Rohlig Suus'], ['poczta', 'Poczta Polska']].map(([k, n]) =>
+            el('a', { class: 'menu-item', href: '#/przesylki/' + k + '?scope=all&inspect=' + encodeURIComponent(c.id), title: 'Budowa formularza ' + n + ' dla tego zamówienia' }, n)))) : null;
         const t = orderTotals(o);
-        if (Math.abs(t.diff) < 0.005) return null;
+        if (Math.abs(t.diff) < 0.005) return insp;
         const box = el('div', { class: 'ord-actions' });
         const btn = gw(el('button', { type: 'button', class: 'secondary', id: 'ordMarkPaid', title: 'Ustawia kwotę zapłaconą = wartość zamówienia (' + money(t.total) + ' zł); przed zapisem pokażemy podgląd', onclick: () => {
           box.replaceChildren(previewBox('paid', [['Zapłacono', money(t.paid) + ' zł', money(t.total) + ' zł']], {
@@ -598,6 +603,7 @@ export function buildOrderCard(deps) {
           }));
         } }, 'Oznacz jako opłacone (' + money(t.total) + ' zł)'));
         box.append(btn);
+        if (insp) box.append(insp);
         return box;
       },
     });

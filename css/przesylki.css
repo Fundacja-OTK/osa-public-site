@@ -54,3 +54,6 @@ td.ship-old { color: var(--no); font-weight: 700; }
 }
 .ship-insp-fields { font-size: var(--fs-sm); }
 .ship-insp-form { margin: var(--s2) 0; }
+.ship-scope { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.ship-scope .chip[aria-pressed=true] { background: var(--accent-soft); font-weight: 600; }
+.ord-ship-insp { display: inline-block; }

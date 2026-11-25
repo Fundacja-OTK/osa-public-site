@@ -1,5 +1,5 @@
 // Czysta (bez DOM) logika widoku „Zestaw”: zapis zestawu w adresie i etykiety osi czasu — wydzielone do testów jednostkowych.
-import { isoWeekOf, weekLabel } from './raportyDaty.js?v=bdda14c';
+import { isoWeekOf, weekLabel } from './raportyDaty.js?v=f06e90b';
 
 export const MAX_SET = 12;
 const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
