@@ -80,3 +80,9 @@ tr.kb-hl > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .rc-toggle[aria-expanded="true"] .rc-chev { transform: rotate(90deg); }
 .sb-recent .rc-list { padding: 2px 0 6px 8px; }
 @media (prefers-reduced-motion: reduce) { .rc-toggle .rc-chev { transition: none; } }
+
+/* Wyszukiwarka zawsze widoczna u góry menu: przyklejona, z tłem paska (treść przewija się pod nią), cień tylko po przewinięciu */
+.sb-search-wrap { position: sticky; top: 0; z-index: 3; margin: 0 0 var(--s2); padding-bottom: 2px; background: var(--nav-bg); transition: box-shadow var(--dur, .15s) var(--ease, ease); }
+.sb-search-wrap .sb-search { margin: 0; }
+.sb-scrolled .sb-search-wrap { box-shadow: 0 8px 10px -8px rgba(0, 0, 0, .45); }
+@media (prefers-reduced-motion: reduce) { .sb-search-wrap { transition: none; } }

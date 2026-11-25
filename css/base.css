@@ -115,6 +115,8 @@ code { font: var(--fs-xs) ui-monospace, SFMono-Regular, Consolas, monospace; col
 .login-form button { min-height: 44px; }
 .login-note { text-align: center; }
 .login-form .notice { margin-top: 0; }
+.login-alt { text-align: center; margin: 0 var(--s4) var(--s4); }
+.emergency-bar { margin: 0 0 var(--s3); font-weight: 600; }
 /* „Kto się logował” — zgody na zmiany; znacznik „tylko podgląd” w nagłówku strony */
 .usr-grants summary { cursor: pointer; white-space: nowrap; }
 .usr-grant { display: block; padding: 2px 0; white-space: nowrap; }

@@ -2,7 +2,7 @@
 // (#cardSignIn); hasło idzie wyłącznie do serwera głównego (Worker), który przekazuje je do Selly i nigdzie go nie zapisuje.
 // Po zalogowaniu: token sesji (256 bitów) w localStorage — wspólny dla kart (nowa karta otwiera panel od razu; zalogowanie / wylogowanie
 // w jednej karcie dociera do pozostałych przez zdarzenie „storage”) + krótki token dla serwera zapasowego (Apps Script), odświeżany w tle.
-import { $ } from './ui.js?v=7646b3d';
+import { $ } from './ui.js?v=1e8eef7';
 
 const ENV = () => window.OSA_CONFIG || {};
 export const SESSION_KEY = 'osa-sess';
@@ -83,7 +83,8 @@ export async function completePerms(data, onStep) {
 
 /** Zapamiętanie sesji po zalogowaniu (data = odpowiedź auth:login). */
 export function adoptLogin(data) {
-  save({ t: data.session, login: data.login || '', g: data.gasToken || '', gExp: gasExp(data) });
+  // em: termin sesji awaryjnej (baner także wtedy, gdy dane startowe przyjdą z serwera zapasowego, który trybu awaryjnego nie zna)
+  save({ t: data.session, login: data.login || '', g: data.gasToken || '', gExp: gasExp(data), em: data.emergency === true ? Number(data.emergencyUntilMs) || 1 : 0 });
   hideLogin();
   flush();
 }
@@ -94,6 +95,8 @@ export function adoptBoot(data) {
 }
 
 export const sessionLogin = () => (sess ? sess.login : '');
+/** Termin sesji awaryjnej (ms) albo 0 — zwykła sesja. */
+export const sessionEmergency = () => (sess && sess.em ? Number(sess.em) || 0 : 0);
 /** Czy jesteśmy zalogowani (bez pokazywania ekranu logowania) — dla raportów w tle. */
 export const hasToken = () => !!sess;
 /** Login bieżącej sesji (nazwa z czasów logowania Google — używana przez zapamiętany start). */
@@ -147,7 +150,8 @@ export function showLogin(message) {
   for (const id of ['cardStart', 'modules', 'pageHead']) { const x = $(id); if (x) x.hidden = true; }
   card.hidden = false;
   wire();
-  showStep('login');
+  // link od właściciela panelu (…#awaryjne) otwiera od razu wejście awaryjne
+  showStep(location.hash === '#awaryjne' ? 'em' : 'login');
   showError('loginErr', message || '');
   const u = $('loginUser');
   if (u && !u.value) { try { u.value = localStorage.getItem('osa-last-login') || ''; } catch (e) { /* ok */ } }
@@ -157,13 +161,18 @@ export function showLogin(message) {
 function showStep(step) {
   $('loginForm').hidden = step !== 'login';
   $('codeForm').hidden = step !== 'code';
+  const em = $('emForm'), row = $('emLinkRow');
+  if (em) em.hidden = step !== 'em';
+  if (row) row.hidden = step !== 'login';
+  if (step === 'em') setTimeout(() => { const u = $('emUser'); if (u && !u.value) u.value = $('loginUser').value; (u && u.value ? $('emCode') : u).focus(); }, 0);
 }
 
 function wire() {
   if (wired) return;
   wired = true;
   const form = $('loginForm'), codeForm = $('codeForm');
-  for (const b of [form, codeForm].map(f => f.querySelector('button[type=submit]'))) b.dataset.label = b.textContent;
+  const emForm = $('emForm');
+  for (const b of [form, codeForm, emForm].filter(Boolean).map(f => f.querySelector('button[type=submit]'))) b.dataset.label = b.textContent;
   form.addEventListener('submit', async ev => {
     ev.preventDefault();
     const login = $('loginUser').value.trim(), pass = $('loginPass').value;
@@ -204,6 +213,24 @@ function wire() {
     adoptLogin(r);
   });
   $('codeBack').addEventListener('click', () => { pending = null; showStep('login'); showError('loginErr', ''); $('loginPass').focus(); });
+  if (!emForm) return;
+  // Wejście awaryjne (docs/auth.md): login + jednorazowy kod od właściciela; serwer sprawdza kod (limit prób jak przy logowaniu)
+  $('emLink').addEventListener('click', () => { showError('emErr', ''); showStep('em'); });
+  $('emBack').addEventListener('click', () => { showStep('login'); showError('loginErr', ''); $('loginUser').focus(); });
+  emForm.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const login = $('emUser').value.trim(), code = $('emCode').value.trim();
+    if (!login || !code) { showError('emErr', 'Podaj login Selly i kod awaryjny od właściciela panelu.'); return; }
+    showError('emErr', '');
+    busy(emForm, true, 'Sprawdzam kod…');
+    let r = null;
+    try { r = await authCall('auth:emergency', { login, code }); } catch (e) { showError('emErr', e.message); }
+    $('emCode').value = '';   // kod jest jednorazowy — nie zostaje w formularzu
+    busy(emForm, false);
+    if (!r) { $('emCode').focus(); return; }
+    if (location.hash === '#awaryjne') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ok */ } }
+    adoptLogin(r);
+  });
 }
 
 function startCode(r) {

@@ -133,6 +133,11 @@
     'menu-ed', 'formularze', 'koszyki', 'konf', 'panel-konf', 'allegro', 'empik', 'allegro-aukcje-lista', 'allegro-zdarzenia', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-przesylki', 'int-fk',
   ];
   const NATIVE = 'native';
+  // Wejście awaryjne (docs/auth.md → „Wejście awaryjne”): sesja bez ciasteczek Selly — akcje, które otwierają strony Selly sesją użytkownika
+  // (natywne ekrany, formularze przesyłek przewoźników bez API), są niedostępne; nadawanie zgód też (decyzje o uprawnieniach tylko po zwykłym logowaniu).
+  // Odczyty i zapisy przez REST API (token sklepu) działają wg uprawnień z ostatniego zwykłego logowania.
+  const EMERGENCY_BLOCKED = /^(native:\w+|shipping:manual\w+|grants:set)$/;
+  const EMERGENCY_MSG = 'Niedostępne w trybie awaryjnym — ten ekran działa na Twojej sesji w Selly, a w trybie awaryjnym jej nie ma. Skorzystaj z panelu Selly albo poczekaj, aż zwykłe logowanie znowu zadziała.';
 
   const ORD = ['zamowienia', 'dropshipping', 'przesylki', 'wplaty', 'klienci', 'raporty', 'magazyny', 'licencje'];
   const CLI = ['klienci', 'zamowienia', 'wplaty', 'dropshipping', 'licencje'];
@@ -225,6 +230,7 @@
   function denyReason(who, action, params) {
     const rule = ruleFor(action, params);
     if (rule === null) return 'Ta operacja nie jest dostępna w panelu OSA (' + String(action).slice(0, 60) + ').';
+    if (who && who.emergency && EMERGENCY_BLOCKED.test(String(action || ''))) return EMERGENCY_MSG;
     if (rule === ANY) return '';
     if (rule === ADMIN) return who && who.admin ? '' : 'Tylko administrator panelu OSA może to zrobić.';
     if (rule === NATIVE) {   // natywny ekran: kompletna sesja; zapis tylko na ekranach z polami edytowalnymi; resztę rozstrzyga Selly (sesja użytkownika)
@@ -276,7 +282,7 @@
     return { login: p.l, perms: p.p.map(String), write: Array.isArray(p.w) ? p.w.map(String) : [], admin: p.a === true, sid: p.s, iat: p.iat || 0 };
   }
 
-  const api = { bulkSection, SECTION_ROUTES, SESSION_WRITE, GRANTABLE, VIEW_REDIRECTS, READONLY_SECTIONS, ADMIN_ROUTE, DERIVED, ADMIN_SECTIONS, DICTS, RULES, TITLES, ANY, ADMIN, NATIVE, NATIVE_SCREENS, NATIVE_READ_ONLY, READ_ACTIONS, WRITE_ACTIONS, GAS_TOKEN_TTL_MS,
+  const api = { EMERGENCY_BLOCKED, EMERGENCY_MSG, bulkSection, SECTION_ROUTES, SESSION_WRITE, GRANTABLE, VIEW_REDIRECTS, READONLY_SECTIONS, ADMIN_ROUTE, DERIVED, ADMIN_SECTIONS, DICTS, RULES, TITLES, ANY, ADMIN, NATIVE, NATIVE_SCREENS, NATIVE_READ_ONLY, READ_ACTIONS, WRITE_ACTIONS, GAS_TOKEN_TTL_MS,
     sectionsFromProbe, computeWrite, isWriteAction, isAdminLogin, ruleFor, denyReason, canSee, probeRoutes, gasPayload, checkPayload };
   globalThis.OSA_PANEL_AUTH = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

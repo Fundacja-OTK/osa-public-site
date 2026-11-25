@@ -3,10 +3,10 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=7646b3d';
-import { api, ctx } from '../core/client.js?v=7646b3d';
-import { go } from '../core/router.js?v=7646b3d';
-import { registerListKeys } from '../core/listKeys.js?v=7646b3d';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, sortTh, saveBlob, zipStored, today, dateInput, debounce, pager, filterLayout, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=1e8eef7';
+import { api, ctx } from '../core/client.js?v=1e8eef7';
+import { go } from '../core/router.js?v=1e8eef7';
+import { registerListKeys } from '../core/listKeys.js?v=1e8eef7';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
