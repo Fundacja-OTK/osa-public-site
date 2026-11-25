@@ -63,3 +63,4 @@
 #modSm .sm-det-h { margin-top: var(--s2); font-weight: 600; }
 #modSm .sm-det { margin: var(--s1) 0 0; padding-left: 1.2em; }
 #modSm .sm-det li { margin: 2px 0; }
+#modSm .sm-selprompt { margin-top: 4px; padding: 4px var(--s2); background: var(--info-soft); border-radius: var(--r2); }

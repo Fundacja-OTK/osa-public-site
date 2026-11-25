@@ -29,5 +29,4 @@
 #impMapTable select { max-width: 100%; }
 .ord-fails li.ok { color: var(--ok); }
 .ord-fails li.bad { color: var(--no); }
-#cliTable th.c, #cliTable td.c { width: 32px; text-align: center; }
 @media (max-width: 640px) { .imp-tile { min-width: calc(50% - var(--s2)); box-sizing: border-box; } }

@@ -1,12 +1,13 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, tapOpen, debounce, flash, loadingBox, sellyLink, sortTh, money, dateStr, isUnavailable, cnt } from '../core/ui.js?v=1e8eef7';
-import { api, ctx } from '../core/client.js?v=1e8eef7';
-import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=1e8eef7';
-import { go, setLeaveGuard } from '../core/router.js?v=1e8eef7';
-import { RESOURCES } from '../core/resources.js?v=1e8eef7';
-import { registerListKeys } from '../core/listKeys.js?v=1e8eef7';
-import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=1e8eef7';
+import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=e12e9cd';
+import { listView } from '../core/listView.js?v=e12e9cd';
+import { api, ctx } from '../core/client.js?v=e12e9cd';
+import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=e12e9cd';
+import { go, setLeaveGuard } from '../core/router.js?v=e12e9cd';
+import { RESOURCES } from '../core/resources.js?v=e12e9cd';
+import { registerListKeys } from '../core/listKeys.js?v=e12e9cd';
+import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=e12e9cd';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -20,17 +21,16 @@ const labelOf = (opts, v) => { const o = (opts || []).find(x => String(x[0]) ===
 export function createResource(id) {
   const def = RESOURCES[id];
   if (!def) throw new Error('Nieznany zasób: ' + id);
-  const S = { root: null, seq: 0, rows: new Map(), opts: new Map(), lists: {}, dirty: false, collapsed: new Set() };
-  const pageSize = () => (def.tree ? PAGE_TREE : PAGE);
+  const S = { root: null, seq: 0, rows: new Map(), opts: new Map(), lists: {}, dirty: false, collapsed: new Set(), kids: new Set(), refOpts: {}, lv: null };
   // Opinie: produkt opinii z wiersza albo z filtra „Produkt (ID)” (gdy to jeden numer) — potrzebny do moderacji
   const parentOf = row => {
     if (!def.parent || !row) return null;
     if (row.product_id != null && row.product_id !== '') return row.product_id;
-    const f = String((S.Q && S.Q.filters && S.Q.filters.product_ids) || '').trim();
+    const f = String((S.lv && S.lv.state && S.lv.state.filters.product_ids) || '').trim();
     return /^\d{1,12}$/.test(f) ? f : null;
   };
 
-  const listHref = () => '#/' + id + (S.listQs || '');
+  const listHref = () => (S.lv && S.lv.state ? S.lv.hrefOf() : '#/' + id);
   const sellyUrl = () => adminUrl() + '?a=' + def.a;
 
   function unavailable(retry) {
@@ -60,7 +60,7 @@ export function createResource(id) {
     }
     if (col.type === 'toggle') {
       const td0 = el("td", { class: "nw" });
-      td0.append(reviewToggle(r, parentOf(r), () => loadList()));
+      td0.append(reviewToggle(r, parentOf(r), () => S.lv.reload()));
       return td0;
     }
     if (col.type === 'bool') return el('td', { class: 'nw' }, isOn(v) ? el('span', { class: 'tag ok' }, 'tak') : el('span', { class: 'muted' }, 'nie'));
@@ -78,126 +78,80 @@ export function createResource(id) {
     return el('td', { class: col.num ? 'n nw' : null }, v == null ? '' : String(v));
   }
 
-  // ─── Lista ─────────────────────────────────────────────────────────────────
-  function readQ(query) {
-    const g = k => (query && query.get(k)) || '';
-    const colKeys = def.columns.map(c => c.key);
-    const sort = colKeys.includes(g('sort')) ? g('sort') : (def.defaultSort ? def.defaultSort.key : '');
-    const dir = g('dir') === 'asc' || g('dir') === 'desc' ? g('dir') : (def.defaultSort && sort === def.defaultSort.key ? def.defaultSort.dir : 'asc');
-    const filters = {};
-    for (const f of def.filters || []) if (g('f_' + f.key) !== '') filters[f.key] = g('f_' + f.key);
-    return { q: g('q'), page: Math.max(1, parseInt(g('page'), 10) || 1), sort, dir, filters };
-  }
-  function qsOf(Q) {
-    const p = new URLSearchParams();
-    if (Q.q) p.set('q', Q.q);
-    for (const [k, v] of Object.entries(Q.filters)) p.set('f_' + k, v);
-    if (Q.page > 1) p.set('page', String(Q.page));
-    const ds = def.defaultSort;
-    if (Q.sort && (!ds || Q.sort !== ds.key || Q.dir !== ds.dir)) { p.set('sort', Q.sort); p.set('dir', Q.dir); }
-    const s = p.toString();
-    return s ? '?' + s : '';
-  }
-  function setQ(patch) {
-    const n = Object.assign({}, S.Q, patch);
-    if (!('page' in patch)) n.page = 1;
-    const h = '/' + id + qsOf(n);
-    if (location.hash === '#' + h) { S.Q = n; S.listQs = qsOf(n); loadList(); } else go(h);
-  }
-
-  function buildList(box) {
-    const u = S.ui = {};
-    u.search = el('input', { type: 'search', id: 'zsSearch', placeholder: def.searchHint, 'aria-label': def.searchHint, title: def.searchTip || def.searchHint, value: S.Q.q });
-    u.search.addEventListener('input', debounce(() => { if (u.search.value.trim() !== S.Q.q) setQ({ q: u.search.value.trim() }); }, 350));
-    const filterBox = (def.filters || []).length ? el('details', { class: 'zs-filters', id: 'zsFilters', open: Object.keys(S.Q.filters).length ? true : null },
-      el('summary', { title: 'Dodatkowe filtry listy' }, 'Filtry'), el('div', { class: 'zs-filter-row' }, def.filters.map(f => filterControl(f)))) : null;
-    u.results = el('div', { id: 'zsResults' });
-    registerListKeys({ screen: 'zasob', table: 'zsTable', search: 'zsSearch', back: 'zsBack', extra: [{ keys: ['n'], label: 'N', desc: 'Dodaj nowy rekord', id: 'zsAdd' }] });
-    const add = def.canCreate ? el('a', { href: '#/' + id + '/nowy', write: id, id: 'zsAdd', class: 'zs-add', title: 'Otwiera pusty formularz — nowy rekord zapisze się w Selly' }, '+ ' + def.addLabel) : null;
-    box.replaceChildren(el('div', { class: 'card' },
-      el('div', { class: 'toolbar head zs-head' }, el('h2', { id: 'zsTitle' }, def.many), add),
-      def.readOnlyNote ? el('div', { class: 'sub muted zs-note' }, def.readOnlyNote) : null,
-      el('div', { class: 'toolbar' }, u.search), filterBox, u.results));
-  }
-  function filterControl(f) {
-    const sel = el('select', { id: 'zsF-' + f.key, 'aria-label': f.label, title: f.tip || f.label }, el('option', { value: '' }, 'wszystkie'));
-    const fill = opts => { for (const [v, l] of opts) sel.append(el('option', { value: String(v) }, l)); sel.value = S.Q.filters[f.key] != null ? S.Q.filters[f.key] : ''; };
-    if (f.type === 'date' || f.type === 'text') {
-      const inp = el('input', { type: f.type === 'date' ? 'date' : 'text', id: 'zsF-' + f.key, 'aria-label': f.label, title: f.tip || f.label, value: S.Q.filters[f.key] || '' });
-      const apply = () => { const filters = Object.assign({}, S.Q.filters); if (inp.value.trim() === '') delete filters[f.key]; else filters[f.key] = inp.value.trim(); if (JSON.stringify(filters) !== JSON.stringify(S.Q.filters)) setQ({ filters }); };
-      inp.addEventListener(f.type === 'date' ? 'change' : 'input', f.type === 'date' ? apply : debounce(apply, 450));
-      return el('label', { class: 'field-inline', title: f.tip || null }, f.label, ' ', inp);
-    }
-    if (f.type === 'ref') options(f.ref).then(o => fill(o.map(x => [x.value, x.label]))).catch(() => {}); else fill(f.options);
-    sel.addEventListener('change', () => { const filters = Object.assign({}, S.Q.filters); if (sel.value === '') delete filters[f.key]; else filters[f.key] = sel.value; setQ({ filters }); });
-    return el('label', { class: 'field-inline', title: f.tip || null }, f.label, ' ', sel);
-  }
-
-  async function loadList() {
-    const my = ++S.seq, Q = S.Q, u = S.ui;
-    u.results.replaceChildren(loadingBox('Pobieram ' + def.many.toLowerCase() + ' z Selly…'));
-    let d, refOpts = {};
-    try {
-      d = await api('res:list', { res: id, page: Q.page, pageSize: pageSize(), q: Q.q, sort: Q.sort, dir: Q.dir, filters: Q.filters });
-      for (const c of def.columns) if (c.type === 'ref') refOpts[c.ref] = await options(c.ref).catch(() => []);
-    } catch (e) {
-      if (my !== S.seq) return;
-      u.results.replaceChildren(failBox(e, loadList, def.many.toLowerCase()));
-      return;
-    }
-    if (my !== S.seq) return;
-    S.data = d;
-    S.rows = new Map(d.rows.map(r => [String(r[def.idField]), r]));
-    renderRows(d, refOpts);
-  }
-
-  function renderRows(d, refOpts) {
-    const Q = S.Q, u = S.ui;
-    const head = el('tr', null, def.columns.map(c => sortTh({ label: c.label, sort: c.key, num: c.num, tip: c.tip + (S.data && S.data.pageOnlySearch ? '' : ''), firstDir: c.firstDir, tipHeader: c.tip && c.tip !== c.label },
-      Q, (sort, dir) => setQ({ sort, dir }))));
-    const body = el('tbody');
-    const treeMode = !!def.tree && !Q.q && !Q.sort;
+  // ─── Lista (wspólny komponent core/listView.js) ────────────────────────────
+  const treeMode = st => !!def.tree && !st.q && !st.sort;
+  const rid = r => String(r[def.idField]);
+  const nameLink = (r, text) => el('a', { href: '#/' + id + '/' + encodeURIComponent(rid(r)), class: 'cell-name' }, text || '(bez nazwy)');
+  const foldBtn = (r, td) => {
+    if (!S.kids.has(rid(r))) return td;
+    const open = !S.collapsed.has(rid(r));
+    (td.querySelector('.zs-indent') || td).prepend(el('button', { type: 'button', class: 'zs-fold', 'aria-expanded': String(open), title: open ? 'Zwiń podkategorie' : 'Rozwiń podkategorie',
+      onclick: ev => { ev.stopPropagation(); if (open) S.collapsed.add(rid(r)); else S.collapsed.delete(rid(r)); S.lv.render(); } }, open ? '▾' : '▸'));
+    return td;
+  };
+  const columns = () => def.columns.map((c, i) => ({ key: c.key, label: c.label, tip: c.tip, num: c.num, firstDir: c.firstDir, sort: c.sort === false ? false : true,
+    cell: r => {
+      const td = cell(c, r, S.refOpts);
+      if (i === 0 && !c.tree) td.replaceChildren(nameLink(r, td.textContent));
+      return i === 0 ? foldBtn(r, td) : td;
+    } }));
+  /** Drzewo (kategorie bez szukania i sortowania): ukrywa gałęzie zwinięte; zapamiętuje, które wiersze mają podkategorie. */
+  function treeView(rows) {
+    S.kids = new Set();
+    if (!treeMode(S.lv.state)) return rows;
+    const out = [];
     let skipBelow = null;
-    d.rows.forEach((r, i) => {
-      const rid = String(r[def.idField]);
-      const depth = r._depth || 0, hasKids = treeMode && d.rows[i + 1] && (d.rows[i + 1]._depth || 0) > depth;
-      if (treeMode) {
-        if (skipBelow != null && depth > skipBelow) return;
-        skipBelow = S.collapsed.has(rid) && hasKids ? depth : null;
-      }
-      body.append(el('tr', { class: 'pick', 'data-id': rid, onclick: tapOpen(() => go('/' + id + '/' + encodeURIComponent(rid))) },
-        def.columns.map((c, i) => {
-          const td = cell(c, r, refOpts);
-          if (i === 0 && !c.tree) { const t = td.textContent; td.replaceChildren(el('a', { href: '#/' + id + '/' + encodeURIComponent(rid), class: 'cell-name' }, t || '(bez nazwy)')); }
-          if (i === 0 && hasKids) {
-            const open = !S.collapsed.has(rid);
-            const lead = td.querySelector('.zs-indent');
-            (lead || td).prepend(el('button', { type: 'button', class: 'zs-fold', 'aria-expanded': String(open), title: open ? 'Zwiń podkategorie' : 'Rozwiń podkategorie',
-              onclick: ev => { ev.stopPropagation(); if (open) S.collapsed.add(rid); else S.collapsed.delete(rid); renderRows(d, refOpts); } }, open ? '▾' : '▸'));
-          }
-          return td;
-        })));
+    rows.forEach((r, i) => {
+      const depth = r._depth || 0;
+      if (rows[i + 1] && (rows[i + 1]._depth || 0) > depth) S.kids.add(rid(r));
+      if (skipBelow != null && depth > skipBelow) return;
+      skipBelow = S.collapsed.has(rid(r)) && S.kids.has(rid(r)) ? depth : null;
+      out.push(r);
     });
-    if (!d.rows.length) body.append(el('tr', null, el('td', { colspan: String(def.columns.length), class: 'empty' },
-      Q.q || Object.keys(Q.filters).length ? 'Brak wyników dla wyszukiwania i filtrów. ' : 'Brak pozycji. ',
-      Q.q || Object.keys(Q.filters).length ? el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ q: '', filters: {} }) }, 'Wyczyść filtry')
-        : (def.canCreate ? el('a', { write: id, href: '#/' + id + '/nowy' }, def.addLabel) : null))));
-    const hasPrev = Q.page > 1;
-    const hasNext = d.total != null ? Q.page * d.pageSize < d.total : !!d.hasNext;
-    const foldAll = treeMode && d.rows.some((r, i) => d.rows[i + 1] && (d.rows[i + 1]._depth || 0) > (r._depth || 0))
-      ? el('div', { class: 'toolbar zs-fold-bar' }, el('button', { type: 'button', class: 'secondary', id: 'zsFoldAll', title: 'Zwija wszystkie kategorie do najwyższego poziomu',
-        onclick: () => { for (const r of d.rows) S.collapsed.add(String(r[def.idField])); renderRows(d, refOpts); } }, 'Zwiń wszystko'),
-      el('button', { type: 'button', class: 'secondary', id: 'zsUnfoldAll', title: 'Rozwija całe drzewo kategorii', onclick: () => { S.collapsed.clear(); renderRows(d, refOpts); } }, 'Rozwiń wszystko')) : null;
-    const pages = d.total != null ? Math.max(1, Math.ceil(d.total / d.pageSize)) : null;
-    u.results.replaceChildren(
-      d.truncated ? el('div', { class: 'notice warn' }, 'Lista jest bardzo długa — pokazuję pierwsze 1000 pozycji. Użyj wyszukiwania, aby znaleźć resztę.') : null,
+    return out;
+  }
+  function notices(d) {
+    const foldAll = S.kids.size ? el('div', { class: 'toolbar zs-fold-bar' },
+      el('button', { type: 'button', class: 'secondary', id: 'zsFoldAll', title: 'Zwija wszystkie kategorie do najwyższego poziomu', onclick: () => { for (const r of d.rows) S.collapsed.add(rid(r)); S.lv.render(); } }, 'Zwiń wszystko'),
+      el('button', { type: 'button', class: 'secondary', id: 'zsUnfoldAll', title: 'Rozwija całe drzewo kategorii', onclick: () => { S.collapsed.clear(); S.lv.render(); } }, 'Rozwiń wszystko')) : null;
+    return [d.truncated ? el('div', { class: 'notice warn' }, 'Lista jest bardzo długa — pokazuję pierwsze 1000 pozycji. Użyj wyszukiwania, aby znaleźć resztę.') : null,
       d.pageOnlySearch ? el('div', { class: 'notice warn', id: 'zsPageOnly', title: 'API Selly nie ma wyszukiwania w tej sekcji' }, 'Selly nie ma wyszukiwania w tej sekcji — przeszukana została tylko bieżąca strona listy.') : null,
-      foldAll,
-      el('div', { class: 'table-wrap' }, el('table', { id: 'zsTable' }, el('thead', null, head), body)),
-      el('div', { class: 'ord-pager' },
-        el('button', { type: 'button', class: 'secondary', id: 'zsPrev', disabled: !hasPrev, title: hasPrev ? 'Poprzednia strona' : 'To pierwsza strona', onclick: () => setQ({ page: Q.page - 1 }) }, '← Poprzednia'),
-        el('span', { class: 'muted' }, 'Strona ' + Q.page + (pages ? ' z ' + pages + ' · ' + cnt(d.total, 'pozycja', 'pozycje', 'pozycji') : ' · ' + cnt(d.rows.length, 'pozycja', 'pozycje', 'pozycji') + ' na stronie')),
-        el('button', { type: 'button', class: 'secondary', id: 'zsNext', disabled: !hasNext, title: hasNext ? 'Następna strona' : 'To ostatnia strona', onclick: () => setQ({ page: Q.page + 1 }) }, 'Następna →')));
+      foldAll];
+  }
+  async function loadRows(st) {
+    const d = await api('res:list', { res: id, page: st.page, pageSize: st.size, q: st.q, sort: st.sort, dir: st.dir, filters: st.filters });
+    const refOpts = {};
+    for (const c of def.columns) if (c.type === 'ref') refOpts[c.ref] = await options(c.ref).catch(() => []);
+    S.refOpts = refOpts;
+    return d;
+  }
+  /** Zaznaczone → CSV z widocznymi kolumnami (dane z wczytanych stron listy, bez zapytań do Selly). */
+  function selectedCsv(rows) {
+    const cols = def.columns;
+    const text = (c, r) => cell(c, r, S.refOpts).textContent.trim();
+    downloadCsv([cols.map(c => c.label), ...rows.map(r => cols.map(c => text(c, r)))], id, '');
+  }
+  function buildList() {
+    const add = def.canCreate ? el('a', { href: '#/' + id + '/nowy', write: id, id: 'zsAdd', class: 'zs-add', title: 'Otwiera pusty formularz — nowy rekord zapisze się w Selly' }, '+ ' + def.addLabel) : null;
+    S.lv = listView({
+      id: 'zs', route: '/' + id, title: def.many, titleId: 'zsTitle', headActions: [add], storeKey: 'zasob-' + id,
+      intro: def.readOnlyNote ? [el('div', { class: 'sub muted zs-note' }, def.readOnlyNote)] : [],
+      columns: columns(), defaultSort: def.defaultSort || null,
+      sizes: def.tree ? [50, 100, 200] : [25, 50], defaultSize: def.tree ? PAGE_TREE : PAGE,
+      search: { placeholder: def.searchHint, label: def.searchHint, tip: def.searchTip || def.searchHint },
+      filters: (def.filters || []).map(f => ({ key: f.key, label: f.label, tip: f.tip || f.label, type: f.type === 'date' || f.type === 'text' ? f.type : 'select', id: 'zsF-' + f.key,
+        options: f.type === 'ref' ? () => options(f.ref).then(o => o.map(x => [x.value, x.label])) : f.options })),
+      filterPrefix: 'f_', filtersTip: 'Dodatkowe filtry listy',
+      rowId: rid, noun: ['pozycja', 'pozycje', 'pozycji'], loadingText: 'Pobieram ' + def.many.toLowerCase() + ' z Selly…',
+      empty: 'Brak pozycji.', emptyAction: () => (def.canCreate ? el('a', { write: id, href: '#/' + id + '/nowy' }, def.addLabel) : null),
+      errorBox: (e, retry) => failBox(e, retry, def.many.toLowerCase()),
+      load: loadRows, view: treeView, above: notices,
+      onData: d => { S.rows = new Map(d.rows.map(r => [rid(r), r])); },
+      open: r => go('/' + id + '/' + encodeURIComponent(rid(r))),
+      select: { noun: ['pozycję', 'pozycje', 'pozycji'], label: r => String(r[def.titleField] || rid(r)),
+        actions: rows => [el('button', { type: 'button', class: 'secondary', id: 'zsSelCsv', title: 'Pobiera zaznaczone pozycje (ze wszystkich stron) do pliku CSV z kolumnami jak w tabeli', onclick: () => selectedCsv(rows) }, 'Pobierz zaznaczone (CSV)')] },
+    });
+    S.listBox.replaceChildren(S.lv.node);
   }
 
   // ─── Karta / formularz ─────────────────────────────────────────────────────
@@ -474,11 +428,10 @@ export function createResource(id) {
       S.listBox.hidden = !!part; S.cardBox.hidden = !part;
       if (part) { renderCard(part, params && params.query); return; }
       setLeaveGuard(null); setDirty(false);
-      S.Q = readQ(params && params.query);
-      S.listQs = qsOf(S.Q);
-      buildList(S.listBox);
-      loadList();
+      if (!S.lv) buildList();
+      registerListKeys({ screen: 'zasob', table: 'zsTable', search: 'zsSearch', filters: 'zsFiltersBtn', back: 'zsBack', select: true, extra: [{ keys: ['n'], label: 'N', desc: 'Dodaj nowy rekord', id: 'zsAdd' }] });
+      S.lv.mount(params && params.query);
     },
-    unmount() { S.seq++; setLeaveGuard(null); setDirty(false); },
+    unmount() { S.seq++; if (S.lv) S.lv.stop(); setLeaveGuard(null); setDirty(false); },
   };
 }
