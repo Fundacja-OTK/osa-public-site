@@ -154,7 +154,7 @@ export const SECTIONS = [
     { id: 'zlecenia', title: 'Zlecenia', a: 'billing.settlements', kind: 'osa', tip: 'Godziny pracy i rozliczenia zleceń u Selly (tylko podgląd; zamawianie godzin w Selly)' },
     { id: 'admini', title: 'Konta administratorów Selly', a: 'users', kind: 'osa', tip: 'Lista kont administratorów Selly i ich ostatnie logowania (tylko podgląd; sekrety niewidoczne, zmiany w Selly)' },
     { id: 'grupy', title: 'Grupy użytkowników', a: 'groups', kind: 'osa', tip: 'Grupy kont administratorów i liczba kont (tylko podgląd; zmiany w Selly)' },
-    { id: 'uprawnienia', title: 'Uprawnienia', a: 'actions.perm', kind: 'osa', tip: 'Grupy i ich uprawnienia w Selly (tylko podgląd; zmiany w Selly)' },
+    { id: 'uprawnienia', title: 'Uprawnienia', a: 'actions.perm', kind: 'osa', admin: true, tip: 'Edytor uprawnień grup administratorów Selly: wyszukiwanie, szablony („Tylko podgląd”, „Jak inna grupa”), podgląd zmian przed zapisem (tylko administrator)' },
     { id: 'odo', title: 'Dane osobowe', a: 'odo', kind: 'osa', tip: 'Dziennik zdarzeń dotyczących danych osobowych (tylko podgląd)' },
   ] },
 ];

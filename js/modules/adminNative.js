@@ -1,8 +1,8 @@
-// Administracja i system (podgląd) — ekrany Selly tylko do odczytu (bez zapisu): konta administratorów, grupy, uprawnienia, dane osobowe (zdarzenia),
+// Administracja i system (podgląd) — ekrany Selly tylko do odczytu (bez zapisu): konta administratorów, grupy, dane osobowe (zdarzenia),
 // zgłoszenia, płatności, zlecenia, usługi, rozszerzenia, wizyty, pliki, automatyzacje, integrator, Rest API / Front API (bez wartości kluczy), przesyłki
-// Furgonetka i Suus. Dane: serwer główny czyta Selly sesją użytkownika; sekrety są maskowane po stronie serwera (extension/lib/sellyNative.js).
+// Furgonetka i Suus. Uprawnienia grup — osobny edytor (modules/uprawnienia.js). Dane: serwer główny czyta Selly sesją użytkownika; sekrety są maskowane po stronie serwera (extension/lib/sellyNative.js).
 // Konfiguracja: screen = id ekranu (SCREENS), headerTips = wyjaśnienia kolumn. Nowy ekran: wpis tu + SCREENS + nav.js + shell.js (LAZY).
-import { createNative } from './sellyNative.js?v=889153d';
+import { createNative } from './sellyNative.js?v=a2fbbbf';
 
 const ro = (id, title, a, noun, headerTips, extra) => createNative({ id, title, screen: id, a, noun, recordTitle: i => title + ' nr ' + i, headerTips: headerTips || {}, ...extra });
 
@@ -16,7 +16,6 @@ export const views = {
     'Ostatnie złe logowanie': 'Ostatnia nieudana próba logowania na to konto',
   }, { recordRoute: 'users.edit' }),
   grupy: ro('grupy', 'Grupy użytkowników', 'groups', 'grupy', { 'Ilość kont': 'Ile kont administratorów należy do grupy' }, { recordRoute: 'groups.view' }),
-  uprawnienia: ro('uprawnienia', 'Uprawnienia', 'actions.perm', 'grupy', { 'Liczba użytkowników': 'Ile kont ma uprawnienia tej grupy' }, { recordRoute: 'actions.perm' }),
   odo: ro('odo', 'Dane osobowe', 'odo', 'zdarzenia', { 'Dane o zdarzeniu': 'Co zostało zrobione z danymi osobowymi (np. anonimizacja, eksport)', 'Administrator': 'Kto wykonał czynność' }),
   zgloszenia: ro('zgloszenia', 'Zgłoszenia', 'support', 'zgłoszenia', { 'Dział zgłoszeń': 'Dział Selly, do którego trafiło zgłoszenie', 'Ostatnia zmiana': 'Kiedy ktoś ostatnio dopisał się do zgłoszenia' }),
   platnosci: ro('platnosci', 'Płatności', 'billing', 'płatności', { 'Kwota netto': 'Kwota bez VAT', 'VAT': 'Kwota podatku VAT', 'Kwota brutto': 'Kwota z VAT' }),

@@ -75,6 +75,8 @@
     'mag:sellyStock', 'mag:sellyPreview', 'mag:sellyRefresh', 'mag:sellyLive',
     'res:list', 'res:get', 'res:options',
     'native:read',
+    // edytor uprawnień grup Selly (Konto → Uprawnienia): lista grup i macierz modułów — strony Selly sesją użytkownika, tylko administrator panelu
+    'perms:groups', 'perms:read',
     'feedback:list', 'client:errors:list', 'client:exits:list', 'health:get', 'logins:list', 'map:latest', 'map:history',
   ];
   const WRITE_ACTIONS = [
@@ -95,6 +97,7 @@
     'res:save', 'res:delete', 'res:itemSave', 'res:itemDelete', 'res:marginsSave',
     'reports:familySave',
     'native:save', 'native:create',
+    'perms:save',
   ];
   const READ_SET = new Set(READ_ACTIONS);
 
@@ -108,7 +111,7 @@
     speedmail: ['zamowienia', 'magazyny'],   // kreator wysyłki do SpeedMail: statusy zamówień (Selly) + ruchy magazynu SM
   };
   // Sekcje tylko dla administratora panelu
-  const ADMIN_SECTIONS = ['uzytkownicy', 'selly-zmiany', 'zgloszenia-osa'];
+  const ADMIN_SECTIONS = ['uzytkownicy', 'selly-zmiany', 'zgloszenia-osa', 'uprawnienia'];
   // Słowniki (res:*) czytelne dla każdego zalogowanego — potrzebne w formularzach innych sekcji
   const DICTS = ['kategorie', 'producenci', 'tagi', 'atrybuty', 'statusy', 'dostawy', 'platnosci-formy'];
 
@@ -136,7 +139,7 @@
   // Wejście awaryjne (docs/auth.md → „Wejście awaryjne”): sesja bez ciasteczek Selly — akcje, które otwierają strony Selly sesją użytkownika
   // (natywne ekrany, formularze przesyłek przewoźników bez API), są niedostępne; nadawanie zgód też (decyzje o uprawnieniach tylko po zwykłym logowaniu).
   // Odczyty i zapisy przez REST API (token sklepu) działają wg uprawnień z ostatniego zwykłego logowania.
-  const EMERGENCY_BLOCKED = /^(native:\w+|shipping:manual\w+|grants:set)$/;
+  const EMERGENCY_BLOCKED = /^(native:\w+|shipping:manual\w+|grants:set|perms:\w+)$/;
   const EMERGENCY_MSG = 'Niedostępne w trybie awaryjnym — ten ekran działa na Twojej sesji w Selly, a w trybie awaryjnym jej nie ma. Skorzystaj z panelu Selly albo poczekaj, aż zwykłe logowanie znowu zadziała.';
 
   const ORD = ['zamowienia', 'dropshipping', 'przesylki', 'wplaty', 'klienci', 'raporty', 'magazyny', 'licencje'];
@@ -152,6 +155,8 @@
   const RULES = [
     [/^(whoami|init|auth:(logout|refresh|perms)|feedback:send|client:errors|client:exits)$/, ANY],
     [/^(feedback:(list|status)|client:errors:list|client:exits:list|health:get|map:\w+|logins:list|grants:set|users:\w+)$/, ADMIN],
+    // edytor uprawnień grup Selly: tylko administrator panelu (Konta administratorów w Selly); zapis i tak sprawdza Selly (sesja użytkownika)
+    [/^perms:(groups|read|save)$/, ADMIN],
     // orders:stamp (znacznik wersji, 1 wiersz D1) i orders:refresh (synchronizacja zamówień teraz — pisze tylko do kopii panelu w D1, nigdy do Selly;
     // limit globalny i budżet Selly: panel/worker/src/lib/liveSync.js) — jak odczyt listy
     [/^orders:(list|get|meta|invoices|stamp|refresh)$/, ORD],
