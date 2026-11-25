@@ -8,7 +8,7 @@ raport licencji, orszaki wg województw, ewidencja magazynowa.
 ## Tego repo nie edytuje się ręcznie
 
 Zawartość jest **generowana automatycznie** z kodu źródłowego w prywatnym repo
-[wojcik-michal/Orszak-Selly-Assist](https://github.com/wojcik-michal/Orszak-Selly-Assist).
+[Fundacja-OTK/Orszak-Selly-Assist](https://fundacja-otk.github.io/osa-public-site/)).
 Każda ręczna zmiana zostanie nadpisana przy następnym wdrożeniu — poprawki rób w repo źródłowym.
 
 | | |
