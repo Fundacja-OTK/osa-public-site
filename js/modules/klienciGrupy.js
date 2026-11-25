@@ -3,11 +3,11 @@
 // limit zamówień klienta (natywny ekran `klient-limit`: formularz klienta w Selly, tylko 4 pola limitu).
 // Przypisanie: Selly REST API (PUT /api/clients/{id}, pole group_id) przez clients:save. Tworzenie / nazwy / limity grup: API ich nie ma —
 // natywny ekran na sesji Selly użytkownika; edycja istniejącej grupy → „↗ Selly” (adres karty grupy nieopisany w docs/selly-screens).
-import { el, flash, loadingBox, sellyLink, cnt } from '../core/ui.js?v=0e25d7c';
-import { api } from '../core/client.js?v=0e25d7c';
-import { sellyCall, createNative } from './sellyNative.js?v=0e25d7c';
-import { lazyFold } from './klienciExtra.js?v=0e25d7c';
-import { runThrottled, GROUP_GAP_MS } from './klienciImportLogic.js?v=0e25d7c';
+import { el, flash, loadingBox, sellyLink, cnt } from '../core/ui.js?v=a0c413f';
+import { api } from '../core/client.js?v=a0c413f';
+import { sellyCall, createNative } from './sellyNative.js?v=a0c413f';
+import { lazyFold } from './klienciExtra.js?v=a0c413f';
+import { runThrottled, GROUP_GAP_MS } from './klienciImportLogic.js?v=a0c413f';
 
 const SCREEN = 'klienci-grupy';
 let sellyCache = null;   // { ms, groups } — nazwy grup z Selly (5 min), wspólne dla listy, karty i importu

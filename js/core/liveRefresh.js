@@ -11,8 +11,8 @@
 //   const live = liveRefresh({ id: 'ord', reload: ({ background, manual }) => loadList(...), busy: () => … });
 //   toolbar.append(live.node); live.start();   // po każdym wczytaniu danych: live.loaded(r.stamp); przy wyjściu z widoku: live.stop()
 
-import { el } from './ui.js?v=0e25d7c';
-import { api as defaultApi } from './client.js?v=0e25d7c';
+import { el } from './ui.js?v=a0c413f';
+import { api as defaultApi } from './client.js?v=a0c413f';
 
 const SEC = 1000;
 

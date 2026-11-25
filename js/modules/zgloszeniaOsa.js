@@ -1,8 +1,8 @@
 // Moduł „Zgłoszenia z panelu” (tylko administrator): uwagi z przycisku „Zgłoś” (feedback:list / feedback:status),
 // błędy z przeglądarek z ostatnich 7 dni (client:errors:list) i stan zdrowia Workera (health:get).
-import { el, flash, loadingBox, isUnavailable, dateStr, field } from '../core/ui.js?v=0e25d7c';
-import { api, ctx } from '../core/client.js?v=0e25d7c';
-import { sellyExitsCard } from './sellyExitsCard.js?v=0e25d7c';
+import { el, flash, loadingBox, isUnavailable, dateStr, field } from '../core/ui.js?v=a0c413f';
+import { api, ctx } from '../core/client.js?v=a0c413f';
+import { sellyExitsCard } from './sellyExitsCard.js?v=a0c413f';
 
 const STATUS = { nowe: 'Nowe', w_toku: 'W toku', zamkniete: 'Zamknięte' };
 const STATUS_TIP = 'Nowe — jeszcze nikt się nie zajął; W toku — ktoś nad tym pracuje; Zamknięte — załatwione (zostaje na liście).';
