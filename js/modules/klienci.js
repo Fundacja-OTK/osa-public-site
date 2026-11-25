@@ -1,17 +1,17 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
 // Grupy (ekran, zmiana na karcie, masowo z listy) i limit zamówień: klienciGrupy.js; import CSV (#/klienci/import): klienciImport.js.
-import { el, tapOpen, debounce, store, flash, menuButton, cnt, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=037a459';
-import { api, ctx } from '../core/client.js?v=037a459';
-import { go, setLeaveGuard } from '../core/router.js?v=037a459';
-import { noteVisit } from '../core/recents.js?v=037a459';
-import { registerListKeys } from '../core/listKeys.js?v=037a459';
-import { clientForm } from './klienciForm.js?v=037a459';
-import { mountBlockToggle } from './klienciBlokada.js?v=037a459';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=037a459';
-import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=037a459';
-import { renderImport } from './klienciImport.js?v=037a459';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=037a459';
+import { el, tapOpen, debounce, store, flash, menuButton, cnt, columnMenu, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, sortTh, pager, syncedLabel, fetchAllRows, field } from '../core/ui.js?v=c5a69db';
+import { api, ctx } from '../core/client.js?v=c5a69db';
+import { go, setLeaveGuard } from '../core/router.js?v=c5a69db';
+import { noteVisit } from '../core/recents.js?v=c5a69db';
+import { registerListKeys } from '../core/listKeys.js?v=c5a69db';
+import { clientForm } from './klienciForm.js?v=c5a69db';
+import { mountBlockToggle } from './klienciBlokada.js?v=c5a69db';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=c5a69db';
+import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=c5a69db';
+import { renderImport } from './klienciImport.js?v=c5a69db';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=c5a69db';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SORTS = ['name', 'email', 'created', 'modified', 'orders', 'id', 'login', 'city'];

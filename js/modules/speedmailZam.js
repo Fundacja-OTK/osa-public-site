@@ -1,9 +1,9 @@
 // „Wysyłka SpeedMail” → zakładka Zamówienia: tabela wszystkich otwartych zamówień z podpowiedzią „SpeedMail / pakujemy sami” i powodem
 // (reguły 1–5 specyfikacji). Sortowanie po każdej kolumnie, filtry i wyszukiwanie zapisane w adresie, zaznaczanie zbiorcze, ręczna zmiana
 // decyzji w obie strony, przekazanie paczki zleceń (sm:batch) + status w Selly, „zostają u nas” (sm:keep + status „Złożone OTK”).
-import { el, cnt, norm, sortTh, pager, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton } from '../core/ui.js?v=037a459';
-import { go } from '../core/router.js?v=037a459';
-import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=037a459';
+import { el, cnt, norm, sortTh, pager, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton } from '../core/ui.js?v=c5a69db';
+import { go } from '../core/router.js?v=c5a69db';
+import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=c5a69db';
 
 const KEYS = ['dec', 'reason', 'status', 'delivery', 'from', 'to', 'product', 'stock', 'pre', 'q'];
 const SORTS = ['num', 'date', 'status', 'delivery', 'items', 'stock', 'dec', 'reason'];
@@ -205,7 +205,8 @@ function results(v, Q, all, shown) {
         want.length ? useLine(use) : null,
         el('div', { class: 'muted small', id: 'smSelHint' }, 'Kolumna „Towar w SM” i decyzje są liczone po uwzględnieniu zaznaczonych: dostają one towar pierwsze, pozostałe zamówienia — z tego, co zostanie.',
           selShort.length ? el('span', { class: 'diffbad' }, ' ' + cnt(selShort.length, 'zaznaczone zamówienie nie mieści', 'zaznaczone zamówienia nie mieszczą', 'zaznaczonych zamówień nie mieści') + ' się w stanie SpeedMail.') : null,
-          bySel ? el('strong', null, ' Przez zaznaczenie towaru zabraknie dla ' + cnt(bySel, 'innego zamówienia', 'innych zamówień', 'innych zamówień') + ' (oznaczone „brak po zaznaczeniu”).') : null)]
+          bySel ? el('strong', null, ' Przez zaznaczenie towaru zabraknie dla ' + cnt(bySel, 'innego zamówienia', 'innych zamówień', 'innych zamówień') + ' (oznaczone „brak po zaznaczeniu”).') : null),
+        (selShort.length || bySel) ? shortDetails(selShort, all.filter(x => x.r.bySel)) : null]
       : el('span', { class: 'muted' }, 'Zaznacz zamówienia, aby przekazać je do SpeedMail albo oznaczyć jako pakowane u nas.')),
     el('div', { class: 'ord-actions' },
       el('button', { type: 'button', class: 'secondary', id: 'smKeep', write: STATUS_WRITE, disabled: !selMy.length || !cfgSt.otk || jobBusy(),
@@ -387,4 +388,21 @@ async function keep(rows, otk) {
   if (!r) return;
   for (const id of ids) S.sel.delete(id);
   runStatus({ ids, target: otk, title: 'Pakujemy sami', numOf: new Map(rows.map(x => [x.id, x.num])) });
+}
+
+/** „Szczegóły” braków: dla każdego zamówienia — których produktów brakuje, ile, ile SM ma i ile potrzeba. */
+function shortDetails(selShort, bySelRows) {
+  const line = x => {
+    const have = new Map((x.r.have || []).map(h => [h.key, h]));
+    const miss = (x.r.missing || []).map(m => {
+      const h = have.get(m.key);
+      return m.name + ': brakuje ' + nf(m.lack) + ' ' + m.unit + (h ? ' (SpeedMail ma ' + nf(h.have) + ', potrzeba ' + nf(h.need) + ')' : '');
+    });
+    return el('li', null, el('a', { href: '#/zamowienia/' + x.id, title: 'Otwórz kartę zamówienia' }, x.num), ' — ', miss.join('; ') || 'brak szczegółów');
+  };
+  const block = (title, rows) => rows.length ? [el('div', { class: 'sm-det-h' }, title + ' (' + rows.length + ')'), el('ul', { class: 'sm-det' }, rows.slice(0, 50).map(line)),
+    rows.length > 50 ? el('div', { class: 'muted small' }, '… i ' + (rows.length - 50) + ' więcej') : null] : null;
+  return el('details', { class: 'sm-sel-det', id: 'smSelDetails' },
+    el('summary', { title: 'Pokaż, których produktów brakuje i ile — dla każdego zamówienia' }, 'Szczegóły braków'),
+    block('Zaznaczone, które się nie mieszczą', selShort), block('Inne zamówienia, którym zabraknie przez zaznaczenie', bySelRows));
 }
