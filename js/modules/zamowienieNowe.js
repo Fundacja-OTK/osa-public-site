@@ -2,11 +2,11 @@
 // klient (wyszukaj istniejącego albo wpisz dane) → produkty (wyszukiwarka, ilość, cena z katalogu, rabat %) → dostawa i płatność → podsumowanie → zapis.
 // Backend: orders:create (POST /api/orders w Selly, shared/failover.js), słowniki z orders:meta, wyszukiwarki clients:list / products:list,
 // dane klienta clients:get, opcjonalnie clients:create (konto klienta). Moduł montuje zamowienia.js dla trasy „nowe”.
-import { el, gateWrite, flash, money, debounce, loadingBox, pageToolbar, cnt } from '../core/ui.js?v=13a6ef5';
-import { askConfirm } from '../core/confirm.js?v=13a6ef5';
-import { api } from '../core/client.js?v=13a6ef5';
-import { go, addLeaveGuard } from '../core/router.js?v=13a6ef5';
-import { num, r2, fmtIn, discounted, totals, validate, payload, clientToForm } from './zamowienieNoweLogika.js?v=13a6ef5';
+import { el, gateWrite, flash, money, debounce, loadingBox, pageToolbar, cnt } from '../core/ui.js?v=5353574';
+import { askConfirm } from '../core/confirm.js?v=5353574';
+import { api } from '../core/client.js?v=5353574';
+import { go, addLeaveGuard } from '../core/router.js?v=5353574';
+import { num, r2, fmtIn, discounted, totals, validate, payload, clientToForm } from './zamowienieNoweLogika.js?v=5353574';
 
 // ─── Widok ───────────────────────────────────────────────────────────────────
 

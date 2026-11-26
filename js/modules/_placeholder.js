@@ -1,7 +1,7 @@
 // Moduł-zaślepka dla pozycji menu bez ekranu OSA: „w planie” (Selly ma API) albo „tylko w Selly”.
 // Zawsze zwykły link „Otwórz w panelu Selly” (nowa karta) — panel działa bez rozszerzenia; dawne osadzanie Selly w ramce
 // (rozszerzenie OSA, docs/selly-embed.md) nie jest już częścią panelu.
-import { el } from '../core/ui.js?v=13a6ef5';
+import { el } from '../core/ui.js?v=5353574';
 
 export const SELLY_ADMIN = 'https://takimarket.pl/adm/';
 export const BUILDING_TIP = 'W budowie — na razie użyj panelu Selly';

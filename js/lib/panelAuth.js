@@ -1,5 +1,6 @@
-// WYGENEROWANE z shared/panelAuth.js przez scripts/sync-parser.sh — nie edytuj ręcznie.
+// WYGENEROWANE z shared/panelAuth.js i shared/native/*.js przez scripts/sync-parser.sh — nie edytuj ręcznie.
 
+globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access":"write"},"dostepnosc":{"access":"write"},"ksztalty":{"access":"write"},"uslugi":{"access":"read"},"uslugi-partnerow":{"access":"read"},"rozszerzenia":{"access":"read"},"klient-blokada":{"access":"write"},"klient-limit":{"access":"write"},"klienci-grupy":{"access":"write"},"api":{"access":"read"},"frontapi":{"access":"read"},"konf":{"access":"read"},"panel-konf":{"access":"read"},"znaki":{"access":"write"},"jezyki":{"access":"write"},"int-porownywarki":{"access":"write"},"int-przesylki":{"access":"read"},"int-fk":{"access":"read"},"int-dodatkowe":{"access":"write"},"dostawy-konf":{"access":"write"},"statusy-konf":{"access":"write"},"admini":{"access":"read"},"grupy":{"access":"read"},"uprawnienia":{"access":"read"},"odo":{"access":"read"},"zgloszenia":{"access":"read"},"platnosci":{"access":"read"},"zlecenia":{"access":"read"},"wizyty":{"access":"read"},"kupony":{"access":"write"},"koszyki":{"access":"read"},"allegro":{"access":"read"},"allegro-aukcje":{"access":"write"},"empik":{"access":"read"},"allegro-aukcje-lista":{"access":"read"},"allegro-zdarzenia":{"access":"read"},"allegro-wysylka":{"access":"write"},"allegro-operatorzy":{"access":"write"},"allegro-szablony":{"access":"read"},"ceneo-opinie":{"access":"read"},"ceneo-mapa":{"access":"read"},"pliki":{"access":"read"},"automatyzacje":{"access":"read"},"ceny-auto":{"access":"read"},"integrator":{"access":"read"},"przekierowania":{"access":"write"},"ai":{"access":"write"},"reklamacje":{"access":"write"},"oferty":{"access":"write"},"furgonetka":{"access":"read"},"suus":{"access":"read"},"cms":{"access":"write"},"aktualnosci":{"access":"write"},"menu-ed":{"access":"read"},"bloki":{"access":"write"},"formularze":{"access":"read"},"wyglad-konf":{"access":"write"},"slajdy":{"access":"write"}};   // WYGENEROWANE z shared/native/*.js (scripts/sync-parser.sh)
 /**
  * Panel OSA — uprawnienia z sesji Selly (wspólne dla Workera, Apps Script i frontendu panelu).
  * Źródło: shared/panelAuth.js; kopie generuje scripts/sync-parser.sh:
@@ -115,26 +116,20 @@
   // Słowniki (res:*) czytelne dla każdego zalogowanego — potrzebne w formularzach innych sekcji
   const DICTS = ['kategorie', 'producenci', 'tagi', 'atrybuty', 'statusy', 'dostawy', 'platnosci-formy'];
 
-  // === Natywne ekrany Selly (extension/lib/sellyNative.js → SCREENS; ta sama lista, test: tests/unit/nativeEngine.test.js) ===
+  // === Natywne ekrany Selly (definicje: shared/native/<obszar>.js → SCREENS w shared/sellyNative.js; test: tests/unit/nativeEngine.test.js) ===
   // Działają na sesji Selly zalogowanego użytkownika — Selly sam egzekwuje podgląd i zapis (brak uprawnień = ekran logowania / przekierowanie /
   // odmowa zapisu → kod 'login' z jasnym komunikatem). Dlatego NIE są sondami logowania (SECTION_ROUTES / WRITE_ROUTES) — oszczędza ~100 zapytań.
   // Reguła NATIVE: native:read / native:save / native:create dla ekranu z listy wolno każdej KOMPLETNEJ sesji (sprawdzanie uprawnień zakończone);
-  // ekrany z NATIVE_READ_ONLY odrzucają zapis i dodawanie już tutaj (403), niezależnie od silnika (który też je odrzuca).
-  // Nowy ekran: SCREENS + tu (+ NATIVE_READ_ONLY, jeśli bez pól edytowalnych i bez dodawania) + nav.js + shell.js.
-  const NATIVE_SCREENS = [
-    'reklamacje', 'oferty',
-    'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki',
-    'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus',
-    'cms', 'aktualnosci', 'menu-ed', 'bloki', 'formularze', 'przekierowania', 'gwarancje', 'opisy',
-    'kupony', 'koszyki', 'klient-blokada', 'klient-limit', 'klienci-grupy',
-    'konf', 'panel-konf', 'wyglad-konf', 'znaki', 'jezyki', 'dostepnosc',
-    'allegro', 'allegro-aukcje', 'empik', 'allegro-aukcje-lista', 'allegro-zdarzenia', 'allegro-wysylka', 'allegro-operatorzy', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-porownywarki', 'int-przesylki', 'int-fk', 'int-dodatkowe', 'ai', 'slajdy', 'ksztalty', 'dostawy-konf', 'statusy-konf',
-  ];
-  const NATIVE_READ_ONLY = [
-    'admini', 'grupy', 'uprawnienia', 'odo', 'zgloszenia', 'platnosci', 'zlecenia', 'uslugi', 'uslugi-partnerow', 'rozszerzenia', 'wizyty', 'pliki',
-    'automatyzacje', 'ceny-auto', 'integrator', 'api', 'frontapi', 'furgonetka', 'suus',
-    'menu-ed', 'formularze', 'koszyki', 'konf', 'panel-konf', 'allegro', 'empik', 'allegro-aukcje-lista', 'allegro-zdarzenia', 'allegro-szablony', 'ceneo-opinie', 'ceneo-mapa', 'int-przesylki', 'int-fk',
-  ];
+  // ekrany z NATIVE_READ_ONLY odrzucają zapis i dodawanie już tutaj (403), niezależnie od silnika (który też je odrzuca); ekran z `perm`
+  // wymaga dodatkowo jednej z tych sekcji. Listy WYLICZANE z wpisów (access: 'read' | 'write', perm?) — mapa { id: { access, perm? } }:
+  // w Node z shared/nativeScreens.js, w kopiach (Apps Script, Worker, frontend) wstawiona przez scripts/sync-parser.sh jako
+  // globalThis.OSA_NATIVE_ACCESS. Brak mapy = pusta lista = odmowa dla każdego natywnego ekranu (bezpieczny domyślny stan).
+  // Nowy ekran: wpis w pliku obszaru shared/native/ + nav.js + shell.js (docs/AGENT-BRIEF.md → „Nowy natywny ekran”).
+  const NATIVE_ACCESS = globalThis.OSA_NATIVE_ACCESS || (typeof require === 'function' ? null.access : null) || {};
+  const nativeOk = id => Object.prototype.hasOwnProperty.call(NATIVE_ACCESS, id) && NATIVE_ACCESS[id] && (NATIVE_ACCESS[id].access === 'read' || NATIVE_ACCESS[id].access === 'write');
+  const NATIVE_SCREENS = Object.freeze(Object.keys(NATIVE_ACCESS).filter(nativeOk));
+  const NATIVE_READ_ONLY = Object.freeze(NATIVE_SCREENS.filter(id => NATIVE_ACCESS[id].access === 'read'));
+  const nativePerm = id => NATIVE_SCREENS.includes(id) && Array.isArray(NATIVE_ACCESS[id].perm) ? NATIVE_ACCESS[id].perm : null;
   const NATIVE = 'native';
   // Wejście awaryjne (docs/auth.md → „Wejście awaryjne”): sesja bez ciasteczek Selly — akcje, które otwierają strony Selly sesją użytkownika
   // (natywne ekrany, formularze przesyłek przewoźników bez API), są niedostępne; nadawanie zgód też (decyzje o uprawnieniach tylko po zwykłym logowaniu).
@@ -241,6 +236,8 @@
     if (rule === ADMIN) return who && who.admin ? '' : 'Tylko administrator panelu OSA może to zrobić.';
     if (rule === NATIVE) {   // natywny ekran: kompletna sesja; zapis tylko na ekranach z polami edytowalnymi; resztę rozstrzyga Selly (sesja użytkownika)
       if (!who || who.complete !== true) return 'Sprawdzam uprawnienia w Selly — chwilę, potem spróbuj ponownie.';
+      const np = nativePerm(String((params && params.screen) || ''));   // ekran z perm: dodatkowo jedna z tych sekcji (wg uprawnień z Selly)
+      if (np && !np.some(s => (who.perms || []).includes(s))) return 'Twoje konto Selly nie ma dostępu do tego ekranu (potrzebny dostęp do: ' + np.slice(0, 3).map(s => '„' + (TITLES[s] || s) + '”').join(' lub ') + '). Uprawnienia nadaje administrator sklepu w Selly (Konto → Uprawnienia); po zmianie wyloguj się i zaloguj ponownie.';
       if (isWriteAction(action) && NATIVE_READ_ONLY.includes(String((params && params.screen) || ''))) return 'Ten ekran w panelu OSA jest tylko do podglądu — zmiany wprowadzisz w Selly.';
       return '';
     }
