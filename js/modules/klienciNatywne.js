@@ -3,10 +3,10 @@
 // producenci zablokowani (`klient-producenci`, tylko podgląd), ekrany „Notatki klientów” (`klienci-notatki`) i „Uprawnienia subkont”
 // (`subkonta-uprawnienia`). Każdy zapis: tylko zmienione pola z allowlisty → podgląd (dryRun) → potwierdzenie → zapis → weryfikacja.
 // Dodawanie i usuwanie rabatów, zmiana listy zablokowanych producentów — w Selly (↗). Treść z Selly tylko przez el() / textContent.
-import { el, flash, sellyLink } from '../core/ui.js?v=9f53658';
-import { confirmDialog } from '../core/confirm.js?v=9f53658';
-import { sellyCall, createNative } from './sellyNative.js?v=9f53658';
-import { lazyFold } from './klienciExtra.js?v=9f53658';
+import { el, flash, sellyLink } from '../core/ui.js?v=a5f5e19';
+import { confirmDialog } from '../core/confirm.js?v=a5f5e19';
+import { sellyCall, createNative } from './sellyNative.js?v=a5f5e19';
+import { lazyFold } from './klienciExtra.js?v=a5f5e19';
 
 const shown = f => f.type === 'select' || f.type === 'radio' ? (((f.options || []).find(o => o.value === f.value) || {}).text || f.value) : f.value;
 

@@ -144,7 +144,7 @@ button.link:focus-visible, .linkbtn:focus-visible { outline: 2px solid var(--foc
 .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--r2); overflow: hidden; background: var(--surface); vertical-align: middle; max-width: 100%; }
 .seg button { color: var(--text); background: transparent; border: 0; padding: 5px 12px; min-height: 32px; font-size: var(--fs-sm); cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--border); }
-.seg button:hover:not(:disabled) { background: var(--hover); }
+.seg button:hover:not(:disabled):not([aria-pressed=true]) { background: var(--hover); }
 .seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-text); font-weight: 600; }
 .seg button:disabled { cursor: default; }
 .seg button:focus-visible { outline-offset: -2px; }
@@ -1106,3 +1106,8 @@ tr.live-chg > td { animation: live-chg 2.4s ease-out; }
 .switch input:disabled + .sw-track { opacity: .5; }
 .switch:has(input:disabled) { cursor: not-allowed; }
 @media (max-width: 640px) { .switch { min-height: 44px; } }
+
+/* Zaznaczone + najechane: zostaje wygląd zaznaczenia (tło i kolor tekstu), najechanie tylko lekko je podkreśla — bez „przeciemnienia”, przy którym znikał tekst (jasny i ciemny motyw) */
+.seg button[aria-pressed=true]:hover:not(:disabled), .pl-seg[aria-pressed=true]:hover { background: var(--accent); color: var(--accent-text); filter: brightness(1.07); }
+:is(.chip, .tab, .crit, .fp-item, .ms-btn, .osa-sel, .th-sort):is([aria-pressed=true], [aria-current=page], .on):hover { background: var(--accent-soft); filter: brightness(1.04); }
+:is(button.secondary, .btn-secondary).on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-strong); }

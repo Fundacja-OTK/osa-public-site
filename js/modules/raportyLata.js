@@ -1,10 +1,10 @@
 // Widok „Lata” raportów sprzedaży — odpowiednik „Analizy OSA” z rozszerzenia (extension/content/reportsAnalysis.js), ale z danych D1:
 // kilka okresów (lat, sezonów albo tych samych dni w każdym roku) obok siebie. Ostatni okres = „bieżący”, przedostatni = „porównanie”.
 // Kolory jak w widoku „Okres”: bieżący = pełna brązowa linia, porównanie = przerywana niebieska, wcześniejsze = cienkie.
-import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=9f53658';
-import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=9f53658';
+import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=a5f5e19';
+import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=a5f5e19';
 
-import { lataPeriods, partialMonth, weekLabel, isoWeekStart, weekRangeText } from './raportyDaty.js?v=9f53658';
+import { lataPeriods, partialMonth, weekLabel, isoWeekStart, weekRangeText } from './raportyDaty.js?v=a5f5e19';
 export { lataPeriods, partialMonth };
 const nfCompact = new Intl.NumberFormat('pl-PL', { notation: 'compact', maximumFractionDigits: 1 });
 const pad = n => String(n).padStart(2, '0');
@@ -283,7 +283,7 @@ export function lataRender(c) {
   return nodes;
 }
 
-const itemHash = (Q, key) => { const p = new URLSearchParams(); for (const k of Object.keys(Q)) if (Q[k] && Q[k] !== { v: 'okres', cmp: 'prev', gr: 'auto', tab: 'series', met: 'value', per: 'year', ss: '10', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty' }[k]) p.set(k, Q[k]); p.set('item', key); return '?' + p; };
+const itemHash = (Q, key) => { const p = new URLSearchParams(); for (const k of Object.keys(Q)) if (Q[k] && Q[k] !== { v: 'okres', cmp: 'prev', gr: 'auto', tab: 'series', met: 'value', per: 'year', ss: '9', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty' }[k]) p.set(k, Q[k]); p.set('item', key); return '?' + p; };
 
 /** Karta produktu: liczby w okresach, słupki, przebieg miesięczny z osobnego zapytania. */
 function showItem(c, box, it, x) {

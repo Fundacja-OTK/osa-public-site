@@ -2,20 +2,20 @@
 // Dwa widoki: „Okres” (okres kontra poprzedni okres albo ten sam okres rok temu) i „Lata” (kilka lat obok siebie: wykres rok do roku, mapa miesięcy, produkty).
 // Cały stan raportu siedzi w adresie (#/raporty?od=…&do=…&cmp=…): link można wysłać dalej, a „wstecz / dalej” w przeglądarce działa.
 // Na górze zawsze pasek „co oglądasz”: zakres, porównanie, statusy, grupowanie — każdy element to przycisk otwierający odpowiednie ustawienie.
-import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu, segmented, toggleSwitch } from '../core/ui.js?v=9f53658';
-import { api, ctx } from '../core/client.js?v=9f53658';
-import { go } from '../core/router.js?v=9f53658';
-import { wojLabel } from '../core/osa.js?v=9f53658';
-import { shortcuts } from '../core/shortcuts.js?v=9f53658';
-import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=9f53658';
-import { zyskRender } from './raportyZysk.js?v=9f53658';
-import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=9f53658';
-import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=9f53658';
-import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=9f53658';
-import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=9f53658';
+import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu, segmented, toggleSwitch } from '../core/ui.js?v=a5f5e19';
+import { api, ctx } from '../core/client.js?v=a5f5e19';
+import { go } from '../core/router.js?v=a5f5e19';
+import { wojLabel } from '../core/osa.js?v=a5f5e19';
+import { shortcuts } from '../core/shortcuts.js?v=a5f5e19';
+import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=a5f5e19';
+import { zyskRender } from './raportyZysk.js?v=a5f5e19';
+import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=a5f5e19';
+import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=a5f5e19';
+import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=a5f5e19';
+import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=a5f5e19';
 
 /** Domyślne wartości ustawień — w adresie zapisujemy tylko to, co się od nich różni. */
-const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '10', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '', fam: '', set: '', fm: '', sum: '' };
+const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '9', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '', fam: '', set: '', fm: '', sum: '' };
 const OK = { v: ['okres', 'lata', 'zysk', 'rodziny', 'zestaw'], fm: ['qty', 'value', 'orders', 'avg'], sum: ['0', '1'], cmp: ['prev', 'year', 'off'], gr: ['auto', 'day', 'week', 'month'], met: ['value', 'orders', 'avg'], per: ['year', 'season', 'window'], ytd: ['1', '0'], lm: ['value', 'orders', 'avg', 'units', 'ship'], cm: ['monthly', 'cumulative'], dim: ['payments', 'deliveries', 'statuses', 'categories', 'producers'], dm: ['qty', 'value', 'orders'] };
 /** Ustawienia, których zmiana wymaga ponownego policzenia raportu (reszta to tylko widok: zakładka, sortowanie, szukanie). */
 const isYears = v => v === 'lata' || v === 'rodziny';

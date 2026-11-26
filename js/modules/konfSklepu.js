@@ -1,6 +1,6 @@
 // Konfiguracja sklepu — natywne ekrany „strona ustawień” (extension/lib/sellyNative.js, blok `// === konfiguracja sklepu ===`).
 // Każdy eksport to moduł jednej pozycji menu (shell.js → LAZY). Edytowalne tylko proste, niskiego ryzyka ustawienia; reszta to podgląd + „Zmień w Selly ↗”.
-import { createSettings } from './sellyNativeSettings.js?v=9f53658';
+import { createSettings } from './sellyNativeSettings.js?v=a5f5e19';
 
 export const konf = createSettings({ id: 'konf', title: 'Konfiguracja podstawowa', screen: 'konf', a: 'configuration' });
 export const panelKonf = createSettings({ id: 'panel-konf', title: 'Konfiguracja panelu', screen: 'panel-konf', a: 'configuration.panelOptions' });

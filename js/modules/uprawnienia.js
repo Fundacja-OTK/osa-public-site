@@ -3,11 +3,11 @@
 // Dane i zapis: formularze Selly na sesji Selly zalogowanego użytkownika (Worker: perms:groups / perms:cached / perms:read / perms:save → modules/permsEditor.js,
 // silnik shared/sellyNative.js). Selly sam egzekwuje swoje prawa. Nie zmienia członkostwa grup ani kont. Logika: modules/uprawnieniaLogika.js.
 // Trasy: #/uprawnienia (lista grup), #/uprawnienia/<id grupy> (edytor).
-import { el, flash, loadingBox, debounce, plural, menuButton } from '../core/ui.js?v=9f53658';
-import { api, ctx } from '../core/client.js?v=9f53658';
-import { addLeaveGuard } from '../core/router.js?v=9f53658';
-import { sellyUrl } from './_placeholder.js?v=9f53658';
-import * as L from './uprawnieniaLogika.js?v=9f53658';
+import { el, flash, loadingBox, debounce, plural, menuButton } from '../core/ui.js?v=a5f5e19';
+import { api, ctx } from '../core/client.js?v=a5f5e19';
+import { addLeaveGuard } from '../core/router.js?v=a5f5e19';
+import { sellyUrl } from './_placeholder.js?v=a5f5e19';
+import * as L from './uprawnieniaLogika.js?v=a5f5e19';
 
 const CHUNK = 2;            // stron modułów na wywołanie (≤ PERM_MAX_MODULES w silniku; mało = lekkie wywołania Workera, szybkie pierwsze wyniki)
 const PARALLEL = 5;         // wywołań naraz (każde w swoim limicie zapytań i CPU Workera; budżet Selly P1 pilnuje serwer)
