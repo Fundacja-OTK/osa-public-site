@@ -66,3 +66,14 @@ export function bindRecents(login, storage) {
 export function forgetRecents(storage) {
   try { const s = storage || ls(); if (s) { s.removeItem(RECENT_KEY); s.removeItem(RECENT_OWNER_KEY); } } catch (e) { /* brak magazynu */ }
 }
+
+// Numer zamówienia w wyszukiwarce (lustro panel/worker/src/lib/orderNumber.js): „1021”, „1021/2026”, „#1021”.
+export function parseOrderQuery(q) {
+  const m = /^#?\s*(\d{1,9})\s*(?:\/\s*(\d{4}))?$/.exec(String(q == null ? '' : q).trim());
+  return m ? { num: String(Number(m[1])), year: m[2] ? Number(m[2]) : null } : null;
+}
+
+/** Komunikat po przejściu do zamówienia z poprzedniego roku (numeracja w bieżącym roku jeszcze tam nie doszła); '' gdy nie dotyczy. */
+export function yearNote(res) {
+  return res && res.found && res.fallback ? res.number + ' — w tym roku jeszcze nie ma nr ' + res.num : '';
+}

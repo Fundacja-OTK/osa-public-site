@@ -1,16 +1,16 @@
 // Karta produktu (#/produkty/<id>) i dodawanie produktu (#/produkty/nowy): zakładki, pasek zapisu ze strażnikiem wyjścia, walidacja pól.
 // Zapis: products:update (pola) + products:setMeta / setFeatures / setCategories; zdjęcia, warianty i stany magazynowe zapisują się od razu (osobne przyciski).
-import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=4562225';
-import { askConfirm } from '../core/confirm.js?v=4562225';
-import { api, ctx } from '../core/client.js?v=4562225';
-import { cachedRead } from '../core/cache.js?v=4562225';
-import { go, addLeaveGuard } from '../core/router.js?v=4562225';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=4562225';
-import { noteVisit } from '../core/recents.js?v=4562225';
-import { isTyping, addKeyTip } from '../core/shortcuts.js?v=4562225';
-import { previewModal, shownValue } from './produktPodglad.js?v=4562225';
-import { variantsPanel } from './produktWarianty.js?v=4562225';
-import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=4562225';
+import { el, flash, field, money, dateStr, cnt, loadingBox, sellyLink, dl, syncedLabel, menuButton, saveBar, filterSection, isUnavailable } from '../core/ui.js?v=5a962d8';
+import { askConfirm } from '../core/confirm.js?v=5a962d8';
+import { api, ctx } from '../core/client.js?v=5a962d8';
+import { cachedRead } from '../core/cache.js?v=5a962d8';
+import { go, addLeaveGuard } from '../core/router.js?v=5a962d8';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=5a962d8';
+import { noteVisit } from '../core/recents.js?v=5a962d8';
+import { isTyping, addKeyTip } from '../core/shortcuts.js?v=5a962d8';
+import { previewModal, shownValue } from './produktPodglad.js?v=5a962d8';
+import { variantsPanel } from './produktWarianty.js?v=5a962d8';
+import { stockPanel, deleteProductDialog } from './produktMagazyny.js?v=5a962d8';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const adminUrl = () => (ctx.boot && ctx.boot.adminUrl) || SELLY_FALLBACK;
@@ -530,8 +530,8 @@ export async function renderProductCard(box, id, o) {
     lastTab = { id, tab: t };
     for (const [k, b] of tabBtns) { const on = k === t; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; b.classList.toggle('on', on); panels[k].hidden = !on; }
     if (LAZY_TABS.has(t)) loadExtra(false);
-    if (SELLY_TABS.has(t) && !sellyTabLoaded.has(t)) { sellyTabLoaded.add(t); import('./produktZakladki.js?v=4562225').then(m => m.mountProductTab(panels[t], id, t)); }
-    if (t === 'gpsr' && !gpsrLoaded) { gpsrLoaded = true; import('./gpsr.js?v=4562225').then(m => m.mountProductGpsr(panels.gpsr, id)); }
+    if (SELLY_TABS.has(t) && !sellyTabLoaded.has(t)) { sellyTabLoaded.add(t); import('./produktZakladki.js?v=5a962d8').then(m => m.mountProductTab(panels[t], id, t)); }
+    if (t === 'gpsr' && !gpsrLoaded) { gpsrLoaded = true; import('./gpsr.js?v=5a962d8').then(m => m.mountProductGpsr(panels.gpsr, id)); }
   };
   for (const [k, label] of tabs) {
     const b = el('button', { type: 'button', role: 'tab', id: 'prodTab_' + k, 'data-tab': k, 'aria-selected': 'false', 'aria-controls': 'prodPanel_' + k, class: 'pk-tab', onclick: () => activate(k),

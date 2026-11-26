@@ -1,10 +1,10 @@
 // Widok „Lata” raportów sprzedaży — odpowiednik „Analizy OSA” z rozszerzenia (extension/content/reportsAnalysis.js), ale z danych D1:
 // kilka okresów (lat, sezonów albo tych samych dni w każdym roku) obok siebie. Ostatni okres = „bieżący”, przedostatni = „porównanie”.
 // Kolory jak w widoku „Okres”: bieżący = pełna brązowa linia, porównanie = przerywana niebieska, wcześniejsze = cienkie.
-import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=4562225';
-import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=4562225';
+import { el, loadingBox, sortTh, downloadMenuButton, debounce } from '../core/ui.js?v=5a962d8';
+import { svg, zl, zl0, int, qty, addDays, addYears, daysBetween, rangeText, deltaEl, pctText, pctFmt, niceMax, sparkline, tile, MONTHS, MONTHS_LONG } from './raportyKit.js?v=5a962d8';
 
-import { lataPeriods, partialMonth, weekLabel, isoWeekStart, weekRangeText } from './raportyDaty.js?v=4562225';
+import { lataPeriods, partialMonth, weekLabel, isoWeekStart, weekRangeText } from './raportyDaty.js?v=5a962d8';
 export { lataPeriods, partialMonth };
 const nfCompact = new Intl.NumberFormat('pl-PL', { notation: 'compact', maximumFractionDigits: 1 });
 const pad = n => String(n).padStart(2, '0');
@@ -26,7 +26,7 @@ const cutNote = p => (p.cutFrom ? ' (bez ' + rangeText(p.cutFrom, p.cutTo).repla
 const roleOf = (i, n) => (i === n - 1 ? 'bieżący' : i === n - 2 ? 'porównanie' : 'wcześniejszy');
 
 /** Elementy paska „co oglądasz” dla widoku „Lata”. */
-const MONTHS_GEN = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+export const MONTHS_GEN = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
 /** Pasek „co oglądasz” widoku „Lata”: text = szczegóły, short = krótkie zdanie (bez dat bieżącego okresu i ucięcia miesiąca — są w szczegółach). */
 export function lataSummary(E, d, sp, GW) {
   const P = E.periods, n = P.length, last = P[n - 1], prev = P[n - 2];
@@ -41,7 +41,7 @@ export function lataSummary(E, d, sp, GW) {
     { k: 'cmp', sw: n > 1 ? 'cmp' : null, text: n > 1 ? 'porównanie z ' + prev.label + ': ' + rangeText(prev.from, prev.to) : 'bez porównania (jeden okres)', short: n > 1 ? 'porównanie z ' + prev.label + (E.ytd && last.partial ? ' (do tego samego dnia)' : '') : 'bez porównania', tip: n > 1 ? 'Okres porównawczy — przedostatni z wybranych; wszystkie zmiany („vs porównanie”) liczone są względem niego. Na wykresie: przerywana niebieska linia. ' + (E.ytd ? 'Bieżący okres jest liczony do dziś, więc wcześniejsze lata też kończą się tego samego dnia kalendarzowego.' : 'Okresy są pełne (bez przycinania do dzisiejszego dnia).') : 'Wybrano tylko jeden okres — zwiększ zakres lat, aby coś porównać.' },
     ...(last.partial ? [{ k: 'range', text: last.partial.w ? last.partial.range + ' w każdym roku' : MONTHS_LONG[Number(E.today.slice(5, 7)) - 1] + ': do ' + last.partial.short + ' w każdym roku', tip: last.partial.note + (last.partial.w ? '. Bieżący tydzień jest jeszcze niepełny, więc wcześniejsze lata liczymy do tego samego dnia tygodnia i godziny — pozostałe tygodnie są pełne. Tygodnie liczone wg ISO 8601 (poniedziałek = początek).' : '. Bieżący miesiąc jest jeszcze niepełny, więc wcześniejsze lata liczymy do tego samego dnia — pozostałe miesiące są pełne.') }] : []),
     { k: 'status', text: 'statusy: ' + sp.text, short: sp.short, tip: sp.tip + ' Kliknij, aby zmienić.' },
-    { k: 'group', text: 'oś: ' + GW[g], short: E.group === 'auto' ? undefined : 'po ' + { day: 'dniach', week: 'tygodniach', month: 'miesiącach' }[E.group], tip: 'Na jakie przedziały dzielimy czas na wykresie i w mapie' + (E.group === 'auto' ? ' — wybrane automatycznie (miesiące dla okresów dłuższych niż 62 dni).' : '.') },
+    { k: 'group', text: 'oś czasu: ' + GW[g], short: E.group === 'auto' ? undefined : 'po ' + { day: 'dniach', week: 'tygodniach', month: 'miesiącach' }[E.group], tip: 'Na jakie przedziały dzielimy czas na wykresie i w mapie' + (E.group === 'auto' ? ' — wybrane automatycznie (miesiące dla okresów dłuższych niż 62 dni).' : '.') },
   ];
 }
 
@@ -142,7 +142,7 @@ export function lataRender(c) {
   const legend = el('div', { class: 'rp-legend', id: 'rpLegend', role: 'group', 'aria-label': 'Oznaczenia kolorów' }, ...P.map((p, i) => el('span', { class: 'tip', title: 'Okres ' + roleOf(i, n) + ': ' + p.label + ', ' + rangeOf(i) + '. Razem: ' + zl0(p.value) + ', ' + int(p.orders) + ' zam.' }, swatch(i, n), el('b', null, p.label + ' '), roleOf(i, n) + ' · ' + rangeOf(i))));
   const top = el('div', { class: 'rp-top muted' }, 'Dane z ostatniej synchronizacji z Selly. Okresy zakończone dawno temu są zapamiętywane na kilka godzin, bieżący na 10 minut.');
   if (none) return [top, legend, el('div', { class: 'card' }, el('div', { class: 'empty', id: 'rpEmpty' }, 'Brak zamówień w okresach ' + P.map(p => p.label).join(', ') + ' przy ustawieniu „statusy: ' + c.statusPhrase().text + '”.',
-    el('p', { class: 'muted' }, 'Zmień lata lub liczone statusy — w „Ustawieniach” (albo kliknij fragment paska „Co oglądasz”).')))];
+    el('p', { class: 'muted' }, 'Zmień lata albo liczone statusy („Więcej opcji”) — w „Ustawieniach” (albo kliknij fragment paska „Co oglądasz”).')))];
 
   // ── wspólna oś
   const longest = P.reduce((a, p) => (p.buckets.length > a.buckets.length ? p : a), P[0]), N = longest.buckets.length, ref = E.periods[P.indexOf(longest)];

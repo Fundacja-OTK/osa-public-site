@@ -3,11 +3,11 @@
 // i liczby: prognoza sezonu, sprzedane, brak towaru wobec prognozy. Prognozy i kształt krzywej wpisuje administrator w Ustawieniach.
 // Porównanie z poprzednimi sezonami (sm:history — dane z D1, bez Selly): domyślnie poprzedni sezon; w zwiniętym „Porównanie” wybrany rok,
 // średnia z kilku lat albo bez porównania (adres: cmp = rok | avg (+ a, b) | none). Wyrównanie: ten sam dzień i miesiąc rok wcześniej.
-import { el, sortTh, statusPill } from '../core/ui.js?v=4562225';
-import { go } from '../core/router.js?v=4562225';
-import { tile } from './raportyKit.js?v=4562225';
-import { lineChart } from './raportyLata.js?v=4562225';
-import { S, SM, nf, dmy, notice, prodOf, freshBar, loadError, skeleton, fold } from './speedmailKit.js?v=4562225';
+import { el, sortTh, statusPill } from '../core/ui.js?v=5a962d8';
+import { go } from '../core/router.js?v=5a962d8';
+import { tile } from './raportyKit.js?v=5a962d8';
+import { lineChart } from './raportyLata.js?v=5a962d8';
+import { S, SM, nf, dmy, notice, prodOf, freshBar, loadError, skeleton, fold } from './speedmailKit.js?v=5a962d8';
 
 const SIG = { fast: ['szybciej', 'warn', 'Sprzedaż wyprzedza prognozę o więcej niż próg — rozważ dodruk albo (po 15.12) zmianę ceny'], slow: ['wolniej', 'bad', 'Sprzedaż jest poniżej prognozy o więcej niż próg'],
   ok: ['zgodnie', 'ok', 'Sprzedaż mieści się w progu wokół prognozy'], none: ['brak prognozy', 'neutral', 'Nie wpisano prognozy sezonu dla tego produktu (Ustawienia → Produkty SpeedMail)'] };

@@ -39,19 +39,42 @@
 .rp-legend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); font-size: var(--fs-sm); margin: var(--s2) 0; }
 .rp-legend .rp-sw { margin-right: 6px; }
 
-/* Ustawienia */
-#rpSettings .rp-stack { display: grid; gap: var(--s3); }
-#rpSettings [hidden] { display: none; }
-#rpSettings .fp-sec[hidden] { display: none; }
+/* Zakładki rodzaju raportu (nawigacja — linki) */
+.rp-views { margin-top: var(--s3); overflow-x: auto; scrollbar-width: thin; }
+.rp-views a { flex: 1 0 auto; white-space: nowrap; font-size: var(--fs-md); padding: 7px var(--s3); }
+
+/* Ustawienia — wzorzec: docs/ui-system.md → „Wzorzec ustawień raportu”.
+   Dwa pytania zwykłym językiem (nagłówki .fp-sec h3), jedno „Więcej opcji” z grupami (.rp-grp), opisy jednozdaniowe (.rp-hint). */
+#rpSettings { gap: var(--s4); }
+#rpSettings .rp-stack { display: grid; gap: var(--s2); }
+#rpSettings [hidden], #rpSettings .fp-sec[hidden] { display: none; }
+#rpSettings .fp-sec > h3 { font-family: inherit; font-size: var(--fs-md); font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); margin: 0 0 var(--s2); }
 .rp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
 .rp-flabel { align-self: flex-start; }
 .rp-hint { margin: 0; font-size: var(--fs-xs); color: var(--muted); font-weight: 400; line-height: 1.4; }
+#rpSettings button.link.rp-hint { color: var(--accent); justify-self: start; }
 #rpSettings .rp-presets { width: 100%; justify-content: center; }
 #rpSettings .menu:has(> .rp-presets) { display: flex; }
 #rpSettings .switch { align-self: flex-start; }
-.rp-checks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: var(--s2) 0; max-height: 240px; overflow: auto; }
-.rp-opts-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.rp-reset { border-top: 1px solid var(--border); padding-top: var(--s3); }
+#rpSettings .fp-sec.fold > summary { font-size: var(--fs-md); }
+#rpSettings .fp-sec.fold > summary .sum { font-size: var(--fs-xs); }
+#rpSettings .rp-more { gap: var(--s4); padding-top: var(--s2); }
+.rp-grp { display: grid; gap: var(--s3); }
+.rp-gh { justify-self: start; margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.rp-opt { display: grid; gap: 4px; }
+.rp-subfold > summary { font-size: var(--fs-sm); font-weight: 400; }
+.rp-subfold > summary .sum { font-size: var(--fs-xs); }
+.rp-checks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; max-height: 240px; overflow: auto; }
+.rp-opts-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s2); }
+.rp-reset { border-top: 1px solid var(--border); padding-top: var(--s3); display: grid; }
+.rp-sheet-head, .rp-backdrop { display: none; }
+/* Wąski ekran: ustawienia jako arkusz wysuwany od dołu (z tłem i przyciskiem „Gotowe”), raport zostaje pod spodem */
+@media (max-width: 979px) {
+  #rpSettings { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; margin: 0 auto; max-width: 560px; max-height: 86vh; overflow: auto; overscroll-behavior: contain; background: var(--surface);
+    border-radius: var(--r3) var(--r3) 0 0; box-shadow: var(--shadow-pop); padding: 0 var(--s4) calc(var(--s4) + env(safe-area-inset-bottom)); }
+  #rpSettings .rp-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); position: sticky; top: 0; z-index: 1; margin: 0 calc(-1 * var(--s4)); padding: var(--s3) var(--s4); background: var(--surface); border-bottom: 1px solid var(--border); font-size: var(--fs-md); }
+  #rpSettings:not([hidden]) + .split-main + .rp-backdrop { display: block; position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .4); }
+}
 
 /* Kafelki i różnice */
 .rp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s3); margin-top: var(--s3); }

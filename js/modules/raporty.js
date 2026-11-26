@@ -1,19 +1,20 @@
 // Raporty sprzedaży (zastępują ekran Selly „Raporty sprzedaży” i „Analizę OSA” z rozszerzenia). Dane z D1 (akcje reports:sales / reports:years / reports:product).
 // Dwa widoki: „Okres” (okres kontra poprzedni okres albo ten sam okres rok temu) i „Lata” (kilka lat obok siebie: wykres rok do roku, mapa miesięcy, produkty).
 // Cały stan raportu siedzi w adresie (#/raporty?od=…&do=…&cmp=…): link można wysłać dalej, a „wstecz / dalej” w przeglądarce działa.
+// Rodzaj raportu wybiera się zakładkami (linki) nad paskiem; panel „Ustawienia” pyta o okres i porównanie, a resztę chowa w „Więcej opcji” (docs/ui-system.md → „Wzorzec ustawień raportu”).
 // Na górze pasek „co oglądasz”: jedno krótkie zdanie (okres · porównanie · statusy) + „Szczegóły ▾” z pełnymi elementami; każdy fragment otwiera swoje ustawienie.
 // Zmiana ustawienia nie czyści ekranu: stare wyniki zostają przyciemnione do nadejścia nowych, a wykres „Okresu” jest aktualizowany w tym samym elemencie.
-import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu, segmented, toggleSwitch } from '../core/ui.js?v=4562225';
-import { api, ctx } from '../core/client.js?v=4562225';
-import { go } from '../core/router.js?v=4562225';
-import { wojLabel } from '../core/osa.js?v=4562225';
-import { shortcuts } from '../core/shortcuts.js?v=4562225';
-import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=4562225';
-import { zyskRender } from './raportyZysk.js?v=4562225';
-import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=4562225';
-import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=4562225';
-import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=4562225';
-import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=4562225';
+import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu, segmented, toggleSwitch } from '../core/ui.js?v=5a962d8';
+import { api, ctx } from '../core/client.js?v=5a962d8';
+import { go } from '../core/router.js?v=5a962d8';
+import { wojLabel } from '../core/osa.js?v=5a962d8';
+import { shortcuts } from '../core/shortcuts.js?v=5a962d8';
+import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=5a962d8';
+import { zyskRender } from './raportyZysk.js?v=5a962d8';
+import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=5a962d8';
+import { lataPeriods, lataRequest, lataRender, lataSummary, MONTHS_GEN } from './raportyLata.js?v=5a962d8';
+import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=5a962d8';
+import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=5a962d8';
 
 /** Domyślne wartości ustawień — w adresie zapisujemy tylko to, co się od nich różni. */
 const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '9', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '', fam: '', set: '', fm: '', sum: '' };
@@ -22,15 +23,15 @@ const OK = { v: ['okres', 'lata', 'zysk', 'rodziny', 'zestaw'], fm: ['qty', 'val
 const isYears = v => v === 'lata' || v === 'rodziny';
 const dataKeys = Q => { const y = ['v', 'yf', 'yt', 'per', 'ss', 'ytd', 'gr', 'st'].concat(Q.per === 'window' ? ['od', 'do'] : []); return Q.v === 'lata' ? y : Q.v === 'rodziny' ? y.concat('fam') : Q.v === 'zestaw' ? ['v', 'od', 'do', 'gr', 'st', 'set'] : ['v', 'od', 'do', 'cmp', 'gr', 'st']; };
 /** Grupy ustawień pokazywane w pasku i w podświetleniu „co się zmieniło”. */
-const GROUP_OF = { v: 'view', od: 'range', do: 'range', yf: 'range', yt: 'range', per: 'range', ss: 'range', ytd: 'range', fam: 'view', set: 'view', cmp: 'cmp', st: 'status', gr: 'group' };
-const GROUP_NAME = { view: 'widok', range: 'zakres', cmp: 'porównanie', status: 'statusy', group: 'grupowanie' };
+const GROUP_OF = { v: 'view', od: 'range', do: 'range', yf: 'range', yt: 'range', per: 'range', ss: 'range', ytd: 'cmp', fam: 'view', set: 'view', cmp: 'cmp', st: 'status', gr: 'group' };
+const GROUP_NAME = { view: 'widok', range: 'okres', cmp: 'porównanie', status: 'statusy', group: 'oś czasu' };
 
 const S = { root: null, built: false, alive: false, Q: { ...DEF }, E: null, dataKey: '', data: null, seq: 0, timer: 0, shown: null, changed: new Set(), statuses: null, ui: {} };
 
 const GROUPS = [['auto', 'Auto', 'Automatycznie: dni dla krótkich okresów (do 2 miesięcy), tygodnie dla średnich, miesiące dla długich'], ['day', 'Dni', 'Jedna pozycja na dzień'], ['week', 'Tygodnie', 'Tygodnie ISO od poniedziałku (z numerami tygodni w widoku „Lata” i porównaniach)'], ['month', 'Miesiące', 'Miesiące kalendarzowe']];
 const GROUP_WORD = { day: 'dni', week: 'tygodnie', month: 'miesiące' };
 const METRICS = [['value', 'Wartość', 'Suma wartości zamówień (pozycje + dostawa, brutto)'], ['orders', 'Zamówienia', 'Liczba zamówień'], ['avg', 'Średni koszyk', 'Wartość zamówień podzielona przez ich liczbę']];
-const CMP_OPTS = [['prev', 'Poprzedni okres (tyle samo dni)', 'Okres o tej samej długości, bezpośrednio przed wybranym'], ['year', 'Ten sam okres rok temu', 'Te same dni kalendarzowe rok wcześniej'], ['off', 'Bez porównania', 'Tylko wybrany okres']];
+const CMP_OPTS = [['prev', 'Poprzedni okres', 'Okres o tej samej długości (tyle samo dni), bezpośrednio przed wybranym'], ['year', 'Ten sam okres rok temu', 'Te same dni kalendarzowe rok wcześniej'], ['off', 'Bez porównania', 'Tylko wybrany okres']];
 
 // ─── Stan ↔ adres ───────────────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ function statusPhrase() {
 /** Krótka forma grupowania do zdania — tylko gdy wybrane ręcznie (automatyczne nie zaśmieca zdania). */
 const groupShort = gr => (gr === 'auto' ? undefined : 'po ' + { day: 'dniach', week: 'tygodniach', month: 'miesiącach' }[gr]);
 /** Nazwa gotowego zakresu, gdy daty dokładnie mu odpowiadają („ostatnie 30 dni”), inaczej pusto. */
-function presetName(from, to) { const p = presets().find(([, a, b]) => a === from && b === to); return p ? p[0].charAt(0).toLowerCase() + p[0].slice(1) : ''; }
+function presetName(from, to) { const p = quick(Number(S.Q.ss)).map(q => q.slice(1)).concat(presets()).find(([, a, b]) => a === from && b === to); return p ? (p[0].charAt(0).toLowerCase() + p[0].slice(1)).replace(/ \((od .+)\)$/, ' $1') : ''; }
 const rangeShort = E => { const pn = presetName(E.from, E.to); return pn ? pn + ' (' + rangeText(E.from, E.to) + ')' : rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')'; };
 
 /**
@@ -106,14 +107,14 @@ function summaryParts() {
     { k: 'view', text: 'Zestaw: ' + n + ' elem.', short: n ? 'Zestaw: ' + n + ' elem.' : 'Zestaw — dodaj produkty', tip: 'Liczba produktów / rodzin / kategorii w porównaniu. Zestaw jest zapisany w adresie.' },
     { k: 'range', sw: 'cur', text: 'Sprzedaż ' + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', short: rangeShort(E), tip: 'Zakres dat porównania. Kliknij, aby zmienić daty.' },
     { k: 'status', text: 'statusy: ' + sp.text, short: sp.short, tip: sp.tip + ' Kliknij, aby zmienić.' },
-    { k: 'group', text: 'grupowanie: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), short: groupShort(E.group), tip: 'Na jakie przedziały dzielimy czas na wykresie' }]; }
+    { k: 'group', text: 'oś czasu: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), short: groupShort(E.group), tip: 'Na jakie przedziały dzielimy czas na wykresie' }]; }
   const g = d ? d.range.group : E.group === 'auto' ? autoGroup(E.days) : E.group;
-  const cmpTip = E.cmp === 'off' ? 'Porównanie jest wyłączone — pokazujemy tylko wybrany okres. Włączysz je w ustawieniach.' : 'Okres porównawczy — z nim zestawiane są wszystkie liczby i wykres (' + (E.cmp === 'year' ? 'te same dni rok wcześniej' : 'tyle samo dni bezpośrednio przed wybranym okresem') + '). Na wykresie to linia przerywana.';
+  const cmpTip = E.cmp === 'off' ? 'Porównanie jest wyłączone — pokazujemy tylko wybrany okres. Włączysz je w ustawieniach („Porównać z?”).' : 'Okres porównawczy — z nim zestawiane są wszystkie liczby i wykres (' + (E.cmp === 'year' ? 'te same dni rok wcześniej' : 'tyle samo dni bezpośrednio przed wybranym okresem') + '). Na wykresie to linia przerywana.';
   return [
     { k: 'range', sw: 'cur', text: (E.v === 'zysk' ? 'Zysk i marża ' : 'Sprzedaż ') + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', short: (E.v === 'zysk' ? 'Zysk i marża: ' : 'Sprzedaż: ') + rangeShort(E), tip: 'Okres bieżący — to, co pokazuje raport (słupki w kolorze brązowym). Kliknij, aby zmienić daty.' },
     { k: 'cmp', sw: E.cmp === 'off' ? null : 'cmp', text: E.cmp === 'off' ? 'bez porównania' : 'porównanie z ' + rangeText(E.prevFrom, E.prevTo) + (E.cmp === 'year' ? ' (rok temu)' : ' (poprzedni okres)'), short: E.cmp === 'off' ? 'bez porównania' : E.cmp === 'year' ? 'porównanie z tym samym okresem rok temu' : 'porównanie z poprzednim okresem', tip: cmpTip },
     { k: 'status', text: 'statusy: ' + sp.text, short: sp.short, tip: sp.tip + ' Kliknij, aby zmienić.' },
-    { k: 'group', text: 'grupowanie: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), short: groupShort(E.group), tip: 'Na jakie przedziały dzielimy czas na wykresie i w tabeli „Sprzedaż w czasie”' + (E.group === 'auto' ? ' — wybrane automatycznie na podstawie długości zakresu.' : '.') },
+    { k: 'group', text: 'oś czasu: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), short: groupShort(E.group), tip: 'Na jakie przedziały dzielimy czas na wykresie i w tabeli „Sprzedaż w czasie”' + (E.group === 'auto' ? ' — wybrane automatycznie na podstawie długości zakresu.' : '.') },
   ];
 }
 const sentence = () => summaryParts().map(p => p.text).join(' · ');
@@ -140,7 +141,7 @@ function renderSummary() {
   box.replaceChildren(el('div', { class: 'rp-sumline', id: 'rpSumLine' }, el('span', { class: 'rp-sum-title muted' }, 'Co oglądasz'), el('span', { class: 'rp-sumtext' }, ...line),
     S.changed.size ? el('span', { class: 'rp-changed', role: 'status' }, 'Zmieniono: ' + [...S.changed].map(k => GROUP_NAME[k]).join(', ')) : null,
     !S.data ? el('span', { class: 'rp-busy muted', id: 'rpBusy', role: 'status' }, el('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Przeliczam…') : null, more), details);
-  document.querySelectorAll('#rpSettings [data-sec]').forEach(f => f.classList.toggle('chg', S.changed.has(f.dataset.sec)));
+  S.root.querySelectorAll('[data-sec]').forEach(f => f.classList.toggle('chg', S.changed.has(f.dataset.sec)));
   groupNote();
 }
 
@@ -152,15 +153,16 @@ function groupNote() {
   n.textContent = E.group === 'auto' ? 'Teraz: ' + GROUP_WORD[eff] + ' (dobrane do długości okresu).' : 'Wybrano ręcznie: ' + GROUP_WORD[eff] + '.';
 }
 
+/** Przenosi do ustawienia stojącego za fragmentem paska / skrótem: otwiera panel i „Więcej opcji”, gdy trzeba, i ustawia tam fokus. */
 function focusSetting(k) {
   const u = S.ui;
-  if (!u.layout.isOpen()) toggleSettings(true);
-  const sec = [...u.panelEl.querySelectorAll('[data-sec="' + k + '"]')].find(n => n.offsetParent !== null) || u.panelEl.querySelector('[data-sec="' + k + '"]');
+  if (k !== 'view' && !u.layout.isOpen()) toggleSettings(true);
+  const shown = n => { for (let p = n; p && p !== S.root; p = p.parentElement) if (p.hidden) return false; return true; };
+  const sec = [...S.root.querySelectorAll('[data-sec="' + k + '"]')].find(shown);
   if (!sec) return;
-  const fold = sec.closest('details');
-  if (fold) fold.open = true;
+  for (let d = sec.closest('details'); d; d = d.parentElement.closest('details')) d.open = true;
   sec.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  const f = sec.matches('input,select,button') ? sec : sec.querySelector('input,select,button');
+  const f = sec.matches('input,select,button') ? sec : sec.querySelector('[aria-current], [aria-pressed=true]') || [...sec.querySelectorAll('input,select,button,a')].find(shown);
   if (f) f.focus({ preventScroll: true });
   sec.classList.add('flash'); setTimeout(() => sec.classList.remove('flash'), 1600);
 }
@@ -275,7 +277,7 @@ function tabs(d) {
     categories: { label: 'Kategorie', tip: 'Sprzedaż wg kategorii produktu (kategoria główna z karty produktu)', cols: [nameCol('Kategoria'), { key: 'products', label: 'Produkty', num: true, tip: 'Ile różnych produktów z tej kategorii sprzedano', fmt: int, type: 'number', adv: true }, ...prodCols.slice(0, 1), valueCol], rows: d.categories },
     producers: { label: 'Producenci', tip: 'Sprzedaż wg producenta produktu', cols: [nameCol('Producent'), { key: 'products', label: 'Produkty', num: true, tip: 'Ile różnych produktów tego producenta sprzedano', fmt: int, type: 'number', adv: true }, ...prodCols.slice(0, 1), valueCol], rows: d.producers },
     statuses: { label: 'Statusy', tip: 'Wszystkie zamówienia okresu wg statusu — także te, których nie liczą kafelki (kolumna „Liczone”)',
-      cols: [{ ...nameCol('Status'), link: x => '#/zamowienia?status=' + encodeURIComponent(x.id) }, { key: 'counted', label: 'Liczone', tip: 'Czy zamówienia w tym statusie wchodzą do sum (wg ustawienia „Które zamówienia liczyć”)', text: true, fmt: v => (v ? 'tak' : 'nie'), type: 'text', locked: true }, ordersCol, valueCol], rows: d.byStatus },
+      cols: [{ ...nameCol('Status'), link: x => '#/zamowienia?status=' + encodeURIComponent(x.id) }, { key: 'counted', label: 'Liczone', tip: 'Czy zamówienia w tym statusie wchodzą do sum (wg ustawienia „Co liczyć” w „Więcej opcji”)', text: true, fmt: v => (v ? 'tak' : 'nie'), type: 'text', locked: true }, ordersCol, valueCol], rows: d.byStatus },
     payments: { label: 'Formy płatności', tip: 'Liczone zamówienia wg formy płatności', cols: [nameCol('Forma płatności'), ordersCol, valueCol, { ...avgCol, adv: true }], rows: d.payments },
     deliveries: { label: 'Formy dostawy', tip: 'Liczone zamówienia wg formy dostawy', cols: [nameCol('Forma dostawy'), ordersCol, valueCol, { ...avgCol, adv: true }], rows: d.deliveries },
     woj: { label: 'Województwa', tip: 'Liczone zamówienia wg województwa klienta: z notatki klienta, a gdy jej brak — przybliżone z kodu pocztowego dostawy',
@@ -335,9 +337,9 @@ function clientsCard(d) {
 }
 
 function emptyBox(what) {
-  const widen = el('button', { type: 'button', class: 'secondary', id: 'rpWiden', title: 'Ustaw zakres na ostatnie 90 dni', onclick: () => { const t = isoDate(new Date()); setQ({ od: addDays(t, -89), do: t }); } }, 'Pokaż ostatnie 90 dni');
+  const widen = el('button', { type: 'button', class: 'secondary', id: 'rpWiden', title: 'Ustaw zakres na ostatnie 90 dni', onclick: () => { const t = isoDate(new Date()); pickRange('d90', addDays(t, -89), t); } }, 'Pokaż ostatnie 90 dni');
   return el('div', { class: 'card' }, el('div', { class: 'empty', id: 'rpEmpty' }, 'Brak zamówień w okresie ' + what + ' przy ustawieniu „statusy: ' + statusPhrase().text + '”.',
-    el('p', { class: 'muted' }, 'Zmień zakres dat albo ustawienie statusów (np. dołącz anulowane) — w „Ustawieniach” (albo kliknij fragment paska „Co oglądasz”).'), el('div', null, widen)));
+    el('p', { class: 'muted' }, 'Wybierz inny okres albo dołącz anulowane („Więcej opcji”) — w „Ustawieniach” (albo kliknij fragment paska „Co oglądasz”).'), el('div', null, widen)));
 }
 
 function renderOkres(d) {
@@ -346,67 +348,114 @@ function renderOkres(d) {
   return [top, legendNode(d, 'rpLegend'), tiles(d), chartCard(d), tableCard(d), clientsCard(d)];
 }
 
-// ─── Ustawienia (panel po lewej) ────────────────────────────────────────────
+// ─── Ustawienia: zakładki rodzaju raportu + panel (na telefonie arkusz od dołu) ──────────────
 
 const mk = (sec, label, tip, control) => el('label', { class: 'field-inline rp-field', 'data-sec': sec, title: tip }, label, control);
-/** Pole z kilkoma przyciskami (przełącznik segmentowy) — etykieta nad nim, jak przy zwykłym polu. */
+/** Pole z przełącznikiem segmentowym — etykieta nad nim, jak przy zwykłym polu. */
 const mkGroup = (sec, label, tip, control) => el('div', { class: 'field-inline rp-field', 'data-sec': sec }, el('span', { class: 'rp-flabel tip', title: tip }, label), control);
+/** Grupa w „Więcej opcji”: nagłówek z intencją („Co liczyć”) + kontrolki, każda z jednozdaniowym opisem (.rp-hint). */
+const grp = (title, tip, ...nodes) => el('div', { class: 'rp-grp' }, el('h4', { class: 'rp-gh tip', title: tip }, title), ...nodes);
+const hint = (text, id) => el('p', { class: 'rp-hint', id: id || null }, text);
+const narrow = () => window.matchMedia('(max-width: 979px)').matches;
+const MORE_KEY = 'osa-rp-more-open';
 
-function presets() {
-  const t = isoDate(new Date()), ms = t.slice(0, 8) + '01', pm = addDays(ms, -1), qStart = d => d.slice(0, 5) + String(Math.floor((Number(d.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, '0') + '-01';
-  const qs = qStart(t), pqe = addDays(qs, -1), y = t.slice(0, 4), py = String(Number(y) - 1);
-  return [['Dziś', t, t], ['Wczoraj', addDays(t, -1), addDays(t, -1)], ['Ostatnie 7 dni', addDays(t, -6), t], ['Ostatnie 30 dni', addDays(t, -29), t], ['Ostatnie 90 dni', addDays(t, -89), t],
-    ['Ten miesiąc (do dziś)', ms, t], ['Poprzedni miesiąc', pm.slice(0, 8) + '01', pm], ['Ten kwartał (do dziś)', qs, t], ['Poprzedni kwartał', qStart(pqe), pqe], ['Ten rok (do dziś)', y + '-01-01', t], ['Poprzedni rok', py + '-01-01', py + '-12-31'],
-    ['Ostatnie 12 miesięcy', addDays(addYears(t, -1), 1), t]];
+/** Początek i koniec bieżącego sezonu: od 1. dnia miesiąca `ss` (ostatniego, który już był) do dziś. */
+function seasonRange(ss) {
+  const t = isoDate(new Date()), y = Number(t.slice(0, 4)), a = y + '-' + String(ss).padStart(2, '0') + '-01';
+  return [a <= t ? a : (y - 1) + a.slice(4), t];
 }
+/** Gotowe okresy na pierwszym planie: [klucz, etykieta, od, do] — pokrywają większość pytań; reszta jest pod „Własny…”. */
+function quick(ss) {
+  const t = isoDate(new Date());
+  return [['d30', 'Ostatnie 30 dni', addDays(t, -29), t], ['d90', 'Ostatnie 90 dni', addDays(t, -89), t], ['month', 'Ten miesiąc', t.slice(0, 8) + '01', t], ['year', 'Ten rok', t.slice(0, 4) + '-01-01', t],
+    ['season', 'Ten sezon (od ' + MONTHS_GEN[ss - 1] + ')', ...seasonRange(ss)]];
+}
+/** Pozostałe gotowe zakresy (menu pod „Własny…”) — bez tych z pierwszego planu. */
+function presets() {
+  const t = isoDate(new Date()), pm = addDays(t.slice(0, 8) + '01', -1), qStart = d => d.slice(0, 5) + String(Math.floor((Number(d.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, '0') + '-01';
+  const qs = qStart(t), pqe = addDays(qs, -1), py = String(Number(t.slice(0, 4)) - 1);
+  return [['Dziś', t, t], ['Wczoraj', addDays(t, -1), addDays(t, -1)], ['Ostatnie 7 dni', addDays(t, -6), t], ['Poprzedni miesiąc', pm.slice(0, 8) + '01', pm], ['Ten kwartał', qs, t], ['Poprzedni kwartał', qStart(pqe), pqe],
+    ['Poprzedni rok', py + '-01-01', py + '-12-31'], ['Ostatnie 12 miesięcy', addDays(addYears(t, -1), 1), t]];
+}
+/** Który gotowy okres jest teraz wybrany („custom” = własne daty albo zakres spoza pierwszego planu). */
+function quickKey() {
+  const u = S.ui, E = S.E, m = quick(Number(S.Q.ss)).filter(q => q[2] === E.from && q[3] === E.to);
+  return u.custom || !m.length ? 'custom' : (m.find(q => q[0] === u.pick) || m[0])[0];
+}
+/** Wybór okresu: `key` = gotowy z pierwszego planu (chowa pola dat), null = zakres z menu / własny (pola dat zostają). */
+function pickRange(key, from, to) { const u = S.ui; u.pick = key; u.custom = !key; clearTimeout(S.timer); setQ({ od: from, do: to }); if (!key) syncControls(); }
+function openCustom() { const u = S.ui; u.custom = true; u.pick = null; syncControls(); const f = S.root.querySelector('#rpFrom'); if (f) f.focus(); }
 
 const VIEWS = [['okres', 'Okres', 'Jeden okres zestawiony z poprzednim okresem albo z rokiem wcześniej: kafelki, wykres, tabele, klienci'],
   ['lata', 'Lata (rok do roku)', 'Kilka lat obok siebie: wykres miesięczny rok do roku, mapa miesięcy, kategorie, produkty z kartą szczegółów'],
   ['zysk', 'Zysk i marża', 'Wartość netto, koszty zakupu, zysk i marża okresu (z bieżących cen zakupu produktów), z porównaniem w punktach procentowych'],
   ['rodziny', 'Rodziny produktów', 'Ten sam produkt w kolejnych latach (np. „Śpiewnik OTK 2021 … 2026” — osobne produkty w Selly): sprzedaż rodziny rok do roku'],
   ['zestaw', 'Zestaw produktów', 'Dowolne produkty, rodziny, kategorie lub producenci obok siebie w wybranym zakresie dat']];
-const PERIODS = [['year', 'Lata', 'Lata kalendarzowe: 1.01–31.12 każdego roku'], ['season', 'Sezony', 'Dwanaście miesięcy od wybranego miesiąca (np. sezon od września)'], ['window', 'Te same dni', 'Dni z pól „Pierwszy dzień – Ostatni dzień” powtórzone w każdym roku']];
+const PERIODS = [['year', 'Cały rok', 'Lata kalendarzowe: 1.01–31.12 każdego roku'], ['season', 'Sezon', 'Dwanaście miesięcy od wybranego miesiąca (np. sezon od września)'], ['window', 'Te same dni', 'Dni z pól „Pierwszy dzień – Ostatni dzień” powtórzone w każdym roku']];
 
 /**
- * Panel ustawień — od najczęściej używanych: Widok → Okres → Porównanie; zwinięte (zaawansowane): Grupowanie osi czasu, Które zamówienia liczyć.
- * Wybór jednej z kilku opcji = przełącznik segmentowy, wł. / wył. = przełącznik, długie listy (rok, miesiąc) = lista rozwijana.
+ * Ustawienia raportu (wzorzec: docs/ui-system.md → „Wzorzec ustawień raportu”):
+ *  • rodzaj raportu = zakładki-linki nad paskiem „Co oglądasz” (to nawigacja, nie ustawienie),
+ *  • panel: dwa pytania zwykłym językiem — „Jaki okres?” (gotowe okresy + „Własny…”; w widokach rok do roku „Które lata?”) i „Porównać z?”,
+ *  • jedno „Więcej opcji”: Co liczyć (anulowane, statusy, niepełny rok) · Jak pokazać (oś czasu) · Sezon (od miesiąca) — tylko to, co dotyczy bieżącego widoku.
+ * Jedna z kilku opcji = przełącznik segmentowy, wł. / wył. = przełącznik, długie listy (rok, miesiąc) = lista rozwijana. Miara wykresu jest przy wykresie.
  */
 function buildSettings() {
   const u = S.ui;
+  u.viewNav = el('nav', { class: 'viewnav rp-views', id: 'rpViews', 'aria-label': 'Rodzaj raportu', 'data-sec': 'view' }, VIEWS.map(([k, l, t]) => el('a', { id: 'rpView-' + k, 'data-v': k, href: '#/raporty', title: t }, l)));
   u.range = dateRange({ idFrom: 'rpFrom', idTo: 'rpTo', from: '', to: '', labelFrom: 'Od dnia', labelTo: 'Do dnia', titleFrom: 'Pierwszy dzień okresu bieżącego', titleTo: 'Ostatni dzień okresu bieżącego (włącznie)',
     onChange: ({ from, to }) => { if (from && to) { clearTimeout(S.timer); S.timer = setTimeout(() => setQ({ od: from, do: to }), 250); } } });
   u.range.menu.remove();   // własne gotowe zakresy — z dokładnymi datami
-  u.presets = menuButton({ id: 'rpFromPresets', label: 'Gotowe zakresy', cls: 'secondary small rp-presets', title: 'Gotowe zakresy dat — przy każdym widać dokładne daty', items: () => presets().map(([label, a, b]) => ({ label: label + ' · ' + rangeText(a, b), title: 'Ustaw zakres ' + rangeText(a, b), run: () => setQ({ od: a, do: b }) })) });
+  u.presets = menuButton({ id: 'rpFromPresets', label: 'Inne gotowe zakresy', cls: 'secondary small rp-presets', title: 'Pozostałe gotowe zakresy (dziś, 7 dni, kwartał, poprzedni rok…) — przy każdym widać dokładne daty', items: () => presets().map(([label, a, b]) => ({ label: label + ' · ' + rangeText(a, b), title: 'Ustaw zakres ' + rangeText(a, b), run: () => pickRange(null, a, b) })) });
   const cy = Number(isoDate(new Date()).slice(0, 4)), years = Array.from({ length: 11 }, (_, i) => cy - i);
   const sel = (id, opts, onch, title) => el('select', { id, 'aria-label': title, onchange: ev => onch(ev.target.value) }, opts.map(([v, l, t]) => el('option', { value: v, title: t || null }, l)));
-  u.viewSeg = segmented({ label: 'Widok raportu', cls: 'vert', key: 'v', options: VIEWS.map(([k, l, t]) => [k, l, t, 'rpView-' + k]), value: S.Q.v, onChange: k => setQ({ v: k, tab: 'series', so: '', item: '' }) });
-  u.cmp = segmented({ id: 'rpCmp', label: 'Porównanie', cls: 'vert', key: 'cmp', options: [['prev', 'Poprzedni okres', CMP_OPTS[0][2] + ' (tyle samo dni)'], ['year', 'Ten sam okres rok temu', CMP_OPTS[1][2]], ['off', 'Bez porównania', CMP_OPTS[2][2]]], value: S.Q.cmp, onChange: v => setQ({ cmp: v }) });
-  u.cmpNote = el('div', { class: 'rp-hint', id: 'rpCmpNote' });
-  u.group = segmented({ id: 'rpGroup', label: 'Oś czasu: grupuj po', cls: 'full', key: 'gr', options: GROUPS, value: S.Q.gr, onChange: v => setQ({ gr: v }) });
-  u.groupNote = el('div', { class: 'rp-hint', id: 'rpGroupNote' });
+
+  // 1. „Jaki okres?” / „Które lata?”
+  u.quick = segmented({ id: 'rpQuick', label: 'Jaki okres?', cls: 'vert', key: 'range', options: [...quick(Number(DEF.ss)).map(([k, l]) => [k, l]), ['custom', 'Własny…', 'Podaj własne daty albo wybierz inny gotowy zakres (dziś, 7 dni, kwartał, poprzedni rok…)']], value: 'd30',
+    onChange: k => { if (k === 'custom') return openCustom(); const q = quick(Number(S.Q.ss)).find(x => x[0] === k); pickRange(k, q[2], q[3]); } });
+  u.rangeNote = hint('', 'rpRangeNote');
+  u.quickBlock = el('div', { class: 'rp-stack', 'data-sec': 'range' }, u.quick, u.rangeNote);
   u.yf = sel('rpYf', years.map(y => [String(y), String(y)]), v => setQ({ yf: v }), 'Od roku'); u.yt = sel('rpYt', years.map(y => [String(y), String(y)]), v => setQ({ yt: v }), 'Do roku');
-  u.per = segmented({ id: 'rpPer', label: 'Rodzaj okresów', cls: 'full', key: 'per', options: PERIODS, value: S.Q.per, onChange: v => setQ({ per: v }) });
-  u.ss = sel('rpSs', MONTHS_LONG.map((m, i) => [String(i + 1), m]), v => setQ({ ss: v }), 'Sezon od miesiąca');
-  u.ytdSw = toggleSwitch({ id: 'rpYtd', sec: 'cmp', label: 'Porównuj do dzisiejszego dnia', tip: 'Włączone: bieżący okres liczony do dzisiejszego dnia, a wcześniejsze lata do tego samego dnia kalendarzowego — uczciwe porównanie niepełnego roku. Wyłączone: pełne okresy.', checked: S.Q.ytd === '1', onChange: on => setQ({ ytd: on ? '1' : '0' }) });
-  u.ytd = u.ytdSw.input;
+  u.per = segmented({ id: 'rpPer', label: 'Okres w każdym roku', cls: 'full', key: 'per', options: PERIODS, value: S.Q.per, onChange: v => setQ({ per: v }) });
+  u.lataBlock = el('div', { class: 'rp-stack' },
+    el('div', { class: 'rp-pair' }, mk('range', 'Od roku', 'Pierwszy rok porównania', u.yf), mk('range', 'Do roku', 'Ostatni rok — jest „bieżący”, a poprzedni to „porównanie”', u.yt)),
+    mkGroup('range', 'Okres w każdym roku', 'Co zestawiać w każdym roku: cały rok kalendarzowy, sezon (12 miesięcy od wybranego miesiąca) albo te same dni (pola niżej)', u.per));
+  u.customBox = el('div', { class: 'rp-stack rp-field', id: 'rpCustom', 'data-sec': 'range' }, u.range.node, u.presets);
+  u.seasonLink = el('button', { type: 'button', class: 'link rp-hint', id: 'rpSeasonLink', title: 'Przejdź do ustawienia pierwszego miesiąca sezonu („Więcej opcji” → „Sezon”)', onclick: () => focusSetting('season') });
+  u.rangeSec = filterSection('Jaki okres?', el('div', { class: 'rp-stack' }, u.lataBlock, u.quickBlock, u.customBox, u.seasonLink));
+
+  // 2. „Porównać z?”
+  u.cmp = segmented({ id: 'rpCmp', label: 'Porównać z?', cls: 'vert', key: 'cmp', options: CMP_OPTS, value: S.Q.cmp, onChange: v => setQ({ cmp: v }) });
+  u.cmpNote = hint('', 'rpCmpNote');
+  u.cmpSec = filterSection('Porównać z?', el('div', { class: 'rp-stack', 'data-sec': 'cmp', id: 'rpCmpBlock' }, u.cmp, u.cmpNote), { tip: 'Z czym zestawić okres bieżący — każda liczba pokazuje zmianę względem porównania' });
+
+  // 3. „Więcej opcji”
   u.cancelSw = toggleSwitch({ id: 'rpInclCancel', label: 'Wliczaj anulowane', tip: 'Włączone: do sum wchodzą też zamówienia w statusach anulowania. Domyślnie wyłączone.', onChange: on => toggleCancelled(on) });
   u.cancelSw.input.disabled = true; u.cancelSw.title = 'Dostępne po pierwszym policzeniu raportu (wtedy znamy listę statusów).';
   u.statusBox = el('div', { class: 'muted small', id: 'rpStatusBox' }, 'Lista statusów pojawi się po pierwszym policzeniu raportu.');
-  u.reset = el('button', { type: 'button', class: 'secondary', id: 'rpReset', onclick: () => { clearTimeout(S.timer); go('/raporty'); }, title: 'Wraca do ustawień domyślnych: ostatnie 30 dni, porównanie z poprzednim okresem, statusy bez anulowanych, wykres wartości' }, 'Resetuj ustawienia');
-  u.ssField = mk('range', 'Sezon od miesiąca', 'Pierwszy miesiąc sezonu — każdy okres to 12 miesięcy od niego', u.ss);
-  u.lataBlock = el('div', { class: 'rp-stack' },
-    el('div', { class: 'rp-pair' }, mk('range', 'Od roku', 'Pierwszy rok porównania', u.yf), mk('range', 'Do roku', 'Ostatni rok — jest „bieżący”, a poprzedni to „porównanie”', u.yt)),
-    mkGroup('range', 'Okres w każdym roku', 'Jak wyznaczyć okres w każdym roku: cały rok kalendarzowy, sezon od wybranego miesiąca albo te same dni (pola niżej)', u.per), u.ssField);
-  u.rangeBlock = el('div', { class: 'rp-stack rp-field', 'data-sec': 'range' }, u.presets, u.range.node);
-  u.groupField = el('div', { class: 'rp-stack' }, mkGroup('group', 'Oś czasu', 'Na jakie przedziały dzielić czas na wykresie i w tabeli „Sprzedaż w czasie”. „Auto” dobiera je do długości okresu: dni do 2 miesięcy, tygodnie do ok. roku, dalej miesiące. Skrót O.', u.group), u.groupNote);
-  u.rangeSec = filterSection('Okres', el('div', { class: 'rp-stack' }, u.lataBlock, u.rangeBlock, u.groupField), { tip: 'Jakie dni (albo lata) pokazuje raport i jak dzielić je na osi czasu' });
-  u.cmpSec = filterSection('Porównanie', el('div', { class: 'rp-stack' }, el('div', { class: 'rp-stack', 'data-sec': 'cmp', id: 'rpCmpBlock' }, u.cmp, u.cmpNote), u.ytdSw), { tip: 'Z czym zestawić okres bieżący — każda liczba pokazuje zmianę względem porównania' });
-  u.panelNodes = [
-    filterSection('Widok', u.viewSeg, { tip: 'Co raport pokazuje: jeden okres, lata obok siebie, zysk, rodziny albo dowolny zestaw produktów' }),
-    u.rangeSec, u.cmpSec,
-    filterSection('Które zamówienia liczyć', el('div', { 'data-sec': 'status', class: 'rp-stack rp-field', id: 'rpStatusSec' }, el('p', { class: 'rp-hint' }, 'Domyślnie liczone są zamówienia we wszystkich statusach poza anulowanymi. Tabela „Statusy” pokazuje wszystkie.'), u.cancelSw, u.statusBox),
-      { fold: true, id: 'rpStatusFold', tip: 'Opcja zaawansowana: wybór statusów zamówień wchodzących do sum. Domyślnie wszystkie poza anulowanymi.' }),
-    el('div', { class: 'rp-reset' }, u.reset)];
+  u.statusCount = el('span', { class: 'sum' });
+  u.statusFold = el('details', { class: 'fold rp-subfold', id: 'rpStatusFold' }, el('summary', { title: 'Zaznacz dokładnie, które statusy zamówień liczyć (np. tylko opłacone)' }, 'Wybierz statusy', u.statusCount), u.statusBox);
+  u.ytdSw = toggleSwitch({ id: 'rpYtd', label: 'Porównuj do dzisiejszego dnia', tip: 'Włączone: bieżący okres liczony do dzisiejszego dnia, a wcześniejsze lata do tego samego dnia kalendarzowego — uczciwe porównanie niepełnego roku. Wyłączone: pełne okresy.', checked: S.Q.ytd === '1', onChange: on => setQ({ ytd: on ? '1' : '0' }) });
+  u.ytd = u.ytdSw.input;
+  u.ytdRow = el('div', { class: 'rp-opt', 'data-sec': 'cmp' }, u.ytdSw, hint('Wcześniejsze lata kończą się tego samego dnia co bieżący, niepełny rok.'));
+  u.group = segmented({ id: 'rpGroup', label: 'Oś czasu', cls: 'full', key: 'gr', options: GROUPS, value: S.Q.gr, onChange: v => setQ({ gr: v }) });
+  u.groupNote = hint('', 'rpGroupNote');
+  u.ss = sel('rpSs', MONTHS_LONG.map((m, i) => [String(i + 1), m]), v => { const [a, b] = seasonRange(Number(v)); setQ(!isYears(S.Q.v) && quickKey() === 'season' ? { ss: v, od: a, do: b } : { ss: v }); }, 'Sezon od miesiąca');
+  u.seasonGrp = grp('Sezon', 'Sezon = 12 miesięcy od wybranego miesiąca (np. od września do sierpnia)',
+    el('div', { class: 'rp-opt' }, mk('season', 'Sezon od miesiąca', 'Pierwszy miesiąc sezonu — każdy sezon to 12 miesięcy od niego', u.ss), hint('Od tego miesiąca liczymy „Ten sezon” i sezony rok do roku.')));
+  u.moreCount = el('span', { class: 'sum', id: 'rpMoreCount' });
+  u.more = filterSection('Więcej opcji', el('div', { class: 'rp-stack rp-more' },
+    grp('Co liczyć', 'Które zamówienia wchodzą do sum. Domyślnie wszystkie statusy poza anulowanymi.',
+      el('div', { class: 'rp-opt', 'data-sec': 'status', id: 'rpStatusSec' }, u.cancelSw, hint('Domyślnie liczymy wszystkie statusy poza anulowanymi.'), u.statusFold), u.ytdRow),
+    grp('Jak pokazać', 'Podział osi czasu na wykresie i w tabeli. Miarę (wartość / zamówienia / średni koszyk) przełączasz przy samym wykresie.',
+      el('div', { class: 'rp-opt' }, mkGroup('group', 'Oś czasu', 'Na jakie przedziały dzielić czas na wykresie i w tabeli „Sprzedaż w czasie”. „Auto” dobiera je do długości okresu: dni do 2 miesięcy, tygodnie do ok. roku, dalej miesiące. Skrót O.', u.group), u.groupNote)),
+    u.seasonGrp), { fold: true, id: 'rpMore', open: (() => { try { return localStorage.getItem(MORE_KEY) === '1'; } catch (e) { return false; } })(), tip: 'Rzadziej zmieniane: które zamówienia liczyć, podział osi czasu, początek sezonu' });
+  u.more.querySelector('summary').append(u.moreCount);
+  u.more.addEventListener('toggle', () => { try { localStorage.setItem(MORE_KEY, u.more.open ? '1' : '0'); } catch (e) { /* bez pamięci */ } });
+
+  u.reset = el('button', { type: 'button', class: 'secondary', id: 'rpReset', onclick: () => { clearTimeout(S.timer); u.custom = false; u.pick = null; go('/raporty'); }, title: 'Wraca do ustawień domyślnych: ostatnie 30 dni, porównanie z poprzednim okresem, statusy bez anulowanych, wykres wartości' }, 'Resetuj ustawienia');
+  u.done = el('button', { type: 'button', class: 'secondary small', id: 'rpSheetDone', title: 'Zamknij ustawienia i wróć do raportu', onclick: () => { toggleSettings(false); u.settingsBtn.focus(); } }, 'Gotowe');
+  u.panelNodes = [el('div', { class: 'rp-sheet-head' }, el('strong', null, 'Ustawienia raportu'), u.done), u.rangeSec, u.cmpSec, u.more, el('div', { class: 'rp-reset' }, u.reset)];
 }
 
 /** Wybrane statusy (id) wg adresu; puste = domyślne (wszystkie poza anulowanymi). */
@@ -430,38 +479,50 @@ function statusPanel(statuses) {
   sw.title = canc.length ? 'Włączone: do sum wchodzą też zamówienia w statusach anulowania (' + canc.map(s => s.name).join(', ') + '). Domyślnie wyłączone.' : 'W sklepie nie ma statusu anulowania — nie ma czego dołączać.';
   const checks = statuses.map(s => { const cb = el('input', { type: 'checkbox', value: s.id, checked: s.selected }); return el('label', { class: 'menu-check', title: s.cancelled ? 'Status anulowania — domyślnie niezaznaczony' : null }, cb, el('span', null, s.name)); });
   const apply = () => setStatuses(checks.map(l => l.firstChild).filter(cb => cb.checked).map(cb => cb.value), statuses);
+  S.ui.statusCount.textContent = '(liczone: ' + sel.length + ' z ' + statuses.length + ')';
   box.className = 'rp-stack';
-  box.replaceChildren(el('span', { class: 'rp-flabel tip', title: 'Zaznacz dokładnie, które statusy zamówień liczyć, i kliknij „Zastosuj”' }, 'Liczone statusy (' + sel.length + ' z ' + statuses.length + ')'),
-    el('div', { class: 'rp-checks' }, ...checks),
-    el('div', { class: 'rp-opts-actions' }, el('button', { type: 'button', class: 'secondary', onclick: () => setQ({ st: '' }), title: S.Q.st ? 'Wróć do ustawienia domyślnego: wszystkie statusy poza anulowanymi' : 'Już ustawione domyślnie: wszystkie statusy poza anulowanymi', disabled: !S.Q.st }, 'Domyślne'),
-      el('button', { type: 'button', class: 'primary', id: 'rpApplyStatuses', onclick: apply, title: 'Przelicz raport dla zaznaczonych statusów' }, 'Zastosuj')));
+  box.replaceChildren(el('div', { class: 'rp-checks' }, ...checks),
+    el('div', { class: 'rp-opts-actions' }, el('button', { type: 'button', class: 'ghost small', onclick: () => setQ({ st: '' }), title: S.Q.st ? 'Wróć do ustawienia domyślnego: wszystkie statusy poza anulowanymi' : 'Już ustawione domyślnie: wszystkie statusy poza anulowanymi', disabled: !S.Q.st }, 'Domyślne'),
+      el('button', { type: 'button', class: 'secondary small', id: 'rpApplyStatuses', onclick: apply, title: 'Przelicz raport dla zaznaczonych statusów' }, 'Zastosuj')));
 }
 
-/** Ustawia kontrolki panelu według adresu (bez wywoływania zdarzeń). */
+/** Ustawia kontrolki według adresu (bez wywoływania zdarzeń) i pokazuje tylko te, które dotyczą bieżącego widoku. */
 function syncControls() {
-  const u = S.ui, Q = S.Q, E = S.E, lata = isYears(Q.v), zest = Q.v === 'zestaw';
+  const u = S.ui, Q = S.Q, E = S.E, lata = isYears(Q.v), ss = Number(Q.ss);
+  for (const a of u.viewNav.children) { a.href = '#/raporty' + qsOf({ ...Q, v: a.dataset.v, tab: 'series', so: '', item: '' }); if (a.dataset.v === Q.v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
   u.range.from.value = E.from; u.range.to.value = E.to;
-  u.cmp.set(Q.cmp); u.group.set(Q.gr); u.per.set(Q.per); u.viewSeg.set(Q.v);
+  u.cmp.set(Q.cmp); u.group.set(Q.gr); u.per.set(Q.per);
   u.yf.value = String(E.yf || Number(E.today.slice(0, 4)) - 2); u.yt.value = String(E.yt || E.today.slice(0, 4)); u.ss.value = Q.ss; u.ytd.checked = Q.ytd === '1';
-  u.lataBlock.hidden = !lata;
-  u.cmpSec.hidden = zest;   // zestaw nie ma porównania
-  u.cmp.closest('[data-sec]').hidden = lata; u.ytdSw.hidden = !lata;
-  u.cmpNote.textContent = lata || Q.cmp === 'off' ? 'Raport pokaże tylko wybrany okres.' : 'Porównanie: ' + rangeText(E.prevFrom, E.prevTo) + ' (' + daysText(E.days) + ').';
-  u.cmpNote.title = Q.cmp === 'off' ? '' : 'Dokładne daty okresu porównawczego — na wykresie linia przerywana';
-  u.rangeBlock.hidden = lata && Q.per !== 'window';
-  u.rangeSec.querySelector('h3').textContent = lata ? 'Lata i okresy' : 'Okres';
-  u.ssField.hidden = !lata || Q.per !== 'season';
+  // okres: gotowe okresy (zwykłe widoki) albo lata (rok do roku); pola dat tylko dla „Własny…” / „Te same dni”
+  const qk = lata ? '' : quickKey(), seasonOn = lata ? Q.per === 'season' : qk === 'season';
+  for (const [k, label, a, b] of quick(ss)) { const btn = u.quick.querySelector('[data-range="' + k + '"]'); btn.textContent = label; btn.title = rangeText(a, b) + ' (' + daysText(daysBetween(a, b)) + ')'; }
+  u.quick.set(qk);
+  u.rangeSec.querySelector('h3').textContent = lata ? 'Które lata?' : 'Jaki okres?';
+  u.lataBlock.hidden = !lata; u.quickBlock.hidden = lata;
+  u.customBox.hidden = lata ? Q.per !== 'window' : qk !== 'custom';
+  u.rangeNote.hidden = qk === 'custom'; u.rangeNote.textContent = rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')';
+  u.seasonLink.hidden = !seasonOn; u.seasonLink.textContent = 'Sezon od: ' + MONTHS_LONG[ss - 1] + ' — zmień';
   const lbl = (ctl, t) => { const l = ctl.closest('label'); if (l && l.firstChild) l.firstChild.textContent = t; };
   lbl(u.range.from, lata ? 'Pierwszy dzień (w każdym roku)' : 'Od dnia'); lbl(u.range.to, lata ? 'Ostatni dzień (w każdym roku)' : 'Do dnia');
+  // porównanie: tylko widoki jednego okresu (rok do roku porównuje lata, zestaw — produkty)
+  u.cmpSec.hidden = lata || Q.v === 'zestaw';
+  u.cmpNote.textContent = Q.cmp === 'off' ? 'Raport pokaże tylko wybrany okres.' : rangeText(E.prevFrom, E.prevTo) + ' (' + daysText(E.days) + ')';
+  u.cmpNote.title = Q.cmp === 'off' ? '' : 'Dokładne daty okresu porównawczego — na wykresie linia przerywana';
+  // więcej opcji: tylko to, co dotyczy widoku; licznik zmienionych, żeby zwinięte nie ukrywało ustawień innych niż domyślne
+  u.ytdRow.hidden = !lata; u.seasonGrp.hidden = !seasonOn;
+  const n = (Q.st ? 1 : 0) + (Q.gr !== DEF.gr ? 1 : 0) + (seasonOn && Q.ss !== DEF.ss ? 1 : 0) + (lata && Q.ytd !== DEF.ytd ? 1 : 0);
+  u.moreCount.textContent = n ? '· zmienione: ' + n : ''; u.moreCount.title = n ? 'Tyle ustawień w „Więcej opcji” różni się od domyślnych' : '';
   u.reset.disabled = isDefault(Q);
   if (S.statuses) statusPanel(S.statuses);
 }
 
+/** Pokazuje / chowa panel ustawień. Na wąskim ekranie panel jest arkuszem od dołu: zawsze startuje zamknięty i nie zapamiętuje stanu. */
 function toggleSettings(force) {
   const u = S.ui, open = force != null ? force : !u.layout.isOpen();
-  u.layout.setOpen(open, force == null);
+  u.layout.setOpen(open, force == null && !narrow());
   u.settingsBtn.setAttribute('aria-expanded', String(open));
   u.settingsBtn.textContent = open ? 'Ustawienia ▴' : 'Ustawienia ▾';
+  if (open && narrow()) u.done.focus({ preventScroll: true });
 }
 
 // ─── Ładowanie i odświeżanie ────────────────────────────────────────────────
@@ -520,11 +581,14 @@ function build(el0) {
   buildSettings();
   u.summary = el('section', { class: 'rp-summary', id: 'rpSummary', 'aria-label': 'Co oglądasz: okres, porównanie i liczone statusy' });
   u.body = el('div', { id: 'rpBody' });
-  u.layout = filterLayout({ key: 'raporty', panelId: 'rpSettings', panelNodes: u.panelNodes, mainNodes: [u.body], defaultOpen: window.innerWidth >= 980 });
+  u.layout = filterLayout({ key: 'raporty', panelId: 'rpSettings', panelNodes: u.panelNodes, mainNodes: [u.body], defaultOpen: true });
   u.panelEl = u.layout.panel;
-  u.settingsBtn = el('button', { type: 'button', class: 'secondary', id: 'rpSettingsBtn', 'aria-expanded': 'false', 'aria-controls': 'rpSettings', title: 'Pokaż lub ukryj ustawienia raportu: zakres, porównanie, grupowanie, statusy', onclick: () => toggleSettings() }, 'Ustawienia ▾');
-  el0.replaceChildren(pageToolbar({ title: 'Raporty sprzedaży', sub: 'Ile sprzedaliśmy i jak to wypada na tle poprzedniego okresu — z zamówień w kopii panelu. Zmień okres lub widok w „Ustawieniach”.', actions: [u.settingsBtn] }), u.summary, u.layout.node);
-  toggleSettings(u.layout.isOpen());
+  u.panelEl.setAttribute('aria-label', 'Ustawienia raportu');
+  u.panelEl.addEventListener('keydown', ev => { if (ev.key === 'Escape' && narrow() && !ev.defaultPrevented && !ev.target.closest('.menu-pop, .dp-pop')) { toggleSettings(false); u.settingsBtn.focus(); } });
+  u.layout.node.append(el('div', { class: 'rp-backdrop', 'aria-hidden': 'true', onclick: () => toggleSettings(false) }));   // telefon: tło pod arkuszem ustawień
+  u.settingsBtn = el('button', { type: 'button', class: 'secondary', id: 'rpSettingsBtn', 'aria-expanded': 'false', 'aria-controls': 'rpSettings', title: 'Pokaż lub ukryj ustawienia raportu: okres, porównanie i „Więcej opcji” (statusy, oś czasu)', onclick: () => toggleSettings() }, 'Ustawienia ▾');
+  el0.replaceChildren(pageToolbar({ title: 'Raporty sprzedaży', sub: 'Ile sprzedaliśmy i jak to wypada na tle poprzedniego okresu — z zamówień w kopii panelu. Rodzaj raportu wybierasz poniżej, okres i porównanie — w „Ustawieniach”.', actions: [u.settingsBtn] }), u.viewNav, u.summary, u.layout.node);
+  toggleSettings(narrow() ? false : u.layout.isOpen());
   S.built = true;
 }
 
@@ -538,10 +602,10 @@ export default {
     S.Q = readQ(params && params.query);
     const click = id => () => { const n = document.getElementById(id); if (!n || n.disabled) return false; n.click(); return true; };
     shortcuts.scope('raporty', [
-      { keys: ['d'], label: 'D', desc: 'Przejdź do pola daty „od dnia”', run: () => { const n = document.getElementById('rpFrom'); if (!n || n.offsetParent === null) return false; n.focus(); return true; } },
+      { keys: ['d'], label: 'D', desc: 'Przejdź do wyboru okresu (własne daty: pole „od dnia”)', run: () => { if (isYears(S.Q.v) && S.Q.per !== 'window') focusSetting('range'); else { if (!S.ui.layout.isOpen()) toggleSettings(true); openCustom(); } return true; } },
       { keys: ['c'], label: 'C', desc: 'Przejdź do ustawienia porównania', run: () => { focusSetting('cmp'); return true; } },
-      { keys: ['f'], label: 'F', desc: 'Przejdź do wyboru liczonych statusów', run: () => { focusSetting('status'); return true; } },
-      { keys: ['o'], label: 'O', desc: 'Przejdź do ustawienia osi czasu (dni / tygodnie / miesiące)', run: () => { focusSetting('group'); return true; } },
+      { keys: ['f'], label: 'F', desc: 'Przejdź do wyboru liczonych statusów („Więcej opcji”)', run: () => { focusSetting('status'); return true; } },
+      { keys: ['o'], label: 'O', desc: 'Przejdź do ustawienia osi czasu (dni / tygodnie / miesiące; „Więcej opcji”)', run: () => { focusSetting('group'); return true; } },
       { keys: ['s'], label: 'S', desc: 'Pokaż lub zwiń szczegóły paska „Co oglądasz”', run: () => { setSumOpen(!sumOpen()); return true; } },
       { keys: ['e'], label: 'E', desc: 'Otwórz menu pobierania tabeli', run: click('rpDl') },
     ]);

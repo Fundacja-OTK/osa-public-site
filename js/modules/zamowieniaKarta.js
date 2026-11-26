@@ -1,9 +1,31 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=4562225';
-import { askConfirm } from '../core/confirm.js?v=4562225';
-import { api, ctx } from '../core/client.js?v=4562225';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=4562225';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=5a962d8';
+import { askConfirm } from '../core/confirm.js?v=5a962d8';
+import { api, ctx } from '../core/client.js?v=5a962d8';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=5a962d8';
+// pola z formularza Selly i usuwanie pozycji: moduł ładowany dopiero przy użyciu (budżet zapytań strony — tests/e2e/perf)
+const kartaSelly = () => import('./zamowieniaKartaSelly.js?v=5a962d8');
+function itemDeleteButton(C, p) {
+  if (!(ctx.boot && ctx.boot.isAdmin) || p.product_order_id == null) return null;
+  const btn = gw(el('button', { type: 'button', class: 'secondary danger small-btn', id: 'ordItemDel-' + p.product_order_id,
+    title: 'Usuwa tę pozycję z zamówienia w Selly (tylko administrator panelu; formularzem Selly, po potwierdzeniu). API Selly nie pozwala usuwać pozycji.' }, 'Usuń…'));
+  btn.addEventListener('click', () => kartaSelly().then(m => m.deleteItem(C, p, money, btn)).catch(e => flash('', 'Nie udało się: ' + (e.message || 'błąd'), 'error')));
+  return btn;
+}
+function sellyFieldsCard(C) {
+  const body = el('div', { class: 'ord-sf-body' });
+  const host = el('details', { class: 'card ord-selly-fields', id: 'ordSellyFields' },
+    el('summary', { title: 'Pola karty zamówienia, których API Selly nie zapisuje — panel zmienia je formularzem Selly na Twojej sesji (tylko zmienione pola, po podglądzie i potwierdzeniu)' },
+      'Opiekun, data sprzedaży, paczka i inne pola z Selly ▾'), body);
+  let started = false;
+  host.addEventListener('toggle', () => {
+    if (!host.open || started) return;
+    started = true;
+    kartaSelly().then(m => m.mountSellyFields(C, body)).catch(e => { started = false; body.replaceChildren(el('div', { class: 'notice warn' }, 'Nie udało się wczytać: ' + (e.message || 'błąd'))); });
+  });
+  return { host };
+}
 const gw = e => gateWrite(e, 'zamowienia');   // bez prawa zmian w sekcji: wyszarzone z podpowiedzią (core/ui.js)
 
 const EDIT_KEY = 'osa-ord-edit';
@@ -263,7 +285,8 @@ function itemsCard(C) {
       return '';
     };
     const nm = el('div', null, el('div', { class: 'cell-name' }, p.name || '—'),
-      el('div', { class: 'cell-sub' }, [p.producer_code || p.symbol, textFeat(p.variant_features)].filter(Boolean).join(' · ')), row.err);
+      el('div', { class: 'cell-sub' }, [p.producer_code || p.symbol, textFeat(p.variant_features)].filter(Boolean).join(' · ')), row.err,
+      editing ? null : itemDeleteButton(C, p));   // usunięcie pozycji formularzem Selly — tylko administrator panelu (zamowieniaKartaSelly.js)
     row.tr = el('tr', { 'data-pid': pid },
       el('td', { class: 'n' }, String(idx + 1)), el('td', null, nm), el('td', { class: 'n' }, str(p.quantity)),
       editing ? el('td', null, row.qty) : null,
@@ -420,7 +443,8 @@ function itemsCard(C) {
     host.replaceChildren(
       el('div', { class: 'card-head ord-sec-head' }, el('div', null, el('h2', null, 'Pozycje (' + prods.length + ')'),
         editing ? el('div', { class: 'sub' }, 'Zmień ilość, rabat, cenę, VAT lub komentarz — wartości przeliczają się na żywo. ',
-          sellyLink('Usunięcie pozycji — w panelu Selly ↗', C.sellyUrl, 'API Selly nie pozwala usuwać pozycji zamówienia — otwiera to zamówienie w panelu Selly w nowej karcie')) : null),
+          ctx.boot && ctx.boot.isAdmin ? el('span', { class: 'muted' }, 'Usunięcie pozycji: przycisk „Usuń…” przy pozycji (poza trybem edycji).')
+            : sellyLink('Usunięcie pozycji — w panelu Selly ↗', C.sellyUrl, 'API Selly nie pozwala usuwać pozycji zamówienia, a z panelu usuwa je tylko administrator — otwiera to zamówienie w panelu Selly w nowej karcie')) : null),
       el('div', { class: 'ord-head-actions' }, dirtyFlag, addBtn, editing ? null : gw(el('button', { type: 'button', class: 'secondary', id: 'ordEdit-items', title: 'Edytuj pozycje: ilość, cenę, rabat, VAT, komentarz', disabled: !prods.length, onclick: () => sec.setEditing(true) }, 'Edytuj pozycje')))),
       addOpen ? addPanel() : null, editing && prods.length > 1 ? bulkTools() : null, msg,
       prods.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'ordItems' }, el('thead', null, head), body, el('tfoot', null, foot))) : el('div', { class: 'empty' }, 'Zamówienie nie ma pozycji.'),
@@ -462,7 +486,7 @@ function invoicesCard(C) {
   const issueHost = el('div', { id: 'ordInvIssueHost' });
   const issueBtn = gateWrite(el('button', { type: 'button', class: 'secondary', id: 'ordInvIssue',
     title: 'Pokazuje podgląd faktury VAT przygotowanej przez Selly dla tego zamówienia (numer, nabywca, pozycje, VAT) i pozwala ją wystawić po potwierdzeniu',
-    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=4562225');   // leniwie: karta bez dodatkowego pliku na starcie
+    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=5a962d8');   // leniwie: karta bez dodatkowego pliku na starcie
       if (!issueHost.firstChild) issueHost.replaceChildren(issuePanel({ orderId: C.id, onDone: () => load(), onClose: () => issueHost.replaceChildren() })); } }, 'Wystaw fakturę…'), 'faktury');
   const isAdmin = !!(ctx.boot && ctx.boot.isAdmin);
   const linksFor = hasActive => el('div', { class: 'ord-actions' },
@@ -507,12 +531,10 @@ function invoicesCard(C) {
 // ─── Co zostaje w Selly (brak zapisu w REST API, spec. 1.11) ─────────────────
 
 const SELLY_ONLY = [
-  ['Usuwanie pozycji z zamówienia', 'API pozwala pozycje dodawać i zmieniać, ale nie usuwać.'],
+  ['Usuwanie pozycji z zamówienia (poza administratorem panelu)', 'API pozwala pozycje dodawać i zmieniać, ale nie usuwać. Administrator panelu usuwa pozycję przyciskiem „Usuń…” przy pozycji (formularzem Selly).'],
   ['Korekta i usuwanie faktury oraz paragon', 'Numerację korekt i paragonów prowadzi Selly. Fakturę VAT wystawisz w sekcji „Faktury i paragon” (formularzem Selly); rozliczenie i wydruk — tamże.'],
-  ['Opiekun zamówienia', 'API nie udostępnia listy pracowników, z której można by wybrać opiekuna.'],
-  ['Data sprzedaży, zwrot transakcji, numer paczki i waga przesyłki', 'Tych pól nie ma w zapisie zamówienia przez API.'],
-  ['Notatki grupowe (widoczne dla wybranych grup)', 'API nie opisuje, jak wskazać grupy, które widzą notatkę.'],
-  ['Załączniki, SMS do klienta, zaplanowana zmiana statusu', 'Brak takich operacji w API.'],
+  ['Paragon (numer i data), komentarz do zdarzenia', 'Numerację paragonów prowadzi Selly; komentarz zdarzenia może wysłać e-mail do klienta. Opiekuna, datę sprzedaży, paczkę i wagę, notatkę grupową i zaplanowaną zmianę statusu zmienisz w sekcji „Opiekun, data sprzedaży, paczka i inne pola z Selly”.'],
+  ['Załączniki i SMS do klienta', 'Brak takich operacji w API; panel nie wysyła wiadomości do klienta.'],
   ['Ceny zakupu pozycji w magazynach', 'Brak zapisu w API zamówień.'],
   ['Wydruki (zamówienie, list przewozowy, do magazynu), utworzenie reklamacji lub zwrotu', 'Funkcje panelu Selly bez odpowiednika w API.'],
 ];
@@ -633,5 +655,7 @@ export function buildOrderCard(deps) {
       C.editDefault = ev.target.checked; store(EDIT_KEY, C.editDefault);
       for (const s of C.secs) s.setEditing && s.setEditing(C.editDefault);
     } }), ' Domyślnie w trybie edycji');
-  return { C, toggle, notes: notes.host, grid: [contact.host, ship.host, inv.host, delivery.host], items: items.host, totals: totals.host, invoices: invoices.host, sellyOnly: sellyOnlyCard(C) };
+  const sellyFields = sellyFieldsCard(C);   // opiekun, data sprzedaży, paczka… — formularz Selly (API ich nie zapisuje)
+  return { C, toggle, notes: notes.host, grid: [contact.host, ship.host, inv.host, delivery.host], items: items.host, totals: totals.host, invoices: invoices.host,
+    sellyFields: sellyFields.host, sellyOnly: sellyOnlyCard(C) };
 }

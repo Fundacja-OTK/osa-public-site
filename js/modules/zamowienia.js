@@ -1,26 +1,27 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Lista = wspólny komponent core/listView.js (tabela, sortowanie, strony, zaznaczenie z dolnym paskiem, stan w adresie, świeżość).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { payState } from '../lib/payState.js?v=4562225';
-import { photoSrc } from '../core/photo.js?v=4562225';
-import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=4562225';
-import { askConfirm } from '../core/confirm.js?v=4562225';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=4562225';
-import { api, ctx } from '../core/client.js?v=4562225';
-import { go, setLeaveGuard } from '../core/router.js?v=4562225';
-import { noteVisit } from '../core/recents.js?v=4562225';
-import { registerListKeys } from '../core/listKeys.js?v=4562225';
-import { changedIds } from '../core/liveRefresh.js?v=4562225';
-import { cachedRead } from '../core/cache.js?v=4562225';
-import { listView } from '../core/listView.js?v=4562225';
-import * as LL from '../core/listLogic.js?v=4562225';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=4562225';
-import { showNewOrder } from './zamowienieNowe.js?v=4562225';
-import { showInvoices } from './zamowieniaFaktury.js?v=4562225';
-import { showPick } from './zamowieniaKompletacja.js?v=4562225';
-import { createFilterUi } from './zamowieniaFiltry.js?v=4562225';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=4562225';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=4562225';
+import { payState } from '../lib/payState.js?v=5a962d8';
+import { photoSrc } from '../core/photo.js?v=5a962d8';
+import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=5a962d8';
+import { askConfirm } from '../core/confirm.js?v=5a962d8';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=5a962d8';
+import { api, ctx } from '../core/client.js?v=5a962d8';
+import { go, setLeaveGuard } from '../core/router.js?v=5a962d8';
+import { noteVisit } from '../core/recents.js?v=5a962d8';
+import { registerListKeys } from '../core/listKeys.js?v=5a962d8';
+import { changedIds } from '../core/liveRefresh.js?v=5a962d8';
+import { cachedRead } from '../core/cache.js?v=5a962d8';
+import { listView } from '../core/listView.js?v=5a962d8';
+import { parseOrderQuery, yearNote } from '../core/recents.js?v=5a962d8';
+import * as LL from '../core/listLogic.js?v=5a962d8';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=5a962d8';
+import { showNewOrder } from './zamowienieNowe.js?v=5a962d8';
+import { showInvoices } from './zamowieniaFaktury.js?v=5a962d8';
+import { showPick } from './zamowieniaKompletacja.js?v=5a962d8';
+import { createFilterUi } from './zamowieniaFiltry.js?v=5a962d8';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=5a962d8';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=5a962d8';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SIZES = [25, 50, 100, 200];
@@ -92,6 +93,7 @@ const listParams = (Q, extra) => {
   const p = { sort: Q.sort, dir: Q.dir, pageSize: Q.size || 50, page: Q.page };
   Object.assign(p, filterParams(Q));
   if (Q.q) p.q = Q.q;
+  if (Q.q && S.broad === Q.q) p.broad = 1;   // „pokaż też zawierające”: szukanie wielopolowe zamiast samego numeru
   if (Q.from) p.dateFrom = Q.from;
   const to = effectiveDateTo(Q.to, Q.older);
   if (to) p.dateTo = to;
@@ -230,6 +232,20 @@ function buildList() {
     live: { pauseOnSelect: false, busy: listBusy },
     select: { noun: NOUN, label: r => 'zamówienie ' + (r.number || r.id), actions: bulkActions },
   });
+  // Enter przy numerze zamówienia (jak w Selly) otwiera to zamówienie; bez roku: bieżący rok, a gdy go brak — najnowszy wcześniejszy
+  if (S.lv.u.search) S.lv.u.search.addEventListener('keydown', async e => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    const v = S.lv.u.search.value.trim();
+    if (!parseOrderQuery(v)) return;
+    e.preventDefault();
+    try {
+      const r = await api('orders:resolve', { q: v });
+      if (!r.found) { flash('', 'Nie znaleziono zamówienia o numerze ' + v + '.', 'error'); return; }
+      const note = yearNote(r);
+      if (note) flash('', note);
+      openOrder(r.id);
+    } catch (err) { flash('', 'Nie udało się wyszukać zamówienia: ' + (err.message || 'błąd')); }
+  });
   S.listBox = el('div', { class: 'ord-list' }, S.lv.node);
   S.root.append(S.listBox);
   // Klik / klawisz w liście = użytkownik pracuje — odświeżenie w tle czeka chwilę (nie przestawia wierszy pod kursorem)
@@ -299,6 +315,10 @@ function onData(d) {
   const sel = S.lv.selection;
   for (const row of d.rows || []) if (sel.has(String(row.id))) sel.set(String(row.id), row);   // zaznaczenie zostaje, z aktualnym statusem
   S.ui.info.replaceChildren(d.sumTotal != null ? el('span', { class: 'tip', id: 'ordSum', title: 'Suma wartości wszystkich zamówień pasujących do filtrów (nie tylko tej strony), z kosztami dostawy' }, 'Suma na liście: ' + money(d.sumTotal) + ' zł') : null);
+  const qn = curQ().q, exact = qn && S.broad !== qn && parseOrderQuery(qn);
+  if (exact) S.ui.info.prepend(el('span', { class: 'tip', id: 'ordExactNote', title: 'Wpisany numer pokazuje tylko zamówienia o takim numerze (z każdego roku). Enter otwiera zamówienie od razu.' }, 'Tylko numer ' + qn + ' · '),
+    el('a', { href: '#', id: 'ordBroad', title: 'Szuka wpisanej wartości we wszystkich polach: numerze, e-mailu, telefonie, nazwisku, firmie, mieście i przesyłce',
+      onclick: e => { e.preventDefault(); S.broad = qn; S.lv.reload({ manual: true }); } }, 'pokaż też zawierające „' + qn + '”'), ' · ');
   queueMicrotask(() => { S.flashIds = null; });   // podświetlenie tylko w tym jednym renderze
 }
 
@@ -484,7 +504,7 @@ async function renderDetail(id) {
       dlg),
     card.notes,
     el('div', { class: 'ord-grid' }, card.grid),
-    card.items, card.totals, card.invoices, card.sellyOnly,
+    card.items, card.totals, card.invoices, card.sellyFields, card.sellyOnly,
     osaHost, movesCard, eventsCard);
 }
 

@@ -1,12 +1,12 @@
 // Szybkie wyszukiwanie (Ctrl+K): okno w środku ekranu — ekrany panelu, ostatnio otwarte miejsca i rekordy na żywo
 // (zamówienia, klienci, produkty z istniejących akcji API), prefiksy zam: kli: prod: ekran:. Oraz okno pomocy „?” ze skrótami.
-import { el } from './ui.js?v=4562225';
-import { api } from './client.js?v=4562225';
-import { go } from './router.js?v=4562225';
-import { ITEMS, itemById, icon, menuModel, groupOf, groupById, keywordsOf } from './nav.js?v=4562225';
-import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=4562225';
-import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=4562225';
-import { shortcuts, GOTO } from './shortcuts.js?v=4562225';
+import { el } from './ui.js?v=5a962d8';
+import { api } from './client.js?v=5a962d8';
+import { go } from './router.js?v=5a962d8';
+import { ITEMS, itemById, icon, menuModel, groupOf, groupById, keywordsOf } from './nav.js?v=5a962d8';
+import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=5a962d8';
+import { loadRecents, noteVisit, hashOf, TYPES, parseOrderQuery, yearNote } from './recents.js?v=5a962d8';
+import { shortcuts, GOTO } from './shortcuts.js?v=5a962d8';
 
 const MIN_Q = 2, DEBOUNCE = 250, TOP = 5;
 const GOTO_KEY = Object.fromEntries(Object.entries(GOTO).map(([k, id]) => [id, 'G ' + k.toUpperCase()]));
@@ -28,8 +28,16 @@ function overlay(cls, label, node) {
 // ─── Paleta ─────────────────────────────────────────────────────────────────
 
 const REC = {
-  orders: { title: 'Zamówienia', type: 'order', run: q => api('orders:list', { q, pageSize: TOP }),
-    row: r => ({ id: r.id, label: r.number || r.id, sub: [[r.firstName, r.lastName].filter(Boolean).join(' ') || r.company || '', r.total != null ? r.total + ' zł' : ''].filter(Boolean).join(' · ') }) },
+  orders: { title: 'Zamówienia', type: 'order', run: async q => {
+    // Numer zamówienia: trafione zamówienie (bez roku: bieżący, a gdy go brak — poprzedni) na górze, potem pozostałe zawierające
+    const pn = parseOrderQuery(q), list = api('orders:list', { q, pageSize: TOP, broad: 1 });
+    if (!pn) return list;
+    const [res, d] = await Promise.all([api('orders:resolve', { q }).catch(() => null), list]);
+    if (!res || !res.found) return d;
+    const hit = (d.rows || []).find(r => String(r.id) === res.id) || { id: res.id, number: res.number };
+    return { ...d, rows: [{ ...hit, note: yearNote(res) }, ...(d.rows || []).filter(r => String(r.id) !== res.id)] };
+  },
+    row: r => ({ id: r.id, label: r.number || r.id, sub: [r.note || '', [r.firstName, r.lastName].filter(Boolean).join(' ') || r.company || '', r.total != null ? r.total + ' zł' : ''].filter(Boolean).join(' · ') }) },
   clients: { title: 'Klienci', type: 'client', run: q => api('clients:list', { q, pageSize: TOP }),
     row: r => ({ id: r.id, label: r.name || r.company || ('Klient ' + r.id), sub: [r.company && r.company !== r.name ? r.company : '', r.city].filter(Boolean).join(' · ') }) },
   products: { title: 'Produkty', type: 'product', run: q => api('products:list', { q, pageSize: TOP }),
