@@ -3,12 +3,12 @@
 // „Uzupełnij z Selly” sprawdza porcjami zamówienia jeszcze niesprawdzone (orders:invoiceScan; po jednym zapytaniu do Selly na zamówienie,
 // z przerwami i bezpiecznikiem limitu API). „Do wystawienia”: zamówienia z dokumentem „faktura” bez faktury (orders:invoiceTodo) — wystawianie
 // formularzem Selly po jednym albo partią ≤ BATCH_MAX z jednym potwierdzeniem (fakturaWystaw.js; numerację prowadzi Selly).
-import { el, gateWrite, debounce, money, cnt, plural, sortTh, pager, pageToolbar, loadingBox, downloadMenuButton, sellyLink, syncedLabel, flash } from '../core/ui.js?v=1c81125';
-import { dateRange } from '../core/datepicker.js?v=1c81125';
-import { api, ctx } from '../core/client.js?v=1c81125';
-import { INV_STATUS, invStatusPill, isOverdue, invoiceEditor, printButton } from './zamowieniaFakturyKit.js?v=1c81125';
+import { el, gateWrite, debounce, money, cnt, plural, sortTh, pager, pageToolbar, loadingBox, downloadMenuButton, sellyLink, syncedLabel, flash } from '../core/ui.js?v=9f53658';
+import { dateRange } from '../core/datepicker.js?v=9f53658';
+import { api, ctx } from '../core/client.js?v=9f53658';
+import { INV_STATUS, invStatusPill, isOverdue, invoiceEditor, printButton } from './zamowieniaFakturyKit.js?v=9f53658';
 const BATCH_MAX = 10;   // = fakturaWystaw.BATCH_MAX (moduł wczytywany leniwie przy wystawianiu)
-const wystaw = () => import('./fakturaWystaw.js?v=1c81125');
+const wystaw = () => import('./fakturaWystaw.js?v=9f53658');
 
 const SIZE = 50;
 const PAUSE_MS = 4000;   // przerwa między porcjami „Uzupełnij z Selly” (≤ 15 zapytań / 4 s — z zapasem pod limitem Selly ~500/min)
@@ -112,13 +112,16 @@ function renderTodo() {
   T.note = '';
   const batch = gateWrite(el('button', { type: 'button', class: 'secondary small-btn', id: 'invTodoBatch',
     title: 'Wystawia faktury dla zaznaczonych zamówień (najwyżej ' + BATCH_MAX + ' naraz): najpierw podgląd każdej, potem jedno potwierdzenie z listą i kwotami' }, 'Wystaw zaznaczone…'), 'faktury');
+  const mailTip = 'Selly wyśle klientom wystawione faktury na adresy z zamówień. Domyślnie wyłączone — faktury tylko powstają w Selly.';
+  const mailCb = el('input', { type: 'checkbox', id: 'invTodoEmail', title: mailTip });
+  const mailLbl = el('label', { class: 'check', title: mailTip }, mailCb, el('span', { class: 'tip', title: mailTip }, ' Wyślij faktury klientom e-mailem'));
   const syncBatch = () => { batch.disabled = !T.sel.size; batch.textContent = T.sel.size ? 'Wystaw zaznaczone (' + T.sel.size + ')…' : 'Wystaw zaznaczone…'; };
   const refreshAll = () => { V.exportTable = null; load(); loadTodo(); };
   batch.addEventListener('click', async () => {
     const rows = T.rows.filter(x => T.sel.has(x.orderId)).slice(0, BATCH_MAX);
     batch.disabled = true;
     try {
-      const r = await (await wystaw()).issueBatch(rows, t => { msg.textContent = t; });
+      const r = await (await wystaw()).issueBatch(rows, t => { msg.textContent = t; }, { sendEmail: mailCb.checked });
       if (!r.cancelled) {
         const parts = [];
         if (r.done.length) parts.push('Wystawiono: ' + cnt(r.done.length, 'fakturę', 'faktury', 'faktur') + '.');
@@ -152,7 +155,7 @@ function renderTodo() {
         th('Zamówienie', 'Numer zamówienia — kliknij, aby otworzyć kartę'), th('Data', 'Data zamówienia'), th('Nabywca', 'Firma albo imię i nazwisko z danych do faktury zamówienia'), th('Działania'))),
       tbody)),
     T.total > T.rows.length ? el('p', { class: 'muted small' }, 'Pokazano ' + T.rows.length + ' najnowszych z ' + T.total + '.') : null,
-    el('div', { class: 'ord-actions' }, batch, msg), panelHost);
+    el('div', { class: 'ord-actions' }, batch, mailLbl, msg), panelHost);
   syncBatch();
 }
 

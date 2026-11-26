@@ -1,11 +1,11 @@
 // „Wysyłka SpeedMail” — wspólny stan i klocki zakładek (speedmail.js + speedmailZam / Stan / Paczki / Tempo / Ust).
 // Dane (sm:init / sm:list / sm:pace / sm:history) są trzymane w pamięci i w sessionStorage (same numery zamówień, daty, produkty i liczby —
 // żadnych danych klientów), więc strona rysuje się od razu z ostatniej kopii i odświeża w tle. Bez odpytywania w pętli.
-import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=1c81125';
-import { api, ctx } from '../core/client.js?v=1c81125';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=1c81125';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=1c81125';
-import { SM } from '../lib/speedmailLogic.js?v=1c81125';
+import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=9f53658';
+import { api, ctx } from '../core/client.js?v=9f53658';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=9f53658';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=9f53658';
+import { SM } from '../lib/speedmailLogic.js?v=9f53658';
 
 export { SM };
 export const WRITE = ['magazyny'];                       // jak reguła sm:* (shared/panelAuth.js)

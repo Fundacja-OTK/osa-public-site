@@ -2,9 +2,9 @@
 // zmiana statusu i uwag wewnętrznych (podgląd → potwierdzenie → zapis; e-mail, etykieta i formularz zwrotu nie są wysyłane).
 // API Selly podaje zwroty tylko do odczytu (bez pozycji i nazw statusów) — dawny widok z API zostaje pod #/zwroty (bez pozycji menu).
 // Zdarzenia wszystkich zwrotów i słownik statusów — widoki tylko do podglądu (eksporty `zdarzenia`, `statusy`). Usuwanie zostaje w Selly.
-import { createNative } from './sellyNative.js?v=1c81125';
-import { createSettings } from './sellyNativeSettings.js?v=1c81125';
-import { panelLink } from './koszyki.js?v=1c81125';
+import { createNative } from './sellyNative.js?v=9f53658';
+import { createSettings } from './sellyNativeSettings.js?v=9f53658';
+import { panelLink } from './koszyki.js?v=9f53658';
 
 const LINKS = [
   { href: '#/zwroty-obsluga', label: 'Zwroty', tip: 'Lista zwrotów' },

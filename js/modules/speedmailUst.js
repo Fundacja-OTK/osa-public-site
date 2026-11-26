@@ -3,8 +3,8 @@
 // formy dostawy liczone jako „Kurier”, statusy w Selly, progi alertów, plik dla SM, krzywa prognozy. Wspólne dla wszystkich (D1);
 // zapis tylko administrator panelu (sm:configSave z wersją — dwie osoby nie nadpiszą sobie zmian). Walidacja: shared/speedmail.js.
 // W „Tempo sprzedaży”: propozycje szczytów sprzedaży z poprzednich sezonów (sm:history, SM.peaks) — „Użyj” wstawia punkty prognozy do szkicu.
-import { el, dateInput, flash } from '../core/ui.js?v=1c81125';
-import { S, SM, nf, dmy, notice, statusName, fold, save, reload, jobBusy, loadError } from './speedmailKit.js?v=1c81125';
+import { el, dateInput, flash } from '../core/ui.js?v=9f53658';
+import { S, SM, nf, dmy, notice, statusName, fold, save, reload, jobBusy, loadError } from './speedmailKit.js?v=9f53658';
 
 let draft = null;   // { of: wersja, cfg: kopia robocza, info: '' }
 let peakYears = null;   // lata wybrane do propozycji szczytów (null = wszystkie z danymi)

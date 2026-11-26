@@ -3,9 +3,9 @@
 // Backend: invoices:issueForm (podgląd, nic nie wysyła) i invoices:issue (opId, potwierdzenie, kwota z podglądu; serwer blokuje duplikat
 // i pilnuje limitu) — panel/worker/src/modules/invoiceIssue.js. Prawo zmian: sekcja „faktury” (administrator albo zgoda administratora).
 // Korekta i usunięcie faktury oraz paragon — w Selly. Treść z Selly wyłącznie przez el() / textContent.
-import { gateWrite, el, flash, money, dl, sellyLink, cnt } from '../core/ui.js?v=1c81125';
-import { confirmDialog } from '../core/confirm.js?v=1c81125';
-import { api } from '../core/client.js?v=1c81125';
+import { gateWrite, el, flash, money, dl, sellyLink, cnt } from '../core/ui.js?v=9f53658';
+import { confirmDialog } from '../core/confirm.js?v=9f53658';
+import { api } from '../core/client.js?v=9f53658';
 
 export const BATCH_MAX = 10;   // faktur w jednej partii (serwer i tak ma twardy limit na osobę)
 const newOpId = () => 'invi-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -26,8 +26,8 @@ async function loadForm(orderId) {
 }
 
 /** Wystawienie jednej faktury → wynik serwera (data) albo wyjątek z komunikatem. */
-async function issueOne(orderId, d, opId, values, expect) {
-  const r = await api('invoices:issue', { orderId: String(orderId), opId, confirm: true, expectGross: d.totals.gross, values, expect });
+async function issueOne(orderId, d, opId, values, expect, sendEmail) {
+  const r = await api('invoices:issue', { orderId: String(orderId), opId, confirm: true, expectGross: d.totals.gross, values, expect, ...(sendEmail ? { sendEmail: true } : {}) });
   if (!r || r.ok === false) throw new Error(errText(r));
   if (!r.data || !r.data.created) throw new Error(noticeText(r.data) || 'Selly nie przyjęło faktury — sprawdź dane w Selly.');
   return r.data;
@@ -42,6 +42,14 @@ function itemsTable(d) {
       el('td', { class: 'nw' }, x.vatRate), el('td', { class: 'n nw' }, x.vat == null ? '—' : money(x.vat)), el('td', { class: 'n nw' }, x.gross == null ? '—' : money(x.gross))))),
     el('tfoot', null, el('tr', null, el('th', null, 'Razem'), el('td'), el('td', { class: 'n nw', id: 'invIssueNet' }, money(d.totals.net)), el('td'),
       el('td', { class: 'n nw', id: 'invIssueVat' }, money(d.totals.vat)), el('td', { class: 'n nw' }, el('strong', { id: 'invIssueGross' }, money(d.totals.gross)))))));
+}
+
+const EMAIL_TIP = 'Selly wyśle klientowi wystawioną fakturę na adres z zamówienia. Domyślnie wyłączone — faktura tylko powstaje w Selly.';
+/** Pole „Wyślij fakturę klientowi e-mailem” (domyślnie wyłączone); null, gdy Selly nie oferuje wysyłki. */
+function emailBox(canEmail, id) {
+  if (!canEmail) return null;
+  const input = el('input', { type: 'checkbox', id, title: EMAIL_TIP });
+  return { input, node: el('label', { class: 'field check', title: EMAIL_TIP }, input, el('span', { class: 'tip', title: EMAIL_TIP }, ' Wyślij fakturę klientowi e-mailem')) };
 }
 
 /** Pole edytowalne (termin / forma płatności / uwagi) z wartością zaproponowaną przez Selly. */
@@ -99,15 +107,18 @@ export function issuePanel(o) {
       host.replaceChildren(...parts);
       return;
     }
+    const mail = emailBox(d.canEmail, 'invIssueEmail');
+    if (mail) parts.push(mail.node);
     parts.push(el('div', { class: 'notice muted small', id: 'invIssueWarn' }, d.warn || ''));
     const btn = gateWrite(el('button', { type: 'button', class: 'primary', id: 'invIssueBtn',
       title: 'Wystawia fakturę w Selly z danymi z podglądu (Selly nada numer). Najpierw pokaże podsumowanie do potwierdzenia.' }, 'Wystaw fakturę…'), 'faktury');
-    btn.addEventListener('click', () => confirmIssue(d, edits));
+    btn.addEventListener('click', () => confirmIssue(d, edits, mail));
     parts.push(el('div', { class: 'ord-actions' }, btn, selly));
     host.replaceChildren(...parts);
   }
 
-  async function confirmIssue(d, edits) {
+  async function confirmIssue(d, edits, mail) {
+    const sendEmail = !!(mail && mail.input.checked);
     const values = {}, expect = {};
     for (const e of edits) {
       const v = e.input.value;
@@ -122,13 +133,14 @@ export function issuePanel(o) {
       'NIP: ' + (b.nip || '— (bez NIP)'),
       'Wartość brutto: ' + money(d.totals.gross) + ' zł (netto ' + money(d.totals.net) + ' zł, VAT ' + money(d.totals.vat) + ' zł), pozycji: ' + d.totals.lines,
       'Numer nada Selly' + (d.number ? ' (proponowany: ' + d.number + ')' : ''),
+      ...(sendEmail ? ['+ e-mail do klienta (Selly wyśle fakturę)'] : []),
       ...Object.keys(values).map(k => ((LABELS[k] || [k])[0]) + ': ' + (expect[k] || '(puste)') + ' → ' + (values[k] || '(puste)')),
     ];
     const ok = await confirmDialog({ id: 'invIssueConfirm', title: 'Wystawić fakturę VAT?', danger: true, write: true, confirmLabel: 'Wystaw fakturę',
-      body: 'Faktura to dokument księgowy: Selly nada jej kolejny numer i z panelu nie da się jej cofnąć (korekta tylko w Selly). Faktura nie zostanie wysłana klientowi e-mailem.',
+      body: 'Faktura to dokument księgowy: Selly nada jej kolejny numer i z panelu nie da się jej cofnąć (korekta tylko w Selly). ' + (sendEmail ? 'Selly wyśle ją też klientowi e-mailem.' : 'Faktura nie zostanie wysłana klientowi e-mailem.'),
       items,
       onConfirm: async ({ fail }) => {
-        try { result = await issueOne(d.orderId, d, opId, values, expect); } catch (e) { fail(e.message || 'Błąd wystawiania.'); }
+        try { result = await issueOne(d.orderId, d, opId, values, expect, sendEmail); } catch (e) { fail(e.message || 'Błąd wystawiania.'); }
       } });
     if (!ok || !result) return;
     const no = result.invoice && result.invoice.number;
@@ -144,7 +156,7 @@ export function issuePanel(o) {
  * Partia (lista „Do wystawienia”): najpierw podgląd każdej faktury (bez wysyłania), potem JEDNO potwierdzenie z listą i wpisaniem liczby faktur,
  * potem wystawianie po kolei (osobny opId na zamówienie). rows: [{ orderId, orderNumber }] ≤ BATCH_MAX. onProgress(text). → { done, failed, skipped }
  */
-export async function issueBatch(rows, onProgress) {
+export async function issueBatch(rows, onProgress, opts) {
   if (!rows.length) return { done: [], failed: [], skipped: [] };
   if (rows.length > BATCH_MAX) throw new Error('Najwyżej ' + BATCH_MAX + ' faktur w jednej partii.');
   const ready = [], skipped = [];
@@ -159,9 +171,11 @@ export async function issueBatch(rows, onProgress) {
   if (!ready.length) return { done: [], failed: [], skipped };
   const sum = ready.reduce((a, x) => a + x.d.totals.gross, 0);
   const n = String(ready.length);
+  const mailed = opts && opts.sendEmail ? ready.filter(x => x.d.canEmail) : [];
   const ok = await confirmDialog({ id: 'invBatchConfirm', title: 'Wystawić ' + cnt(ready.length, 'fakturę', 'faktury', 'faktur') + '?', danger: true, write: true,
     confirmLabel: 'Wystaw ' + cnt(ready.length, 'fakturę', 'faktury', 'faktur'),
     body: 'Każda faktura dostanie w Selly kolejny numer — z panelu nie da się ich cofnąć. Łącznie brutto: ' + money(sum) + ' zł.' +
+      (mailed.length ? '\n\n+ e-mail do klienta: Selly wyśle faktury klientom (' + mailed.length + ' z ' + ready.length + (mailed.length < ready.length ? '; pozostałe bez adresu e-mail w Selly — bez wysyłki' : '') + ').' : '') +
       (skipped.length ? '\n\nPominięte (' + skipped.length + '): faktura już jest albo formularz Selly jest niedostępny.' : ''),
     items: ready.map(x => (x.orderNumber || x.orderId) + ' — ' + ((x.d.buyer || {}).name || '—') + ((x.d.buyer || {}).nip ? ', NIP ' + x.d.buyer.nip : '') + ' — ' + money(x.d.totals.gross) + ' zł brutto (VAT ' + money(x.d.totals.vat) + ' zł)'),
     typed: { text: n, label: 'Wpisz liczbę faktur (' + n + '), aby potwierdzić' } });
@@ -169,7 +183,7 @@ export async function issueBatch(rows, onProgress) {
   const done = [], failed = [];
   for (const [i, x] of ready.entries()) {
     if (onProgress) onProgress('Wystawiam ' + (i + 1) + ' z ' + ready.length + '…');
-    try { done.push({ ...x, result: await issueOne(x.orderId, x.d, x.opId, {}, undefined) }); }
+    try { done.push({ ...x, result: await issueOne(x.orderId, x.d, x.opId, {}, undefined, mailed.includes(x)) }); }
     catch (e) { failed.push({ ...x, why: e.message || 'błąd' }); if (e.code === 429) break; }
   }
   if (onProgress) onProgress('');

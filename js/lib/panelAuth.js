@@ -167,7 +167,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     [/^invoices:(issueForm|issue)$/, ['faktury']],
     [/^orders:\w+$/, ['zamowienia']],
     [/^clients:(list|get|meta|addresses|affiliate|extra|groups|prices)$/, CLI],
-    [/^clients:noteDelete$/, ADMIN],   // usuwanie notatki klienta: tylko administrator panelu (decyzja właściciela, P6)
+    [/^clients:noteDelete$/, ['klienci']],   // usuwanie notatki klienta: administrator panelu (decyzja właściciela, P6) I dostęp do sekcji Klienci (ADMIN_AND_RULE w denyReason)
     [/^clients:\w+$/, ['klienci']],
     [/^products:(list|get|facets|dicts|extra|warehouses)$/, PRD],
     // ustawienia magazynów Selly (trasa „magazyny” w Selly) — zapis tylko z prawem do sekcji Magazyny
@@ -195,7 +195,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     [/^res:\w+$/, p => [String((p && p.res) || '')]],
     // natywne ekrany: tylko z allowlisty; nieznany ekran / operacja = brak dostępu (pusta lista sekcji → 403)
     // usuwanie wpisu (ekran z `del`: gpsr, zwroty, reklamacje): tylko administrator panelu, tylko ekran z allowlisty z zapisem; trasę i przycisk sprawdza silnik
-    [/^native:delete$/, p => { const id = String((p && p.screen) || ''); return NATIVE_SCREENS.includes(id) && !NATIVE_READ_ONLY.includes(id) ? ADMIN : []; }],
+    [/^native:delete$/, p => { const id = String((p && p.screen) || ''); return NATIVE_SCREENS.includes(id) && !NATIVE_READ_ONLY.includes(id) ? NATIVE : []; }],   // + administrator (ADMIN_AND_RULE) oraz complete i perm ekranu jak przy zapisie
     [/^native:(read|save|create)$/, p => NATIVE_SCREENS.includes(String((p && p.screen) || '')) ? NATIVE : []],
     [/^native:\w+$/, () => []],
   ];
@@ -241,11 +241,13 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
    * Czy wolno: who = { perms: [sekcje], admin: bool }. → '' (wolno) albo komunikat odmowy po polsku (kod 403).
    * Administrator panelu NIE dostaje automatycznie sekcji, których nie widzi w Selly — uprawnienia danych idą za Selly.
    */
+  const ADMIN_AND_RULE = /^(native:delete|clients:noteDelete)$/;
   function denyReason(who, action, params) {
     const rule = ruleFor(action, params);
     if (rule === null) return 'Ta operacja nie jest dostępna w panelu OSA (' + String(action).slice(0, 60) + ').';
     if (who && who.emergency && EMERGENCY_BLOCKED.test(String(action || ''))) return EMERGENCY_MSG;
     if (rule === ANY) return '';
+    if (ADMIN_AND_RULE.test(String(action || '')) && !(who && who.admin)) return 'Tylko administrator panelu OSA może to zrobić.';   // dodatkowo do reguły sekcji / ekranu poniżej
     if (rule === ADMIN) return who && who.admin ? '' : 'Tylko administrator panelu OSA może to zrobić.';
     if (rule === NATIVE) {   // natywny ekran: kompletna sesja; zapis tylko na ekranach z polami edytowalnymi; resztę rozstrzyga Selly (sesja użytkownika)
       if (!who || who.complete !== true) return 'Sprawdzam uprawnienia w Selly — chwilę, potem spróbuj ponownie.';
