@@ -61,7 +61,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
   // Uwaga: mag:moves DODAJE ruchy magazynowe (Warehouses.gs addMoves) — to zapis; historia ruchów przychodzi w mag:init.
   const READ_ACTIONS = [
     'init', 'whoami', 'report', 'orszaki', 'changes', 'refresh', 'auth:refresh', 'auth:perms',
-    'orders:list', 'orders:resolve', 'orders:get', 'orders:meta', 'orders:invoices', 'orders:stamp', 'orders:refresh', 'orders:invoiceList', 'orders:invoiceScan', 'orders:invoiceTodo',
+    'orders:list', 'orders:resolve', 'orders:split', 'orders:get', 'orders:meta', 'orders:invoices', 'orders:stamp', 'orders:refresh', 'orders:invoiceList', 'orders:invoiceScan', 'orders:invoiceTodo',
     // wystawianie faktur: podgląd faktury wypełnionej przez Selly (GET formularza sesją użytkownika, nic nie wysyła)
     'invoices:issueForm',
     // karta zamówienia: pola bez zapisu w API (formularz Selly zamowienia.view na sesji użytkownika, tylko odczyt; ekran natywny zamowienie-karta)
@@ -174,7 +174,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     [/^guard:(status|reset)$/, ADMIN],   // Strażnik Selly (panel/worker/src/modules/sellyGuard.js)
     // orders:stamp (znacznik wersji, 1 wiersz D1) i orders:refresh (synchronizacja zamówień teraz — pisze tylko do kopii panelu w D1, nigdy do Selly;
     // limit globalny i budżet Selly: panel/worker/src/lib/liveSync.js) — jak odczyt listy
-    [/^orders:(list|resolve|get|meta|invoices|stamp|refresh)$/, ORD],
+    [/^orders:(list|resolve|split|get|meta|invoices|stamp|refresh)$/, ORD],
     [/^orders:prefsSave$/, ADMIN],   // ustawienia listy wspólne dla sklepu (panel/worker/src/modules/orders.js)
     [/^orders:setStatus$/, ['zamowienia', 'przesylki']],
     // wystawianie faktur: tylko sekcja „faktury” (pochodna zamówień); zapis wymaga prawa zmian tej sekcji (administrator albo zgoda)

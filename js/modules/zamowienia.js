@@ -1,26 +1,26 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Lista = wspólny komponent core/listView.js (tabela, sortowanie, strony, zaznaczenie z dolnym paskiem, stan w adresie, świeżość).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { payState } from '../lib/payState.js?v=802d849';
-import { itemsCell, commentsCell, commentColumns, deliveryTag, paymentTag, viewControls, normView, priceLevelName } from '../lib/orderCells.js?v=802d849';
-import { applyPrefs } from '../lib/orderCells.js?v=802d849';
-import { photoSrc } from '../core/photo.js?v=802d849';
-import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=802d849';
-import { askConfirm } from '../core/confirm.js?v=802d849';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=802d849';
-import { api, ctx } from '../core/client.js?v=802d849';
-import { go, setLeaveGuard } from '../core/router.js?v=802d849';
-import { noteVisit } from '../core/recents.js?v=802d849';
-import { registerListKeys } from '../core/listKeys.js?v=802d849';
-import { changedIds } from '../core/liveRefresh.js?v=802d849';
-import { cachedRead } from '../core/cache.js?v=802d849';
-import { listView } from '../core/listView.js?v=802d849';
-import { parseOrderQuery, yearNote } from '../core/recents.js?v=802d849';
-import * as LL from '../core/listLogic.js?v=802d849';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=802d849';
-import { createFilterUi } from './zamowieniaFiltry.js?v=802d849';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=802d849';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=802d849';
+import { payState } from '../lib/payState.js?v=63d59bb';
+import { itemsCell, commentsCell, commentColumns, deliveryTag, paymentTag, viewControls, normView, priceLevelName } from '../lib/orderCells.js?v=63d59bb';
+import { applyPrefs } from '../lib/orderCells.js?v=63d59bb';
+import { photoSrc } from '../core/photo.js?v=63d59bb';
+import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=63d59bb';
+import { askConfirm } from '../core/confirm.js?v=63d59bb';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=63d59bb';
+import { api, ctx } from '../core/client.js?v=63d59bb';
+import { go, setLeaveGuard } from '../core/router.js?v=63d59bb';
+import { noteVisit } from '../core/recents.js?v=63d59bb';
+import { registerListKeys } from '../core/listKeys.js?v=63d59bb';
+import { changedIds } from '../core/liveRefresh.js?v=63d59bb';
+import { cachedRead } from '../core/cache.js?v=63d59bb';
+import { listView } from '../core/listView.js?v=63d59bb';
+import { parseOrderQuery, yearNote } from '../core/recents.js?v=63d59bb';
+import * as LL from '../core/listLogic.js?v=63d59bb';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=63d59bb';
+import { createFilterUi } from './zamowieniaFiltry.js?v=63d59bb';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=63d59bb';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=63d59bb';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SIZES = [25, 50, 100, 200];
@@ -200,7 +200,7 @@ function buildList() {
     columns: COLS, columnsStore: 'osa-ord-cols2', columnsId: 'ordColsBtn', columnsExtra: [
       viewControls({ id: 'ordCols', view: () => S.view, set: patch => { S.view = { ...S.view, ...patch }; store(VIEW_KEY, S.view); if (S.lv.data) S.lv.render(); } }),
       el('div', { class: 'menu-sec' }, el('button', { type: 'button', class: 'link', id: 'ordPrefsBtn', title: 'Kolory komentarzy (dla siebie albo — administrator — dla całego sklepu) i nazwy poziomów cen',
-        onclick: () => import('./zamowieniaUst.js?v=802d849').then(m => m.openPrefs(S.ui.dlg, { prefs: () => S.meta && S.meta.prefs, onSaved: pr => { if (pr && S.meta) S.meta.prefs = pr; if (S.lv.data) S.lv.render(); } })) }, 'Ustawienia listy…'))],   // okno wczytywane dopiero po kliknięciu   // v2: Klient i Informacje dodatkowe domyślnie wyłączone
+        onclick: () => import('./zamowieniaUst.js?v=63d59bb').then(m => m.openPrefs(S.ui.dlg, { prefs: () => S.meta && S.meta.prefs, onSaved: pr => { if (pr && S.meta) S.meta.prefs = pr; if (S.lv.data) S.lv.render(); } })) }, 'Ustawienia listy…'))],   // okno wczytywane dopiero po kliknięciu   // v2: Klient i Informacje dodatkowe domyślnie wyłączone
     defaultSort: SPEC.defaultSort, sizes: SIZES, defaultSize: 50, sizeStore: SIZE_STORE, extra: EXTRA,
     search: { placeholder: 'Szukaj: numer, e-mail, telefon, nazwisko, firma, miasto, nr przesyłki', label: 'Szukaj zamówień',
       tip: 'Szuka w numerze zamówienia, e-mailu, telefonie, imieniu i nazwisku (faktura i wysyłka), firmie, mieście i numerze przesyłki' },
@@ -556,9 +556,9 @@ async function mountRoute() {
 
 // #/zamowienia/kompletacja?ids=… → zamowieniaKompletacja.js, #/zamowienia/faktury → zamowieniaFaktury.js, #/zamowienia/nowe → zamowienieNowe.js
 const SUBS = {
-  kompletacja: { load: () => import('./zamowieniaKompletacja.js?v=802d849'), show: (m, host, on, q) => m.showPick(host, on, q) },
-  faktury: { load: () => import('./zamowieniaFaktury.js?v=802d849'), show: (m, host, on) => m.showInvoices(host, on) },
-  nowe: { load: () => import('./zamowienieNowe.js?v=802d849'), show: (m, host, on) => m.showNewOrder(host, on) },
+  kompletacja: { load: () => import('./zamowieniaKompletacja.js?v=63d59bb'), show: (m, host, on, q) => m.showPick(host, on, q) },
+  faktury: { load: () => import('./zamowieniaFaktury.js?v=63d59bb'), show: (m, host, on) => m.showInvoices(host, on) },
+  nowe: { load: () => import('./zamowienieNowe.js?v=63d59bb'), show: (m, host, on) => m.showNewOrder(host, on) },
 };
 const SUB_MODS = {};
 S.subSeq = 0;

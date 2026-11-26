@@ -1,13 +1,13 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, cnt, isUnavailable, sellyLink, syncedLabel, fetchAllRows, field, filterSection, saveBar, inlineInput, thumb, rowActions } from '../core/ui.js?v=802d849';
-import { listView } from '../core/listView.js?v=802d849';
-import { api, ctx } from '../core/client.js?v=802d849';
-import { cachedRead } from '../core/cache.js?v=802d849';
-import { go, addLeaveGuard } from '../core/router.js?v=802d849';
-import { renderProductCard, closeProductCard } from './produktKarta.js?v=802d849';
-import { warehousesScreen } from './produktMagazyny.js?v=802d849';
-import { registerListKeys } from '../core/listKeys.js?v=802d849';
+import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, cnt, isUnavailable, sellyLink, syncedLabel, fetchAllRows, field, filterSection, saveBar, inlineInput, thumb, rowActions } from '../core/ui.js?v=63d59bb';
+import { listView } from '../core/listView.js?v=63d59bb';
+import { api, ctx } from '../core/client.js?v=63d59bb';
+import { cachedRead } from '../core/cache.js?v=63d59bb';
+import { go, addLeaveGuard } from '../core/router.js?v=63d59bb';
+import { renderProductCard, closeProductCard } from './produktKarta.js?v=63d59bb';
+import { warehousesScreen } from './produktMagazyny.js?v=63d59bb';
+import { registerListKeys } from '../core/listKeys.js?v=63d59bb';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SEGS = ['', 'zero', 'low', 'hidden', 'incomplete'];

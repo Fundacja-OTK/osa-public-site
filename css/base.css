@@ -448,6 +448,49 @@ tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .ord-sec-head { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: flex-start; justify-content: space-between; }
 .ord-head-actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .ord-sec-attn { border-color: var(--warn-border); }
+/* Karta zamówienia: kolory komentarzy, numer, rozdzielone, układ sekcji (zamowieniaKarta.js) */
+:root { --cm-event: #2f7a6a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --cm-event: #86d6c3; } }
+:root[data-theme="dark"] { --cm-event: #86d6c3; }
+/* kolory rodzajów z lib/orderCells.js (tokeny --cm-* i ustawienia sklepu / użytkownika --cm-*-u); komentarz w historii zdarzeń — własny kolor */
+.ord-cm { border-left: 4px solid var(--c); background: color-mix(in srgb, var(--c) 12%, var(--surface)); color: var(--text); border-radius: var(--r2); }
+.ord-cm > strong:first-child { color: var(--c); }
+.ord-cm-client { --c: var(--cm-client-u, var(--cm-client)); }
+.ord-cm-internal { --c: var(--cm-internal-u, var(--cm-internal)); }
+.ord-cm-groups { --c: var(--cm-groups-u, var(--cm-groups)); padding: var(--s2) var(--s3); }
+.ord-cm-event { --c: var(--cm-event); padding-left: var(--s2); padding-right: var(--s2); }
+.ord-events li p { margin: 2px 0; }
+.ord-events li ul, .ord-events li ol { margin: 2px 0; padding-left: 1.4em; }
+#ordTitle { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--s2); }
+.ord-num { font-size: 1.45em; font-weight: 800; letter-spacing: .01em; color: var(--accent-strong); text-decoration: none; border-bottom: 2px dashed transparent; cursor: copy; font-variant-numeric: tabular-nums; }
+.ord-num:hover, .ord-num:focus-visible { border-bottom-color: currentColor; }
+.ord-split { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); margin: 0 0 var(--s2); font-weight: 600; }
+.ord-split:empty { display: none; }
+.ord-split-item { background: var(--accent-soft); border-radius: var(--r2); padding: 2px var(--s2); }
+.ord-split-inv { margin-top: var(--s2); }
+.ord-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 0 var(--s4); }
+.ord-tile { display: flex; flex-direction: column; min-width: 0; position: relative; }
+.ord-tile.wide { grid-column: 1 / -1; }
+.ord-tile > .card, .ord-tile > #ordOsaCard { flex: 1; }
+.ord-tile-bar { display: none; align-items: center; gap: var(--s2); margin-top: var(--s3); padding: 2px var(--s2); border: 1px dashed var(--border-strong); border-bottom: 0; border-radius: var(--r2) var(--r2) 0 0; background: var(--surface-2); cursor: grab; font-size: var(--fs-sm); font-weight: 600; }
+.ord-tile-bar .spacer { flex: 1; }
+.ord-grip { color: var(--muted); }
+.layout-on .ord-tile-bar { display: flex; }
+.layout-on .ord-tile > .card, .layout-on .ord-tile > #ordOsaCard > .card { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.ord-tile.dragging { opacity: .45; }
+.ord-tile.drop-before::before, .ord-tile.drop-after::after { content: ''; position: absolute; left: 0; right: 0; height: 3px; background: var(--accent); border-radius: 2px; }
+.ord-tile.drop-before::before { top: 2px; }
+.ord-tile.drop-after::after { bottom: -6px; }
+.ord-tile:not(.wide).drop-before::before { top: var(--s3); bottom: 0; right: auto; left: -8px; width: 3px; height: auto; }
+.ord-tile:not(.wide).drop-after::after { top: var(--s3); bottom: 0; left: auto; right: -8px; width: 3px; height: auto; }
+.ord-fold { background: transparent; border: 0; box-shadow: none; padding: 0 4px; margin-right: 4px; min-height: 0; height: auto; color: var(--muted); font-size: .8em; cursor: pointer; vertical-align: middle; transition: transform .15s; }
+.ord-fold:hover { color: var(--accent-strong); }
+.ord-tile.folded .ord-fold { transform: rotate(-90deg); }
+.ord-tile.folded .card > :not(.card-head), .ord-tile.folded .card-head .sub, .ord-tile.folded .card-head > :not(:first-child):not(h2) { display: none; }
+.ord-tile.folded .card { padding-top: var(--s2); padding-bottom: var(--s2); }
+.ord-layout-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
+.ord-layout-bar[hidden] { display: none; }
+.ord-layout-acts { display: flex; flex-wrap: wrap; gap: var(--s2); margin-left: auto; }
 .ord-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: var(--s3); margin-top: var(--s3); }
 .ord-fw { min-width: 0; }
 .ord-fw.wide { grid-column: 1 / -1; }

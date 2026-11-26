@@ -1,20 +1,20 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
 // Grupy (ekran, zmiana na karcie, masowo z listy) i limit zamówień: klienciGrupy.js; import CSV (#/klienci/import): klienciImport.js.
-import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, syncedLabel, fetchAllRows } from '../core/ui.js?v=802d849';
-import { listView } from '../core/listView.js?v=802d849';
-import { api, ctx } from '../core/client.js?v=802d849';
-import { go, setLeaveGuard } from '../core/router.js?v=802d849';
-import { noteVisit } from '../core/recents.js?v=802d849';
-import { registerListKeys } from '../core/listKeys.js?v=802d849';
-import { clientForm } from './klienciForm.js?v=802d849';
-import { mountBlockToggle } from './klienciBlokada.js?v=802d849';
-import { askConfirm } from '../core/confirm.js?v=802d849';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=802d849';
-import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=802d849';
-import { noteStatusFold, producerDiscountsFold, blockedProducersFold, renderNotes, renderSubPerms } from './klienciNatywne.js?v=802d849';
-import { renderImport } from './klienciImport.js?v=802d849';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=802d849';
+import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, syncedLabel, fetchAllRows } from '../core/ui.js?v=63d59bb';
+import { listView } from '../core/listView.js?v=63d59bb';
+import { api, ctx } from '../core/client.js?v=63d59bb';
+import { go, setLeaveGuard } from '../core/router.js?v=63d59bb';
+import { noteVisit } from '../core/recents.js?v=63d59bb';
+import { registerListKeys } from '../core/listKeys.js?v=63d59bb';
+import { clientForm } from './klienciForm.js?v=63d59bb';
+import { mountBlockToggle } from './klienciBlokada.js?v=63d59bb';
+import { askConfirm } from '../core/confirm.js?v=63d59bb';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=63d59bb';
+import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=63d59bb';
+import { noteStatusFold, producerDiscountsFold, blockedProducersFold, renderNotes, renderSubPerms } from './klienciNatywne.js?v=63d59bb';
+import { renderImport } from './klienciImport.js?v=63d59bb';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=63d59bb';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 // Filtry z Selly (lista klientów): nazwy jak w parametrach akcji clients:list

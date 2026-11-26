@@ -1,11 +1,11 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=802d849';
-import { askConfirm } from '../core/confirm.js?v=802d849';
-import { api, ctx } from '../core/client.js?v=802d849';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=802d849';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput, copyToClipboard } from '../core/ui.js?v=63d59bb';
+import { askConfirm } from '../core/confirm.js?v=63d59bb';
+import { api, ctx } from '../core/client.js?v=63d59bb';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=63d59bb';
 // pola z formularza Selly i usuwanie pozycji: moduł ładowany dopiero przy użyciu (budżet zapytań strony — tests/e2e/perf)
-const kartaSelly = () => import('./zamowieniaKartaSelly.js?v=802d849');
+const kartaSelly = () => import('./zamowieniaKartaSelly.js?v=63d59bb');
 function itemDeleteButton(C, p) {
   if (!(ctx.boot && ctx.boot.isAdmin) || p.product_order_id == null) return null;
   const btn = gw(el('button', { type: 'button', class: 'secondary danger small-btn', id: 'ordItemDel-' + p.product_order_id,
@@ -469,9 +469,11 @@ function totalsCard(C) {
       dl([[tip('Pozycje (zł)', 'Suma wartości wszystkich pozycji'), money(t.items)], [tip('Dostawa (zł)', 'Koszt dostawy'), money(t.delivery)],
         t.payment ? [tip('Koszt płatności (zł)', 'Dopłata za wybrany sposób płatności (np. pobranie)'), money(t.payment)] : null,
         [tip('Rabat (zł)', 'Rabat na całe zamówienie — odejmowany od sumy'), t.discount ? '− ' + money(t.discount) : money(0)],
-        [tip('Razem do zapłaty (zł)', 'Pozycje + dostawa + koszt płatności − rabat'), el('strong', { id: 'ordTotalSum' }, money(t.total))], [tip('Zapłacono (zł)', 'Kwota, którą Selly uznaje za zapłaconą'), el('span', { id: 'ordPaidSum' }, money(t.paid))], ['Stan', verdict]]));
+        [tip('Razem do zapłaty (zł)', 'Pozycje + dostawa + koszt płatności − rabat'), el('strong', { id: 'ordTotalSum' }, money(t.total))], [tip('Zapłacono (zł)', 'Kwota, którą Selly uznaje za zapłaconą'), el('span', { id: 'ordPaidSum' }, money(t.paid))], ['Stan', verdict],
+        parentTotalsRow(C)]));
   }
   render();
+  C.onSplit.push(render);
   return { host, render, dirty: () => false, setEditing: () => {} };
 }
 
@@ -486,7 +488,7 @@ function invoicesCard(C) {
   const issueHost = el('div', { id: 'ordInvIssueHost' });
   const issueBtn = gateWrite(el('button', { type: 'button', class: 'secondary', id: 'ordInvIssue',
     title: 'Pokazuje podgląd faktury VAT przygotowanej przez Selly dla tego zamówienia (numer, nabywca, pozycje, VAT) i pozwala ją wystawić po potwierdzeniu',
-    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=802d849');   // leniwie: karta bez dodatkowego pliku na starcie
+    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=63d59bb');   // leniwie: karta bez dodatkowego pliku na starcie
       if (!issueHost.firstChild) issueHost.replaceChildren(issuePanel({ orderId: C.id, onDone: () => load(), onClose: () => issueHost.replaceChildren() })); } }, 'Wystaw fakturę…'), 'faktury');
   const isAdmin = !!(ctx.boot && ctx.boot.isAdmin);
   const linksFor = hasActive => el('div', { class: 'ord-actions' },
@@ -500,8 +502,10 @@ function invoicesCard(C) {
   const o = C.o || {};
   const receipt = o.receipt_number ? dl([[el('span', { class: 'tip', title: 'Numer paragonu zapisany w zamówieniu w Selly' }, 'Paragon'), el('span', { id: 'ordReceipt' }, String(o.receipt_number) + (o.receipt_date ? ' (' + dayOf(o.receipt_date) + ')' : ''))]]) : null;
   const editHost = el('div', { id: 'ordInvEditHost' });
+  const splitInv = el('div', { id: 'ordSplitInvHost' });   // zamówienie wydzielone: faktura z komentarza „** ” albo zamówienia źródłowego
+  C.onSplit.push(() => splitInv.replaceChildren(splitInvoiceBox(C) || ''));
   async function load() {
-    host.replaceChildren(head, receipt, el('p', { class: 'muted small' }, 'Pobieram faktury…'));
+    host.replaceChildren(head, receipt, splitInv, el('p', { class: 'muted small' }, 'Pobieram faktury…'));
     editHost.replaceChildren();
     try {
       const r = await api('orders:invoices', { id: C.id });
@@ -511,7 +515,7 @@ function invoicesCard(C) {
         ['Zapłacono (zł)', 'Kwota zapłacona za fakturę (pole „Zapłacono za fakturę” w Selly)'], ['Termin', 'Termin płatności z faktury'], ['Status', 'Stan rozliczenia faktury w Selly'], ['Działania', 'Działania']];
       const openEdit = inv => editHost.replaceChildren(invoiceEditor({ orderId: C.id, inv, key: 'c' + inv.invoice_id,
         onSaved: () => load(), onClose: () => editHost.replaceChildren() }));
-      host.replaceChildren(head, receipt, list.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'ordInvTable' }, el('thead', null, el('tr', null, cols.map(([h, t], i) => el('th', { class: [2, 3].includes(i) ? 'n' : null }, el('span', { title: t, class: t !== h ? 'tip' : null }, h))))),
+      host.replaceChildren(head, receipt, splitInv, list.length ? el('div', { class: 'table-wrap' }, el('table', { id: 'ordInvTable' }, el('thead', null, el('tr', null, cols.map(([h, t], i) => el('th', { class: [2, 3].includes(i) ? 'n' : null }, el('span', { title: t, class: t !== h ? 'tip' : null }, h))))),
         el('tbody', null, list.map(inv => { const v = invValue(inv) ?? pick(inv, ['price', 'total', 'value']);
           return el('tr', { 'data-inv': String(inv.invoice_id) }, el('td', { class: 'nw' }, invNumber(inv)),
             el('td', { class: 'nw' }, dateStr(pick(inv, ['created_at', 'date', 'issue_date', 'invoice_date', 'created']))), el('td', { class: 'n nw' }, v === '' || v == null ? '' : money(v)),
@@ -522,7 +526,7 @@ function invoicesCard(C) {
               Number(inv.status_id) === 4 ? null : gw(el('button', { type: 'button', class: 'small-btn secondary', id: 'ordInvEdit-' + inv.invoice_id,
                 title: 'Zmień status rozliczenia, kwotę zapłaconą, termin lub formę płatności i uwagi (numer i pozycje bez zmian)', onclick: () => openEdit(inv) }, 'Rozliczenie')))); })))) :
         el('div', { class: 'empty' }, 'Do tego zamówienia nie wystawiono faktur.'), editHost, links, issueHost);
-    } catch (e) { host.replaceChildren(head, receipt, el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać faktur z Selly: ' + (e.message || 'błąd')), links); }
+    } catch (e) { host.replaceChildren(head, receipt, splitInv, el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać faktur z Selly: ' + (e.message || 'błąd')), links); }
   }
   load();
   return { host };
@@ -563,7 +567,7 @@ const addrFields = (p, who) => [
 
 /** deps: { id, order, meta, adminUrl, sellyUrl, onSaved() } → { sections: węzły kart, dirty(), refresh(), toggle, secs } */
 export function buildOrderCard(deps) {
-  const C = { id: String(deps.id), o: deps.order, meta: deps.meta, sellyUrl: deps.sellyUrl, editDefault: !!store(EDIT_KEY), secs: [], onStatus: null };
+  const C = { id: String(deps.id), o: deps.order, meta: deps.meta, sellyUrl: deps.sellyUrl, editDefault: !!store(EDIT_KEY), secs: [], onStatus: null, split: null, onSplit: [] };
   C.dirty = () => C.secs.some(s => s.dirty());
   C.refresh = async () => {
     const r = await api('orders:get', { id: C.id, events: false });
@@ -578,8 +582,8 @@ export function buildOrderCard(deps) {
     fields: [{ k: 'order_attention', label: 'Uwagi do zamówienia (wewnętrzne)', type: 'textarea', wide: true, cls: 'ord-attn-in', tip: 'Wewnętrzna uwaga dla obsługi — klient jej nie widzi' },
       { k: 'client_comment', label: 'Komentarz klienta', type: 'textarea', wide: true, tip: 'Komentarz wpisany przez klienta przy składaniu zamówienia' }],
     view: o => el('div', null,
-      o.order_attention ? el('div', { class: 'notice warn', id: 'ordAttention' }, el('strong', null, 'Uwagi do zamówienia: '), o.order_attention) : null,
-      o.client_comment ? el('div', { class: 'notice warn', id: 'ordClientComment' }, el('strong', null, 'Komentarz klienta: '), o.client_comment) : null,
+      o.order_attention ? el('div', { class: 'notice ' + cmClass('internal'), id: 'ordAttention', title: 'Uwagi wewnętrzne — klient ich nie widzi' }, el('strong', null, 'Uwagi do zamówienia: '), o.order_attention) : null,
+      o.client_comment ? el('div', { class: 'notice ' + cmClass('client'), id: 'ordClientComment', title: 'Komentarz wpisany przez klienta przy składaniu zamówienia' }, el('strong', null, 'Komentarz klienta: '), o.client_comment) : null,
       !o.order_attention && !o.client_comment ? el('p', { class: 'muted' }, 'Brak uwag i komentarza klienta.') : null),
   }));
   const contact = mk(c => section(c, {
@@ -656,6 +660,265 @@ export function buildOrderCard(deps) {
       for (const s of C.secs) s.setEditing && s.setEditing(C.editDefault);
     } }), ' Domyślnie w trybie edycji');
   const sellyFields = sellyFieldsCard(C);   // opiekun, data sprzedaży, paczka… — formularz Selly (API ich nie zapisuje)
-  return { C, toggle, notes: notes.host, grid: [contact.host, ship.host, inv.host, delivery.host], items: items.host, totals: totals.host, invoices: invoices.host,
-    sellyFields: sellyFields.host, sellyOnly: sellyOnlyCard(C) };
+  const splitHost = el('div', { id: 'ordSplit', class: 'ord-split' });
+  C.onSplit.push(() => splitHost.replaceChildren(...splitLinks(C)));
+  loadSplit(C);
+  const card = { C, toggle, notes: notes.host, grid: [contact.host, ship.host, inv.host, delivery.host], items: items.host, totals: totals.host, invoices: invoices.host,
+    sellyFields: sellyFields.host, sellyOnly: sellyOnlyCard(C), split: splitHost };
+  // Układ karty (kolejność i zwijanie sekcji, numer w nagłówku, historia zdarzeń): po wstawieniu węzłów przez zamowienia.js (ta sama ramka zadania)
+  queueMicrotask(() => { try { arrangeDetail(card); } catch (e) { /* karta działa w układzie domyślnym */ } });
+  return card;
+}
+
+// ─── Kolory komentarzy (różne rodzaje się nie zlewają) ─────────────────────
+// Kolory rodzajów z lib/orderCells.js (tokeny --cm-client / --cm-internal / --cm-groups; „Ustawienia listy…” sklepu i użytkownika — applyPrefs w zamowienia.js);
+// rodzaje: client (komentarz klienta), internal (uwagi wewnętrzne), groups (notatka grupowa), event (komentarz w historii zdarzeń — własny kolor karty).
+export const cmClass = kind => 'ord-cm ord-cm-' + kind;
+
+// ─── Zamówienia rozdzielone: źródło, wydzielone, faktura „** ”, kwota pierwotnego zamówienia ─────────
+
+/** orders:split (kopia panelu, bez zapytań do Selly) → C.split; potem odświeża zależne fragmenty karty. Brak akcji (zapas Apps Script) = karta bez tych informacji. */
+function loadSplit(C) {
+  return api('orders:split', { id: C.id }).then(r => {
+    C.split = r && (r.parent || (r.children || []).length || r.invoice) ? r : null;
+    for (const f of C.onSplit) { try { f(); } catch (e) { /* jeden fragment nie psuje reszty */ } }
+  }, () => {});
+}
+const orderLink = (x, id) => el('a', { href: x.id ? '#/zamowienia/' + encodeURIComponent(x.id) : '#/zamowienia?q=' + encodeURIComponent(x.number), id: id || null,
+  title: x.id ? 'Otwiera zamówienie ' + x.number : 'Szuka zamówienia ' + x.number + ' na liście (nie ma go jeszcze w kopii panelu)' }, x.number);
+
+/** „Wydzielone z zamówienia X” / „Wydzielono: Y, Z” (nagłówek karty). */
+function splitLinks(C) {
+  const s = C.split;
+  if (!s) return [];
+  const out = [];
+  if (s.parent) out.push(el('span', { class: 'ord-split-item', id: 'ordSplitParent' },
+    el('span', { class: 'tip', title: 'To zamówienie powstało przez wydzielenie części pozycji z innego zamówienia (informacja z historii zdarzeń Selly)' }, 'Wydzielone z zamówienia'), ' ', orderLink(s.parent, 'ordSplitParentLink')));
+  if ((s.children || []).length) out.push(el('span', { class: 'ord-split-item', id: 'ordSplitChildren' },
+    el('span', { class: 'tip', title: 'Z tego zamówienia wydzielono inne zamówienia (z historii zdarzeń Selly; panel zna je od otwarcia karty jednego z nich albo tego zamówienia)' }, 'Wydzielono:'), ' ',
+    s.children.flatMap((c, i) => (i ? [', ', orderLink(c)] : [orderLink(c)]))));
+  return out;
+}
+
+/** Wiersz podsumowania płatności: całe pierwotne zamówienie (zamówienie wydzielone widzi tylko kwotę swoich pozycji). */
+function parentTotalsRow(C) {
+  const p = C.split && C.split.parent;
+  if (!p || p.total == null) return null;
+  const paidAll = p.paid != null && p.paid >= p.total - 0.005;
+  return [el('span', { class: 'tip', title: 'Zamówienie wydzielono z ' + p.number + '. Klient zwykle płaci za całe pierwotne zamówienie — tu jego wartość i kwota zapłacona (z kopii panelu).' }, 'Całe pierwotne zamówienie'),
+    el('span', { id: 'ordParentSum' }, money(p.total) + ' zł, zapłacono ' + (p.paid == null ? '—' : money(p.paid) + ' zł') + (paidAll ? ' (opłacone w całości)' : '') + ' · ', orderLink(p))];
+}
+
+/** Faktura zamówienia wydzielonego: numer z komentarza „** ” albo faktura zamówienia źródłowego (z linkiem do zamówienia, które ją ma). */
+function splitInvoiceBox(C) {
+  const s = C.split;
+  if (!s) return null;
+  const p = s.parent, inv = s.invoice;
+  if (inv) {
+    const fromParent = inv.source === 'parent';
+    const tipText = fromParent ? 'To zamówienie wydzielono z ' + (p ? p.number : 'innego zamówienia') + ' — faktura została wystawiona na całe pierwotne zamówienie.'
+      : 'Numer faktury wpisany w komentarzu po „** ” (dwie gwiazdki i spacja) — zwykle faktura całego pierwotnego zamówienia.';
+    return el('div', { class: 'notice info ord-split-inv', id: 'ordSplitInv' },
+      el('strong', { class: 'tip', title: tipText }, fromParent ? 'Faktura zamówienia źródłowego: ' : 'Faktura (z komentarza „** ”): '), el('span', { id: 'ordSplitInvNo' }, inv.number), ' ',
+      inv.orderId && inv.orderId !== C.id ? el('a', { href: '#/zamowienia/' + encodeURIComponent(inv.orderId), class: 'btn-quiet', id: 'ordSplitInvLink',
+        title: 'Otwiera zamówienie, do którego wystawiono tę fakturę (sekcja „Faktury i paragon”: wydruk, rozliczenie)' }, 'Zobacz fakturę →')
+        : !inv.orderId ? el('span', { class: 'muted small' }, '(panel nie zna jeszcze tej faktury — pojawi się po otwarciu faktur zamówienia, do którego ją wystawiono)') : null);
+  }
+  if (p && p.id && !p.invoicesKnown) {
+    const btn = el('button', { type: 'button', class: 'secondary small-btn', id: 'ordSplitInvCheck', title: 'Pobiera z Selly faktury zamówienia źródłowego ' + p.number + ' (jedno zapytanie) i pokazuje tu jego fakturę',
+      onclick: async () => { btn.disabled = true; try { await api('orders:invoices', { id: p.id }); await loadSplit(C); } catch (e) { btn.disabled = false; flash('', 'Nie udało się pobrać faktur zamówienia źródłowego: ' + (e.message || 'błąd') + ' — spróbuj ponownie', 'error'); } } },
+      'Sprawdź fakturę zamówienia źródłowego');
+    return el('div', { class: 'notice info ord-split-inv', id: 'ordSplitInv' }, 'Zamówienie wydzielone z ' + p.number + ' — faktura jest zwykle wystawiona na całe pierwotne zamówienie. ', btn);
+  }
+  return null;
+}
+
+// ─── Historia zdarzeń: opisy z HTML z Selly → bezpieczne węzły (bez innerHTML) ─────────
+
+const RICH_TAGS = new Set(['b', 'strong', 'i', 'em', 'u', 's', 'br', 'p', 'div', 'span', 'ul', 'ol', 'li', 'small', 'mark', 'code', 'sub', 'sup']);
+const RICH_DROP = new Set(['script', 'style', 'iframe', 'object', 'embed', 'template', 'svg', 'math', 'noscript', 'head', 'title', 'form', 'button', 'select', 'textarea', 'img', 'video', 'audio', 'canvas', 'link', 'meta']);
+/** HTML (po htmlSanitize) → węzły: tylko proste formatowanie z listy i linki https (nowa karta); reszta znaczników znika (treść zostaje), skrypty i obrazy w całości.
+ * sanitize = sanitizeHtml z lib/htmlSanitize.js (usuwa on*, skrypty — parser nie widzi już niczego wykonywalnego); węzły budujemy sami, bez innerHTML. */
+export function richNodes(html, sanitize) {
+  let doc;
+  try { doc = new DOMParser().parseFromString('<body>' + sanitize(String(html == null ? '' : html)) + '</body>', 'text/html'); } catch (e) { return [document.createTextNode(String(html))]; }
+  const walk = n => {
+    if (n.nodeType === 3) return [document.createTextNode(n.nodeValue)];
+    if (n.nodeType !== 1) return [];
+    const tag = n.nodeName.toLowerCase(), kids = () => [...n.childNodes].flatMap(walk);
+    if (RICH_DROP.has(tag)) return [];
+    if (tag === 'a') {
+      const href = String(n.getAttribute('href') || '').trim();
+      return /^https:\/\/[^\s"'<>]+$/i.test(href) ? [el('a', { href, target: '_blank', rel: 'noopener noreferrer' }, kids())] : kids();
+    }
+    return RICH_TAGS.has(tag) ? [el(tag, null, tag === 'br' ? null : kids())] : kids();
+  };
+  return [...doc.body.childNodes].flatMap(walk);
+}
+const looksHtml = s => /<\/?[a-z][^>]*>|&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i.test(s);
+function enhanceEvents(root) {
+  if (!root) return;
+  const rich = [];
+  for (const li of root.querySelectorAll('.ord-events li')) {
+    for (const sp of li.querySelectorAll(':scope > span:not(.muted), :scope > strong')) if (looksHtml(sp.textContent)) rich.push(sp);
+    const type = (li.querySelector(':scope > strong') || {}).textContent || '';
+    if (/komentarz|notatk|uwag/i.test(type)) { li.classList.add(...cmClass('event').split(' ')); li.title = 'Komentarz w historii zdarzeń'; }
+  }
+  // moduł czyszczenia HTML ładowany tylko, gdy w historii jest HTML (budżet plików karty — tests/e2e/perf)
+  if (rich.length) import('../lib/htmlSanitize.js?v=63d59bb').then(m => { for (const sp of rich) sp.replaceChildren(...richNodes(sp.textContent, m.sanitizeHtml)); }).catch(() => {});
+}
+
+// ─── Układ karty: kolejność sekcji (przeciąganie + ↑ ↓), zwijanie, numer w nagłówku ─────────
+
+const LAYOUT_KEY = 'osa-ord-layout';
+// [klucz, nazwa, wąska (kafelek obok innych)] — kolejność = układ domyślny
+const TILES = [['notes', 'Uwagi'], ['contact', 'Klient i kontakt', 1], ['ship', 'Adres wysyłki', 1], ['invoice', 'Dane do faktury', 1], ['delivery', 'Dostawa i płatność', 1],
+  ['items', 'Pozycje'], ['totals', 'Podsumowanie płatności'], ['invoices', 'Faktury i paragon'], ['sellyFields', 'Pola z Selly (opiekun, paczka…)'], ['sellyOnly', 'Czego tu nie zmienisz'],
+  ['osa', 'Orszak (z notatki)'], ['moves', 'Ruchy magazynowe'], ['events', 'Historia zdarzeń']];
+const DEF_ORDER = TILES.map(t => t[0]);
+
+/** Zapisana kolejność + sekcje, których w niej brak (nowe), na miejscu z układu domyślnego (za poprzednią obecną). */
+export function mergeOrder(saved, present) {
+  const out = (Array.isArray(saved) ? saved : []).filter((k, i, a) => present.includes(k) && a.indexOf(k) === i);
+  const rank = k => { const i = DEF_ORDER.indexOf(k); return i < 0 ? DEF_ORDER.length + present.indexOf(k) : i; };
+  for (const k of present.slice().sort((a, b) => rank(a) - rank(b))) {
+    if (out.includes(k)) continue;
+    const prev = out.filter(x => rank(x) < rank(k)).sort((a, b) => rank(b) - rank(a))[0];
+    out.splice(prev ? out.indexOf(prev) + 1 : 0, 0, k);
+  }
+  return out;
+}
+
+function numberHeader(card, header) {
+  const C = card.C, title = header.querySelector('#ordTitle'), num = String(C.o.order_number || C.o.number || '');
+  if (!title || !num) return;
+  const copy = () => copyToClipboard(num, null, 'Skopiowano: ' + num);
+  title.replaceChildren('Zamówienie ',
+    el('a', { href: '#/zamowienia/' + encodeURIComponent(C.id), id: 'ordNumber', class: 'ord-num', title: 'Kliknij, aby skopiować numer zamówienia (Ctrl+klik albo środkowy przycisk — otwiera kartę w nowej karcie)',
+      onclick: e => { if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return; e.preventDefault(); copy(); } }, num),
+    el('button', { type: 'button', class: 'ghost small-btn ord-num-copy', id: 'ordNumCopy', title: 'Kopiuj numer zamówienia', 'aria-label': 'Kopiuj numer zamówienia ' + num, onclick: copy }, '⧉'));
+}
+
+/** Przenosi sekcje karty (wstawione przez zamowienia.js) do siatki kafelków z zapamiętaną kolejnością i zwinięciem. */
+export function arrangeDetail(card) {
+  const box = card.notes.parentNode;
+  if (!box || box.querySelector('#ordTiles')) return;
+  const header = box.firstElementChild;
+  if (!header || header === card.notes) return;
+  numberHeader(card, header);
+  const head = header.querySelector('.card-head');
+  if (head) head.after(card.split);
+  const known = new Map([[card.notes, 'notes'], [card.grid[0], 'contact'], [card.grid[1], 'ship'], [card.grid[2], 'invoice'], [card.grid[3], 'delivery'], [card.items, 'items'],
+    [card.totals, 'totals'], [card.invoices, 'invoices'], [card.sellyFields, 'sellyFields'], [card.sellyOnly, 'sellyOnly']]);
+  const found = [];
+  for (const ch of [...box.children].slice(1)) {
+    if (ch.classList.contains('ord-grid') && card.grid.includes(ch.firstElementChild)) { for (const g of [...ch.children]) found.push([known.get(g) || 'x' + found.length, g]); continue; }
+    const h2 = ch.querySelector('h2');
+    const k = known.get(ch) || (ch.id === 'ordOsaCard' ? 'osa' : ch.querySelector('#ordMoves') ? 'moves'
+      : ch.querySelector('.ord-events') || /Historia zdarzeń/.test(h2 ? h2.textContent : '') ? 'events' : 'x' + found.length);
+    found.push([k, ch]);
+  }
+  const saved = store(LAYOUT_KEY) || {};
+  const folded = new Set(Array.isArray(saved.folded) ? saved.folded.filter(k => typeof k === 'string') : []);
+  const tiles = new Map();
+  const container = el('div', { class: 'ord-tiles', id: 'ordTiles' });
+  const save = () => store(LAYOUT_KEY, { v: 1, order: [...container.children].map(t => t.dataset.tile), folded: [...folded].filter(k => tiles.has(k)) });
+  const labelOf = k => { const d = TILES.find(t => t[0] === k); return d ? d[1] : 'Sekcja'; };
+  const syncButtons = () => {
+    const list = [...container.children];
+    list.forEach((t, i) => { t.querySelector('.ord-mv-up').disabled = i === 0; t.querySelector('.ord-mv-down').disabled = i === list.length - 1; });
+  };
+  const move = (k, dir, btn) => {
+    const t = tiles.get(k), sib = dir < 0 ? t.previousElementSibling : t.nextElementSibling;
+    if (!sib) return;
+    if (dir < 0) sib.before(t); else sib.after(t);
+    save(); syncButtons();
+    const same = t.querySelector(btn.classList.contains('ord-mv-up') ? '.ord-mv-up' : '.ord-mv-down');
+    (same.disabled ? t.querySelector(same.classList.contains('ord-mv-up') ? '.ord-mv-down' : '.ord-mv-up') : same).focus();
+  };
+  const setFold = (k, on) => {
+    const t = tiles.get(k);
+    if (!t) return;
+    if (on) folded.add(k); else folded.delete(k);
+    t.classList.toggle('folded', on);
+    const b = t.querySelector('.ord-fold');
+    if (b) { b.setAttribute('aria-expanded', String(!on)); b.title = (on ? 'Rozwiń' : 'Zwiń') + ' sekcję „' + labelOf(k) + '” (zapamiętane w tej przeglądarce)'; }
+  };
+  const decorate = t => {
+    const k = t.dataset.tile;
+    if (t.querySelector(':scope > details')) return;   // sekcje „▾” (pola z Selly, czego nie zmienisz) zwijają się same
+    const h = [...t.querySelectorAll('h2')].find(x => !x.closest('.ord-tile-bar'));
+    if (!h || h.querySelector('.ord-fold')) return;
+    h.prepend(el('button', { type: 'button', class: 'ord-fold', 'data-fold': k, 'aria-expanded': String(!folded.has(k)),
+      title: (folded.has(k) ? 'Rozwiń' : 'Zwiń') + ' sekcję „' + labelOf(k) + '” (zapamiętane w tej przeglądarce)', onclick: () => { setFold(k, !folded.has(k)); save(); } }, '▾'));
+  };
+  for (const [k, node] of found) {
+    const def = TILES.find(t => t[0] === k), label = labelOf(k);
+    const up = el('button', { type: 'button', class: 'ghost small-btn ord-mv-up', 'aria-label': 'Przenieś sekcję „' + label + '” wyżej', title: 'Przenieś wyżej', onclick: e => move(k, -1, e.currentTarget) }, '↑');
+    const down = el('button', { type: 'button', class: 'ghost small-btn ord-mv-down', 'aria-label': 'Przenieś sekcję „' + label + '” niżej', title: 'Przenieś niżej', onclick: e => move(k, 1, e.currentTarget) }, '↓');
+    const bar = el('div', { class: 'ord-tile-bar', draggable: 'true', title: 'Przeciągnij, aby przenieść sekcję „' + label + '” (albo użyj strzałek ↑ ↓)' },
+      el('span', { class: 'ord-grip', 'aria-hidden': 'true' }, '⠿'), el('span', { class: 'ord-tile-name' }, label), el('span', { class: 'spacer' }), up, down);
+    const t = el('div', { class: 'ord-tile' + (def && def[2] ? '' : ' wide') + (folded.has(k) ? ' folded' : ''), 'data-tile': k }, bar, node);
+    tiles.set(k, t);
+    decorate(t);
+    new MutationObserver(() => decorate(t)).observe(t, { childList: true, subtree: true });   // sekcje rysują się od nowa (edycja, zapis, wczytanie)
+  }
+  const order = mergeOrder(saved.order, [...tiles.keys()]);
+  container.replaceChildren(...order.map(k => tiles.get(k)));
+  box.replaceChildren(header, container);
+  syncButtons();
+  enhanceEvents(tiles.get('events'));
+
+  // Przeciąganie (tryb „Układ sekcji”): uchwyt = pasek nad sekcją
+  let dragKey = null;
+  const clearMarks = () => { for (const t of container.children) t.classList.remove('drop-before', 'drop-after', 'dragging'); };
+  const isBefore = (t, e) => { const r = t.getBoundingClientRect(); return t.classList.contains('wide') ? e.clientY < r.top + r.height / 2 : e.clientX < r.left + r.width / 2; };
+  container.addEventListener('dragstart', e => {
+    const bar = e.target.closest && e.target.closest('.ord-tile-bar');
+    if (!bar || !container.classList.contains('layout-on')) return;
+    const t = bar.parentNode;
+    dragKey = t.dataset.tile; t.classList.add('dragging');
+    try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragKey); e.dataTransfer.setDragImage(t, 24, 16); } catch (x) { /* przeglądarka bez obrazu przeciągania */ }
+  });
+  container.addEventListener('dragover', e => {
+    if (!dragKey) return;
+    const t = e.target.closest && e.target.closest('.ord-tile');
+    if (!t || t.dataset.tile === dragKey) return;
+    e.preventDefault();
+    const b = isBefore(t, e);
+    for (const x of container.children) if (x !== t) x.classList.remove('drop-before', 'drop-after');
+    t.classList.toggle('drop-before', b); t.classList.toggle('drop-after', !b);
+  });
+  container.addEventListener('drop', e => {
+    if (!dragKey) return;
+    e.preventDefault();
+    const t = e.target.closest && e.target.closest('.ord-tile'), src = tiles.get(dragKey);
+    if (t && src && t !== src) { if (isBefore(t, e)) t.before(src); else t.after(src); save(); syncButtons(); }
+    dragKey = null; clearMarks();
+  });
+  container.addEventListener('dragend', () => { dragKey = null; clearMarks(); });
+
+  // Przycisk „Układ sekcji” w wierszu statusu + pasek trybu układu
+  const status = header.querySelector('.ord-detail-status');
+  const allFold = on => { for (const k of tiles.keys()) if (!tiles.get(k).querySelector(':scope > details')) setFold(k, on); save(); };
+  const layoutBar = el('div', { class: 'notice info ord-layout-bar', id: 'ordLayoutBar', hidden: true, role: 'region', 'aria-label': 'Układ sekcji karty' },
+    el('span', null, 'Przeciągnij sekcję za pasek nad nią albo użyj strzałek ↑ ↓. Układ i zwinięte sekcje zapamiętujemy w tej przeglądarce dla wszystkich zamówień.'),
+    el('span', { class: 'ord-layout-acts' },
+      el('button', { type: 'button', class: 'ghost small-btn', id: 'ordFoldAll', title: 'Zwija wszystkie sekcje do samych nagłówków', onclick: () => allFold(true) }, 'Zwiń wszystkie'),
+      el('button', { type: 'button', class: 'ghost small-btn', id: 'ordUnfoldAll', title: 'Rozwija wszystkie sekcje', onclick: () => allFold(false) }, 'Rozwiń wszystkie'),
+      el('button', { type: 'button', class: 'secondary small-btn', id: 'ordLayoutReset', title: 'Przywraca domyślną kolejność sekcji i rozwija wszystkie', onclick: () => {
+        container.replaceChildren(...mergeOrder([], [...tiles.keys()]).map(k => tiles.get(k)));
+        for (const k of [...folded]) setFold(k, false);
+        store(LAYOUT_KEY, null); syncButtons(); flash('', 'Przywrócono domyślny układ karty zamówienia');
+      } }, 'Przywróć domyślny układ'),
+      el('button', { type: 'button', class: 'secondary small-btn', id: 'ordLayoutDone', title: 'Kończy zmianę układu (zmiany są już zapisane)', onclick: () => setMode(false) }, 'Gotowe')));
+  const btn = el('button', { type: 'button', class: 'secondary small-btn', id: 'ordLayoutBtn', 'aria-pressed': 'false',
+    title: 'Zmień kolejność sekcji karty (przeciąganie albo strzałki) i zwiń te, których nie potrzebujesz — zapamiętane w tej przeglądarce', onclick: () => setMode(!container.classList.contains('layout-on')) }, 'Układ sekcji');
+  function setMode(on) {
+    container.classList.toggle('layout-on', on); layoutBar.hidden = !on; btn.setAttribute('aria-pressed', String(on));
+    if (on) { const f = container.querySelector('.ord-mv-down:not(:disabled), .ord-mv-up:not(:disabled)'); if (f) f.focus({ preventScroll: true }); } else btn.focus({ preventScroll: true });
+  }
+  layoutBar.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); setMode(false); } });
+  container.addEventListener('keydown', e => { if (e.key === 'Escape' && container.classList.contains('layout-on') && e.target.closest('.ord-tile-bar')) { e.preventDefault(); setMode(false); } });
+  if (status) { if (card.toggle && card.toggle.parentNode === status) card.toggle.before(btn); else status.append(btn); status.after(layoutBar); } else header.append(btn, layoutBar);
 }

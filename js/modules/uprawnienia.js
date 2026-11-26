@@ -3,11 +3,11 @@
 // Dane i zapis: formularze Selly na sesji Selly zalogowanego użytkownika (Worker: perms:groups / perms:cached / perms:read / perms:save → modules/permsEditor.js,
 // silnik shared/sellyNative.js). Selly sam egzekwuje swoje prawa. Nie zmienia członkostwa grup ani kont. Logika: modules/uprawnieniaLogika.js.
 // Trasy: #/uprawnienia (lista grup), #/uprawnienia/<id grupy> (edytor).
-import { el, flash, loadingBox, debounce, plural, menuButton } from '../core/ui.js?v=802d849';
-import { api, ctx } from '../core/client.js?v=802d849';
-import { addLeaveGuard } from '../core/router.js?v=802d849';
-import { sellyUrl } from './_placeholder.js?v=802d849';
-import * as L from './uprawnieniaLogika.js?v=802d849';
+import { el, flash, loadingBox, debounce, plural, menuButton } from '../core/ui.js?v=63d59bb';
+import { api, ctx } from '../core/client.js?v=63d59bb';
+import { addLeaveGuard } from '../core/router.js?v=63d59bb';
+import { sellyUrl } from './_placeholder.js?v=63d59bb';
+import * as L from './uprawnieniaLogika.js?v=63d59bb';
 
 const CHUNK = 2;            // stron modułów na wywołanie (≤ PERM_MAX_MODULES w silniku; mało = lekkie wywołania Workera, szybkie pierwsze wyniki)
 const PARALLEL = 5;         // wywołań naraz (każde w swoim limicie zapytań i CPU Workera; budżet Selly P1 pilnuje serwer)
@@ -232,8 +232,9 @@ function preset(fn, label) {
 
 function refresh() { renderFilters(); renderModules(); renderBar(); renderState(); renderRo(); }
 function renderRo() {
-  const ro = S.model.modules.filter(x => x.loaded && !x.canSave && !x.empty).length;
-  S.ui.ro.replaceChildren(...(ro ? [el('div', { class: 'notice warn' }, n(ro, 'moduł jest', 'moduły są', 'modułów jest') + ' tylko do podglądu — formularz Selly wygląda inaczej niż oczekiwano (szczegóły w module). Te zmienisz w Selly.')] : []));
+  const list = S.model.modules.filter(x => x.loaded && !x.canSave && !x.empty), ro = list.length;
+  const names = list.slice(0, 6).map(x => x.title + (x.reason ? ' (' + x.reason + ')' : '')).join('; ') + (ro > 6 ? '; …' : '');
+  S.ui.ro.replaceChildren(...(ro ? [el('div', { class: 'notice warn' }, n(ro, 'moduł jest', 'moduły są', 'modułów jest') + ' tylko do podglądu — formularz Selly wygląda inaczej niż oczekiwano: ' + names + '. Te zmienisz w Selly.')] : []));
 }
 
 function renderFilters() {
