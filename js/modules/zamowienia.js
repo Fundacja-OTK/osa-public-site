@@ -1,31 +1,31 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Lista = wspólny komponent core/listView.js (tabela, sortowanie, strony, zaznaczenie z dolnym paskiem, stan w adresie, świeżość).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=b658013';
-import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=b658013';
-import { askConfirm } from '../core/confirm.js?v=b658013';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=b658013';
-import { api, ctx } from '../core/client.js?v=b658013';
-import { go, setLeaveGuard } from '../core/router.js?v=b658013';
-import { noteVisit } from '../core/recents.js?v=b658013';
-import { registerListKeys } from '../core/listKeys.js?v=b658013';
-import { changedIds } from '../core/liveRefresh.js?v=b658013';
-import { cachedRead } from '../core/cache.js?v=b658013';
-import { listView } from '../core/listView.js?v=b658013';
-import * as LL from '../core/listLogic.js?v=b658013';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=b658013';
-import { showNewOrder } from './zamowienieNowe.js?v=b658013';
-import { showInvoices } from './zamowieniaFaktury.js?v=b658013';
-import { showPick } from './zamowieniaKompletacja.js?v=b658013';
-import { createFilterUi } from './zamowieniaFiltry.js?v=b658013';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=b658013';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=b658013';
+import { photoSrc } from '../core/photo.js?v=13a6ef5';
+import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=13a6ef5';
+import { askConfirm } from '../core/confirm.js?v=13a6ef5';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=13a6ef5';
+import { api, ctx } from '../core/client.js?v=13a6ef5';
+import { go, setLeaveGuard } from '../core/router.js?v=13a6ef5';
+import { noteVisit } from '../core/recents.js?v=13a6ef5';
+import { registerListKeys } from '../core/listKeys.js?v=13a6ef5';
+import { changedIds } from '../core/liveRefresh.js?v=13a6ef5';
+import { cachedRead } from '../core/cache.js?v=13a6ef5';
+import { listView } from '../core/listView.js?v=13a6ef5';
+import * as LL from '../core/listLogic.js?v=13a6ef5';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=13a6ef5';
+import { showNewOrder } from './zamowienieNowe.js?v=13a6ef5';
+import { showInvoices } from './zamowieniaFaktury.js?v=13a6ef5';
+import { showPick } from './zamowieniaKompletacja.js?v=13a6ef5';
+import { createFilterUi } from './zamowieniaFiltry.js?v=13a6ef5';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=13a6ef5';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=13a6ef5';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SIZES = [25, 50, 100, 200];
 const SIZE_STORE = 'osa-ord-size';
 const NOUN = ['zamówienie', 'zamówienia', 'zamówień'];
-const EXTRA_CLEAR = { payment: '', delivery: '', product: '', pname: '' };
+const EXTRA_CLEAR = { payment: '', delivery: '', product: '', pname: '', rfrom: '', rto: '' };
 const CLEAR_ALL = () => ({ q: '', from: '', to: '', ...EXTRA_CLEAR, ...EMPTY_F, ...OSA_CLEAR });
 // Eksport czyta z bazy panelu (nie z Selly — nie zużywa limitu API); górna granica tylko jako bezpiecznik
 const EXPORT_MAX = 50000;
@@ -63,13 +63,15 @@ function unavailableBox(extra) {
 
 // ─── Stan listy ↔ adres (listLogic: q, page, size, sort, dir + parametry zamówień w `extra`) ──────────
 
-const PANEL_KEYS = ['payment', 'delivery', 'product', 'from', 'to', 'woj', 'kind', 'title', 'tag', 'lic', ...FKEYS];
+const PANEL_KEYS = ['payment', 'delivery', 'product', 'from', 'to', 'rfrom', 'rto', 'woj', 'kind', 'title', 'tag', 'lic', ...FKEYS];
 const EXTRA = {
-  read: g => ({ from: g('from'), to: g('to'), payment: g('payment'), delivery: g('delivery'), product: g('product'), pname: g('pname'), ...readFilters(g), ...readOsa(g) }),
+  read: g => ({ from: g('from'), to: g('to'), rfrom: g('rfrom'), rto: g('rto'), payment: g('payment'), delivery: g('delivery'), product: g('product'), pname: g('pname'), ...readFilters(g), ...readOsa(g) }),
   write: (Q, p) => {
     writeFilters(Q, p);
     if (Q.from) p.set('from', Q.from);
     if (Q.to) p.set('to', Q.to);
+    if (Q.rfrom) p.set('rfrom', Q.rfrom);
+    if (Q.rto) p.set('rto', Q.rto);
     if (Q.payment) p.set('payment', Q.payment);
     if (Q.delivery) p.set('delivery', Q.delivery);
     if (Q.product) { p.set('product', Q.product); if (Q.pname) p.set('pname', Q.pname); }
@@ -92,6 +94,8 @@ const listParams = (Q, extra) => {
   if (Q.from) p.dateFrom = Q.from;
   const to = effectiveDateTo(Q.to, Q.older);
   if (to) p.dateTo = to;
+  if (Q.rfrom) p.requiredFrom = Q.rfrom;
+  if (Q.rto) p.requiredTo = Q.rto;
   if (Q.payment) p.paymentId = Q.payment;
   if (Q.delivery) p.deliveryId = Q.delivery;
   if (Q.product) p.productId = Q.product;
@@ -177,6 +181,7 @@ function buildList() {
   const u = S.ui;
   u.range = dateRange({ idFrom: 'ordFrom', idTo: 'ordTo', labelFrom: 'Od dnia', labelTo: 'Do dnia', titleFrom: 'Zamówienia złożone od tego dnia (włącznie)', titleTo: 'Zamówienia złożone do tego dnia (włącznie)', onChange: r => setQ(r) });
   u.from = u.range.from; u.to = u.range.to;
+  u.reqRange = dateRange({ idFrom: 'ordReqFrom', idTo: 'ordReqTo', labelFrom: 'Wymagana data od', labelTo: 'Wymagana data do', titleFrom: 'Zamówienia z wymaganą datą realizacji od tego dnia (włącznie); zamówienia bez wymaganej daty są pomijane', titleTo: 'Zamówienia z wymaganą datą realizacji do tego dnia (włącznie); zamówienia bez wymaganej daty są pomijane', onChange: r => setQ({ rfrom: r.from, rto: r.to }) });
   const mkMs = (id, all, short, noun, tip, field) => multiSelect({ id, all, short, noun, tip, none: false, onChange: csv => setQ({ [field]: csv }) });
   u.payment = mkMs('ordPayment', 'Wszystkie płatności', 'Płatność', 'Płatność', 'Tylko zamówienia z wybranymi sposobami płatności — można zaznaczyć kilka', 'payment');
   u.deliverySel = mkMs('ordDelivery', 'Wszystkie dostawy', 'Dostawa', 'Dostawa', 'Tylko zamówienia z wybranymi sposobami dostawy — można zaznaczyć kilka', 'delivery');
@@ -191,7 +196,7 @@ function buildList() {
   u.osa = osaBar({ prefix: 'ordOsa', withLicense: true, plain: true, getQ: curQ, apply: patch => setQ(patch), facets: () => S.meta && S.meta.facets });
   u.filtersInner.append(...u.fx.panelNodes({
     moreTitle: 'Klient i produkt', moreTip: 'Dane z notatek klientów (województwo, rodzaj podmiotu, tytuł, tagi, licencja) i produkt w zamówieniu', moreActive: () => !!(curQ().product || osaActive(curQ())),
-    payMethod: el('div', { class: 'field-inline' }, 'Sposób płatności', u.payment.node), delivery: el('div', { class: 'field-inline' }, 'Sposób dostawy', u.deliverySel.node), range: u.range.node,
+    payMethod: el('div', { class: 'field-inline' }, 'Sposób płatności', u.payment.node), delivery: el('div', { class: 'field-inline' }, 'Sposób dostawy', u.deliverySel.node), range: u.range.node, reqRange: u.reqRange.node,
     more: [el('div', { class: 'fx-clients' }, u.osa.node, el('div', { class: 'field-inline ord-prodf' }, 'Produkt', u.prodPick.node, u.prodLabel, u.prodClear))],
   }));
   u.filtersInner.append(el('div', { class: 'ord-filter-row' },
@@ -242,12 +247,12 @@ function listBusy() {
 /** Kontrolki modułu po zmianie stanu listy (wyszukiwarkę, sortowanie i strony ustawia listView). */
 function syncList(Q) {
   const u = S.ui;
-  u.from.value = Q.from; u.to.value = Q.to;
+  u.from.value = Q.from; u.to.value = Q.to; u.reqRange.from.value = Q.rfrom; u.reqRange.to.value = Q.rto;
   u.payment.set((S.meta.payments || []).map(x => ({ key: String(x.id), label: x.name })), Q.payment);
   u.deliverySel.set((S.meta.deliveries || []).map(x => ({ key: String(x.id), label: x.name })), Q.delivery);
   u.prodLabel.hidden = u.prodClear.hidden = !Q.product; u.prodLabel.textContent = Q.product ? '„' + (Q.pname || 'produkt #' + Q.product) + '”' : '';
   // filtr ustawiany w panelu (nie plakietką statusu) — panel otwieramy, żeby było go widać
-  if ((Q.from || Q.to || Q.payment || Q.delivery || Q.product) && !S.lv.u.layout.isOpen()) S.lv.openFilters(true);
+  if ((Q.from || Q.to || Q.rfrom || Q.rto || Q.payment || Q.delivery || Q.product) && !S.lv.u.layout.isOpen()) S.lv.openFilters(true);
   renderSegs();
   u.osa.sync();
   u.fx.sync();

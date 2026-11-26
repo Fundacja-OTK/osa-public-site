@@ -1,9 +1,9 @@
 // Przełącznik „Blokada zamówień” w karcie klienta: stan i zapis przez natywny ekran `klient-blokada` (sesja Selly zalogowanego użytkownika;
 // formularz klienta w Selly, zmieniane tylko pole blokada_zamawiania). Zapis: podgląd zmian (dryRun) → potwierdzenie → zapis → weryfikacja.
 // Gdy odczyt się nie uda (brak uprawnień, serwer niedostępny) zostaje zwykły link do karty w Selly.
-import { el, sellyLink, flash } from '../core/ui.js?v=b658013';
-import { confirmDialog } from '../core/confirm.js?v=b658013';
-import { sellyCall } from './sellyNative.js?v=b658013';
+import { el, sellyLink, flash } from '../core/ui.js?v=13a6ef5';
+import { confirmDialog } from '../core/confirm.js?v=13a6ef5';
+import { sellyCall } from './sellyNative.js?v=13a6ef5';
 
 const SCREEN = 'klient-blokada', FIELD = 'blokada_zamawiania';
 const isOn = v => v !== '' && v != null && v !== '0';

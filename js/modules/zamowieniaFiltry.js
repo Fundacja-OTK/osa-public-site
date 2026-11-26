@@ -1,8 +1,8 @@
 // Zamówienia — interfejs filtrów złożonych: szybkie widoki, zdanie z usuwalnymi plakietkami, grupy statusów, płatność, przesyłka,
 // wartość, zapisane widoki. Logika (bez DOM) jest w zamFiltry.js. Moduł dostaje od zamowienia.js uchwyty `h` (stan, setQ, adres).
-import { el, store, flash, menuButton, copyToClipboard } from '../core/ui.js?v=b658013';
+import { el, store, flash, menuButton, copyToClipboard } from '../core/ui.js?v=13a6ef5';
 import { PAY_STATES, TRACK_STATES, OLDER_OPTIONS, STATUS_GROUPS, groupStatuses, toggleOption, toggleMany, csvHas, csvList, clausesOf, sentenceOf, anyFilter,
-  presetsOf, presetActive, olderToDate, cleanViews, addView, renameView, removeView, viewQs, FKEYS, EMPTY_F } from './zamFiltry.js?v=b658013';
+  presetsOf, presetActive, olderToDate, cleanViews, addView, renameView, removeView, viewQs, FKEYS, EMPTY_F } from './zamFiltry.js?v=13a6ef5';
 
 const VIEWS_KEY = 'osa-ord-views', GROUPS_KEY = 'osa-ord-sgroups';
 const loadViews = () => cleanViews(store(VIEWS_KEY));
@@ -150,9 +150,10 @@ export function createFilterUi(h) {
     sec('Płatność', 'Czy zamówienie jest opłacone — wyliczane z kwoty wpłaconej w Selly, niezależnie od statusu. Można łączyć np. „opłacone” ze statusem „Złożone”.',
       { key: 'pay', active: () => !!(Q().pay || Q().xpay || Q().payment) }, U.payBox, extra.payMethod),
     sec('Dostawa i przesyłka', 'Sposób dostawy oraz to, czy zamówienie ma już numer przesyłki.', { key: 'ship', active: () => !!(Q().trk || Q().delivery) }, extra.delivery, U.trkBox),
-    sec('Wartość i data', 'Wartość zamówienia z dostawą oraz zakres dat złożenia.', { key: 'val', active: () => !!(Q().min || Q().max || Q().older || Q().from || Q().to) }, el('div', { class: 'fx-row' },
+    sec('Wartość i data', 'Wartość zamówienia z dostawą oraz zakres dat złożenia i wymagana data realizacji.', { key: 'val', active: () => !!(Q().min || Q().max || Q().older || Q().from || Q().to || Q().rfrom || Q().rto) }, el('div', { class: 'fx-row' },
       el('label', { class: 'field-inline' }, 'Wartość od (zł)', U.min), el('label', { class: 'field-inline' }, 'do (zł)', U.max)),
-      el('div', { class: 'fx-row' }, extra.range, el('label', { class: 'field-inline' }, 'Wiek zamówienia', U.older), U.olderNote)),
+      el('div', { class: 'fx-row' }, extra.range, el('label', { class: 'field-inline' }, 'Wiek zamówienia', U.older), U.olderNote),
+      el('div', { class: 'fx-row', title: 'Termin „Wymagana data realizacji” z karty zamówienia (osobny od daty złożenia). Pomija zamówienia bez terminu.' }, extra.reqRange)),
     U.adv,
   ];
 

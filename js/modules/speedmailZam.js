@@ -1,10 +1,10 @@
 // „Wysyłka SpeedMail” → zakładka Zamówienia: tabela wszystkich otwartych zamówień z podpowiedzią „SpeedMail / pakujemy sami” i powodem
 // (reguły 1–5 specyfikacji). Sortowanie po każdej kolumnie, filtry i wyszukiwanie zapisane w adresie, zaznaczanie zbiorcze, ręczna zmiana
 // decyzji w obie strony, przekazanie paczki zleceń (sm:batch) + status w Selly, „zostają u nas” (sm:keep + status „Złożone OTK”).
-import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store } from '../core/ui.js?v=b658013';
-import { askConfirm } from '../core/confirm.js?v=b658013';
-import { go } from '../core/router.js?v=b658013';
-import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=b658013';
+import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store } from '../core/ui.js?v=13a6ef5';
+import { askConfirm } from '../core/confirm.js?v=13a6ef5';
+import { go } from '../core/router.js?v=13a6ef5';
+import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=13a6ef5';
 
 const KEYS = ['dec', 'reason', 'status', 'delivery', 'from', 'to', 'product', 'stock', 'pre', 'q'];
 const SORTS = ['num', 'date', 'status', 'delivery', 'items', 'stock', 'dec', 'reason'];

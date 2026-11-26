@@ -1,16 +1,20 @@
 // Moduł „Produkty”: lista z filtrami (#/produkty?q=..&seg=..&page=..) i szczegóły (#/produkty/<id>).
 // Dane i zapisy: backend Cloudflare (akcje products:list, products:get, products:update, products:setStock).
-import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, cnt, isUnavailable, sellyLink, syncedLabel, fetchAllRows, field, filterSection, saveBar, inlineInput, thumb, rowActions } from '../core/ui.js?v=b658013';
-import { listView } from '../core/listView.js?v=b658013';
-import { api, ctx } from '../core/client.js?v=b658013';
-import { cachedRead } from '../core/cache.js?v=b658013';
-import { go, addLeaveGuard } from '../core/router.js?v=b658013';
-import { renderProductCard, closeProductCard } from './produktKarta.js?v=b658013';
-import { warehousesScreen } from './produktMagazyny.js?v=b658013';
-import { registerListKeys } from '../core/listKeys.js?v=b658013';
+import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, money, cnt, isUnavailable, sellyLink, syncedLabel, fetchAllRows, field, filterSection, saveBar, inlineInput, thumb, rowActions } from '../core/ui.js?v=13a6ef5';
+import { listView } from '../core/listView.js?v=13a6ef5';
+import { api, ctx } from '../core/client.js?v=13a6ef5';
+import { cachedRead } from '../core/cache.js?v=13a6ef5';
+import { go, addLeaveGuard } from '../core/router.js?v=13a6ef5';
+import { renderProductCard, closeProductCard } from './produktKarta.js?v=13a6ef5';
+import { warehousesScreen } from './produktMagazyny.js?v=13a6ef5';
+import { registerListKeys } from '../core/listKeys.js?v=13a6ef5';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
-const SEGS = ['', 'zero', 'low', 'hidden'];
+const SEGS = ['', 'zero', 'low', 'hidden', 'incomplete'];
+const INCOMPLETE_TIP = 'Brakuje którejś z podstawowych rzeczy: zdjęcia głównego, opisu, kategorii, ceny (większej od 0) lub kodu EAN. Dokładniejszy wybór braków: filtr „Czego brakuje” w panelu filtrów.';
+const MISSING_OPTS = [['photo', 'zdjęcia'], ['desc', 'opisu'], ['short', 'opisu skróconego'], ['addname', 'dopisku do nazwy'], ['promo', 'tekstu promocyjnego'],
+  ['delivery', 'terminu wysyłki'], ['seotitle', 'tytułu SEO'], ['seodesc', 'opisu SEO'], ['seokeys', 'słów kluczowych'], ['ean', 'kodu EAN'], ['code', 'kodu producenta'],
+  ['symbol', 'symbolu'], ['price', 'ceny'], ['category', 'kategorii'], ['producer', 'producenta']].map(([v, t]) => [v, 'brak ' + t]);
 const SIZES = [25, 50, 100, 200];
 // Eksport czyta z bazy panelu (nie z Selly — nie zużywa limitu API); górna granica tylko jako bezpiecznik
 const EXPORT_MAX = 50000;
@@ -54,6 +58,8 @@ function listParams(st, extra) {
   if (f.prd) p.producerId = f.prd;
   if (f.wh) p.whId = f.wh;
   if (f.lok) p.location = f.lok;
+  if (st.seg === 'incomplete') p.missing = 'any';
+  else if (f.brak) p.missing = f.brak;
   return Object.assign(p, extra);
 }
 
@@ -115,7 +121,8 @@ function segChips() {
     seg('prodSegAll', '', 'Wszystkie', 'Wszystkie produkty, bez względu na stan i widoczność'),
     seg('prodSegZero', 'zero', 'Brak na stanie', 'Produkty ze stanem 0 (lub mniejszym) w Selly'),
     seg('prodSegLow', 'low', 'Niski stan (1–' + st.low + ')', 'Produkty, których stan w Selly jest większy od 0 i nie większy niż ' + st.low + ' szt. Próg zmienisz w panelu filtrów (Niski stan).'),
-    seg('prodSegHidden', 'hidden', 'Ukryte', 'Produkty niewidoczne w sklepie'));
+    seg('prodSegHidden', 'hidden', 'Ukryte', 'Produkty niewidoczne w sklepie'),
+    seg('prodSegIncomplete', 'incomplete', 'Niekompletne', INCOMPLETE_TIP));
 }
 
 function buildList() {
@@ -159,6 +166,8 @@ function buildList() {
       sel('wh', 'Magazyn', 'Tylko produkty, których magazynem domyślnym jest wybrany magazyn', 'Wszystkie magazyny'),
       { key: 'lok', id: ID.lok, label: 'Lokalizacja zaczyna się od', section: 'Widok', type: 'text', placeholder: 'np. A1',
         tip: 'Tylko produkty, których lokalizacja magazynowa (regał, półka) zaczyna się od wpisanego tekstu, np. „A1” pokaże A1, A1-3, A12' },
+      { key: 'brak', id: 'prodBrak', label: 'Czego brakuje', section: 'Status produktu', fold: true, all: 'Dowolnie', options: MISSING_OPTS,
+        tip: 'Produkty bez wybranej rzeczy (zdjęcie, opis, kod EAN, kod producenta, symbol, pola SEO…) — widok „wg braków” z Selly, liczony na kopii produktów. Gdy włączone jest „Niekompletne”, ten wybór jest pomijany.' },
       { key: 'vis', id: ID.vis, label: 'Widoczność', section: 'Status produktu', tip: 'Czy produkt jest widoczny dla klientów w sklepie', all: 'Wszystkie', options: [['on', 'Wyświetlane w sklepie'], ['off', 'Ukryte']] },
       { key: 'zdj', id: ID.zdj, label: 'Zdjęcie', section: 'Status produktu', tip: 'Produkty, które mają (lub nie mają) zdjęcia głównego w sklepie — przydatne do uzupełniania braków', all: 'Wszystkie', options: [['on', 'ze zdjęciem'], ['off', 'bez zdjęcia']] },
     ],

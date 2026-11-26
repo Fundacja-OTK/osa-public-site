@@ -1,18 +1,18 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
 // Grupy (ekran, zmiana na karcie, masowo z listy) i limit zamówień: klienciGrupy.js; import CSV (#/klienci/import): klienciImport.js.
-import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, syncedLabel, fetchAllRows } from '../core/ui.js?v=b658013';
-import { listView } from '../core/listView.js?v=b658013';
-import { api, ctx } from '../core/client.js?v=b658013';
-import { go, setLeaveGuard } from '../core/router.js?v=b658013';
-import { noteVisit } from '../core/recents.js?v=b658013';
-import { registerListKeys } from '../core/listKeys.js?v=b658013';
-import { clientForm } from './klienciForm.js?v=b658013';
-import { mountBlockToggle } from './klienciBlokada.js?v=b658013';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=b658013';
-import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=b658013';
-import { renderImport } from './klienciImport.js?v=b658013';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=b658013';
+import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, syncedLabel, fetchAllRows } from '../core/ui.js?v=13a6ef5';
+import { listView } from '../core/listView.js?v=13a6ef5';
+import { api, ctx } from '../core/client.js?v=13a6ef5';
+import { go, setLeaveGuard } from '../core/router.js?v=13a6ef5';
+import { noteVisit } from '../core/recents.js?v=13a6ef5';
+import { registerListKeys } from '../core/listKeys.js?v=13a6ef5';
+import { clientForm } from './klienciForm.js?v=13a6ef5';
+import { mountBlockToggle } from './klienciBlokada.js?v=13a6ef5';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=13a6ef5';
+import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=13a6ef5';
+import { renderImport } from './klienciImport.js?v=13a6ef5';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=13a6ef5';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 // Filtry z Selly (lista klientów): nazwy jak w parametrach akcji clients:list

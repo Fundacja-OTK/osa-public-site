@@ -2,10 +2,10 @@
 // API Selly: PUT/POST/DELETE /api/products/{id}/variants[/{variant_id}] (akcje products:variantUpdate / variantAdd / variantDelete).
 // Wartości wariantu (np. Kolor: czerwony) pochodzą z „Warianty i opcje” (res:options / res:get 'atrybuty' — słownik dostępny dla każdego).
 // Każdy zapis: walidacja → podgląd zmian (było → będzie) → potwierdzenie.
-import { el, flash, money, filterSection } from '../core/ui.js?v=b658013';
-import { api } from '../core/client.js?v=b658013';
-import { cachedRead } from '../core/cache.js?v=b658013';
-import { previewModal } from './produktPodglad.js?v=b658013';
+import { el, flash, money, filterSection } from '../core/ui.js?v=13a6ef5';
+import { api } from '../core/client.js?v=13a6ef5';
+import { cachedRead } from '../core/cache.js?v=13a6ef5';
+import { previewModal } from './produktPodglad.js?v=13a6ef5';
 
 const str = v => (v == null ? '' : String(v));
 const isOn = v => v === true || v === 1 || v === '1' || v === 'true';

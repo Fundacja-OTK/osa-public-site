@@ -152,6 +152,7 @@ export function clausesOf(Q, ctx) {
   if (Q.min || Q.max) plain('total', 'wartość', (Q.min ? 'od ' + money0(Q.min) + ' zł' : '') + (Q.min && Q.max ? ' ' : '') + (Q.max ? 'do ' + money0(Q.max) + ' zł' : ''), { min: '', max: '' });
   if (Q.older) plain('older', 'złożone', 'co najmniej ' + Q.older + ' ' + (Number(Q.older) === 1 ? 'dzień' : 'dni') + ' temu', { older: '' });
   if (Q.from || Q.to) plain('dates', 'data', (Q.from ? 'od ' + Q.from : '') + (Q.from && Q.to ? ' ' : '') + (Q.to ? 'do ' + Q.to : ''), { from: '', to: '' });
+  if (Q.rfrom || Q.rto) plain('reqdates', 'wymagana data', (Q.rfrom ? 'od ' + Q.rfrom : '') + (Q.rfrom && Q.rto ? ' ' : '') + (Q.rto ? 'do ' + Q.rto : ''), { rfrom: '', rto: '' });
   if (Q.product) plain('product', 'produkt', '„' + (Q.pname || '#' + Q.product) + '”', { product: '', pname: '' });
   if (Q.q) plain('q', 'szukane', '„' + Q.q + '”', { q: '' });
   if (ctx.osaOn) plain('osa', 'klient', 'filtry z notatek klientów', ctx.osaClear || {});
@@ -165,7 +166,7 @@ export function sentenceOf(clauses) {
 }
 
 /** Czy jakikolwiek filtr (poza sortowaniem i stroną) jest aktywny. */
-export const anyFilter = (Q, osaOn) => !!(Q.q || Q.from || Q.to || Q.payment || Q.delivery || Q.product || osaOn || FKEYS.some(k => Q[k]));
+export const anyFilter = (Q, osaOn) => !!(Q.q || Q.from || Q.to || Q.rfrom || Q.rto || Q.payment || Q.delivery || Q.product || osaOn || FKEYS.some(k => Q[k]));
 
 // ─── Szybkie widoki ─────────────────────────────────────────────────────────
 
