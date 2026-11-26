@@ -169,6 +169,7 @@ export const SECTIONS = [
   { id: 'konto', title: 'Konto', icon: 'user', items: [
     { id: 'uzytkownicy', title: 'Kto się logował', kind: 'osa', admin: true, tip: 'Konta Selly, które logowały się do panelu OSA, i do czego mają dostęp (tylko administrator; dostęp nadaje się w Selly)' },
     { id: 'selly-zmiany', title: 'Zmiany w Selly', kind: 'osa', admin: true, tip: 'Co zmieniło się w panelu Selly po jego aktualizacjach (wykrywa rozszerzenie; tylko administrator)' },
+    { id: 'straznik-selly', title: 'Strażnik Selly', kind: 'osa', admin: true, tip: 'Stan stron Selly, na których opiera się panel — serwer sprawdza je sam; zmiana wstrzymuje tylko tę funkcję (tylko administrator)' },
     { id: 'zgloszenia-osa', title: 'Zgłoszenia z panelu', kind: 'osa', admin: true, tip: 'Uwagi i błędy zgłoszone przyciskiem „Zgłoś” w panelu OSA oraz błędy z przeglądarek (tylko administrator)' },
     '-',
     { id: 'zgloszenia', title: 'Zgłoszenia', a: 'support', kind: 'osa', tip: 'Zgłoszenia do wsparcia Selly: numer, temat, status (tylko podgląd; nowe zgłoszenie w Selly)' },
@@ -254,7 +255,7 @@ export const SYNONYMS = {
   integrator: 'import XML CSV hurtownia', 'integracje-ind': 'import XML', 'import-allegro': 'import', migracja: 'przeniesienie sklepu', eksport: 'eksport XML CSV',
   'int-porownywarki': 'Ceneo porównywarki eksport', 'int-przesylki': 'Apaczka kurier', 'int-fk': 'faktury wFirma księgowość', 'int-dodatkowe': 'Google Analytics GA4 GTM remarketing',
   api: 'klucze API tokeny', frontapi: 'agentic commerce',
-  uzytkownicy: 'logowania konta panel OSA', 'selly-zmiany': 'aktualizacje Selly', 'zgloszenia-osa': 'uwagi błędy feedback', zgloszenia: 'support pomoc wsparcie',
+  uzytkownicy: 'logowania konta panel OSA', 'selly-zmiany': 'aktualizacje Selly', 'straznik-selly': 'strażnik formularze zmiany uprawnienia konto techniczne', 'zgloszenia-osa': 'uwagi błędy feedback', zgloszenia: 'support pomoc wsparcie',
   platnosci: 'faktury Selly abonament rachunki', zlecenia: 'godziny pracy rozliczenia', admini: 'użytkownicy konta pracownicy', grupy: 'grupy kont', uprawnienia: 'dostęp role',
   odo: 'RODO dane osobowe', grafika: 'szablon graficzny', rozszerzenia: 'dodatki moduły', uslugi: 'dodatki', 'uslugi-partnerow': 'partnerzy Selly',
 };

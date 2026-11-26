@@ -1,9 +1,9 @@
 // Wspólny klient API panelu (konfiguracja z config.js + sesja z logowania kontem Selly — core/auth.js) i kontekst sesji.
-import { createApi } from './api.js?v=a5f5e19';
-import { freshToken } from './auth.js?v=a5f5e19';
-import { reportApiFailure } from './errorHook.js?v=a5f5e19';
-import { bindWriteState } from './ui.js?v=a5f5e19';
-import { denyReason, isWriteAction, GRANTABLE } from '../lib/panelAuth.js?v=a5f5e19';
+import { createApi } from './api.js?v=196affa';
+import { freshToken } from './auth.js?v=196affa';
+import { reportApiFailure } from './errorHook.js?v=196affa';
+import { bindWriteState } from './ui.js?v=196affa';
+import { denyReason, isWriteAction, GRANTABLE } from '../lib/panelAuth.js?v=196affa';
 
 export const ENV = window.OSA_CONFIG || {}; // { backendUrl, version, backends } — config.js
 // Jeden klient i jeden kontekst na kartę (globalThis): gdy w karcie miesza się kod dwóch wdrożeń (client.js pod innym ?v= — core/router.js),

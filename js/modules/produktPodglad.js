@@ -1,7 +1,7 @@
 // Okno „podgląd zmian przed zapisem” dla karty produktu, wariantów i ustawień magazynów (było → będzie, potwierdzenie).
 // Jedno okno naraz; Esc / „Wróć do edycji” zamyka bez zapisu. Opcjonalnie wymaga wpisania tekstu (np. ID przy usuwaniu).
-import { el } from '../core/ui.js?v=a5f5e19';
-import { confirmDialog } from '../core/confirm.js?v=a5f5e19';
+import { el } from '../core/ui.js?v=196affa';
+import { confirmDialog } from '../core/confirm.js?v=196affa';
 
 const short = (v, max = 120) => { const s = v == null || v === '' ? '—' : String(v); return s.length > max ? s.slice(0, max - 1) + '…' : s; };
 

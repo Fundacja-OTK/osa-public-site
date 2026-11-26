@@ -1,9 +1,9 @@
 // Dane GPSR (bezpieczeństwo produktu): lista / dodawanie / edycja wpisów (natywny ekran `gpsr`) oraz sekcja w karcie produktu
 // (osadzony ekran `produkt-gpsr`: przypisanie wpisu producenta i podmiotu odpowiedzialnego + opis). Sesja Selly zalogowanego użytkownika.
 // Zapis: tylko zmienione pola → podgląd (dryRun) → potwierdzenie → zapis → weryfikacja. Usuwanie wpisów i import CSV zostają w Selly.
-import { el, sellyLink, flash } from '../core/ui.js?v=a5f5e19';
-import { confirmDialog } from '../core/confirm.js?v=a5f5e19';
-import { createNative, sellyCall } from './sellyNative.js?v=a5f5e19';
+import { el, sellyLink, flash } from '../core/ui.js?v=196affa';
+import { confirmDialog } from '../core/confirm.js?v=196affa';
+import { createNative, sellyCall } from './sellyNative.js?v=196affa';
 
 export const GPSR_TIP = 'GPSR to unijne rozporządzenie o bezpieczeństwie produktów: każdy produkt w sklepie musi mieć dane producenta oraz podmiotu odpowiedzialnego w UE (nazwa, adres, e-mail, telefon).';
 

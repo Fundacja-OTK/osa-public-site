@@ -3,12 +3,12 @@
 // „Uzupełnij z Selly” sprawdza porcjami zamówienia jeszcze niesprawdzone (orders:invoiceScan; po jednym zapytaniu do Selly na zamówienie,
 // z przerwami i bezpiecznikiem limitu API). „Do wystawienia”: zamówienia z dokumentem „faktura” bez faktury (orders:invoiceTodo) — wystawianie
 // formularzem Selly po jednym albo partią ≤ BATCH_MAX z jednym potwierdzeniem (fakturaWystaw.js; numerację prowadzi Selly).
-import { el, gateWrite, debounce, money, cnt, plural, sortTh, pager, pageToolbar, loadingBox, downloadMenuButton, sellyLink, syncedLabel, flash } from '../core/ui.js?v=a5f5e19';
-import { dateRange } from '../core/datepicker.js?v=a5f5e19';
-import { api, ctx } from '../core/client.js?v=a5f5e19';
-import { INV_STATUS, invStatusPill, isOverdue, invoiceEditor, printButton } from './zamowieniaFakturyKit.js?v=a5f5e19';
+import { el, gateWrite, debounce, money, cnt, plural, sortTh, pager, pageToolbar, loadingBox, downloadMenuButton, sellyLink, syncedLabel, flash } from '../core/ui.js?v=196affa';
+import { dateRange } from '../core/datepicker.js?v=196affa';
+import { api, ctx } from '../core/client.js?v=196affa';
+import { INV_STATUS, invStatusPill, isOverdue, invoiceEditor, printButton } from './zamowieniaFakturyKit.js?v=196affa';
 const BATCH_MAX = 10;   // = fakturaWystaw.BATCH_MAX (moduł wczytywany leniwie przy wystawianiu)
-const wystaw = () => import('./fakturaWystaw.js?v=a5f5e19');
+const wystaw = () => import('./fakturaWystaw.js?v=196affa');
 
 const SIZE = 50;
 const PAUSE_MS = 4000;   // przerwa między porcjami „Uzupełnij z Selly” (≤ 15 zapytań / 4 s — z zapasem pod limitem Selly ~500/min)

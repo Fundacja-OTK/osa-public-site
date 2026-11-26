@@ -3,11 +3,11 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=a5f5e19';
-import { askConfirm } from '../core/confirm.js?v=a5f5e19';
-import { listView } from '../core/listView.js?v=a5f5e19';
-import { api, ctx } from '../core/client.js?v=a5f5e19';
-import { registerListKeys } from '../core/listKeys.js?v=a5f5e19';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=196affa';
+import { askConfirm } from '../core/confirm.js?v=196affa';
+import { listView } from '../core/listView.js?v=196affa';
+import { api, ctx } from '../core/client.js?v=196affa';
+import { registerListKeys } from '../core/listKeys.js?v=196affa';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -27,7 +27,7 @@ const KIND = {
   buffer: { one: 'Prześlij do bufora', many: 'Prześlij do bufora', doing: 'Przesyłam do bufora…', done: 'Przesłano do bufora', fail: 'Przesłano do bufora z błędami', id: 'shipManBuffer',
     tip: 'Przekaże zamówienie do bufora przesyłek przewoźnika tak, jak „Prześlij do bufora” w Selly. Najpierw poprosimy o potwierdzenie.' },
 };
-const MSG_UNVERIFIED = 'Wymaga potwierdzenia struktury formularza Selly (administrator: uruchom shipprobe). Do tego czasu zrób to w Selly — „Utwórz w Selly ↗” w menu ▾ wiersza.';
+const MSG_UNVERIFIED = 'Strażnik Selly nie potwierdził (jeszcze) budowy formularza tego przewoźnika (sprawdza go sam, automatycznie; stan: Konto → Strażnik Selly). Do tego czasu zrób to w Selly — „Utwórz w Selly ↗” w menu ▾ wiersza.';
 const DL_KEY = 'osa-ship-dl';   // identyfikatory zamówień, których etykiety pobrano w tej przeglądarce
 
 // ─── Parametry listu wg przewoźnika ─────────────────────────────────────────
@@ -582,7 +582,7 @@ function manualNote(key, name) {
   const ready = manKinds(key).filter(k => shipReady(key, k)), what = manKinds(key).map(k => '„' + KIND[k].one + '”').join(' i ');
   return ready.length === manKinds(key).length
     ? name + ': ' + what + ' działa tu tak jak w Selly — panel wypełnia formularz przewoźnika w Selly na Twojej sesji (Selly nie ma tego w API, ale ma w panelu). Utworzenie przesyłki jest płatne.'
-    : name + ': ' + what + ' zrobimy tu tak jak Selly (formularzem panelu Selly), ale ' + (ready.length ? 'część akcji ' : '') + 'czeka na potwierdzenie struktury formularza Selly (administrator: shipprobe). '
+    : name + ': ' + what + ' zrobimy tu tak jak Selly (formularzem panelu Selly), ale ' + (ready.length ? 'część akcji ' : '') + 'czeka, aż Strażnik Selly sam potwierdzi budowę formularza przewoźnika (stan: Konto → Strażnik Selly). '
       + 'Do tego czasu „Utwórz w Selly ↗” w menu ▾ wiersza otwiera ekran przewoźnika w Selly wyszukany po numerze zamówienia.';
 }
 

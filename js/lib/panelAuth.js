@@ -81,6 +81,8 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     // edytor uprawnień grup Selly (Konto → Uprawnienia): lista grup i macierz modułów — strony Selly sesją użytkownika, tylko administrator panelu
     'perms:groups', 'perms:read', 'perms:cached',
     'feedback:list', 'client:errors:list', 'client:exits:list', 'health:get', 'logins:list', 'map:latest', 'map:history',
+    // Strażnik Selly: stan pilnowanych stron i znalezione trasy (same nazwy) — tylko administrator
+    'guard:status',
   ];
   const WRITE_ACTIONS = [
     'auth:logout', 'feedback:send', 'feedback:status', 'client:errors', 'client:exits', 'grants:set', 'map:report', 'map:retry',
@@ -103,6 +105,8 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     'perms:save',
     // wystawienie faktury formularzem Selly (dokument księgowy: prawo zmian „Wystawianie faktur” — administrator albo zgoda; opId, blokada duplikatu)
     'invoices:issue',
+    // Strażnik Selly: ponowne automatyczne sprawdzenie strony (kasuje wzorzec; obejście diagnostyczne, tylko administrator)
+    'guard:reset',
   ];
   const READ_SET = new Set(READ_ACTIONS);
 
@@ -119,7 +123,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     faktury: ['zamowienia'],
   };
   // Sekcje tylko dla administratora panelu
-  const ADMIN_SECTIONS = ['uzytkownicy', 'selly-zmiany', 'zgloszenia-osa', 'uprawnienia'];
+  const ADMIN_SECTIONS = ['uzytkownicy', 'selly-zmiany', 'straznik-selly', 'zgloszenia-osa', 'uprawnienia'];
   // Słowniki (res:*) czytelne dla każdego zalogowanego — potrzebne w formularzach innych sekcji
   const DICTS = ['kategorie', 'producenci', 'tagi', 'atrybuty', 'statusy', 'dostawy', 'platnosci-formy'];
 
@@ -159,6 +163,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     [/^(feedback:(list|status)|client:errors:list|client:exits:list|health:get|map:\w+|logins:list|grants:set|users:\w+)$/, ADMIN],
     // edytor uprawnień grup Selly: tylko administrator panelu (Konta administratorów w Selly); zapis i tak sprawdza Selly (sesja użytkownika)
     [/^perms:(groups|read|cached|save)$/, ADMIN],
+    [/^guard:(status|reset)$/, ADMIN],   // Strażnik Selly (panel/worker/src/modules/sellyGuard.js)
     // orders:stamp (znacznik wersji, 1 wiersz D1) i orders:refresh (synchronizacja zamówień teraz — pisze tylko do kopii panelu w D1, nigdy do Selly;
     // limit globalny i budżet Selly: panel/worker/src/lib/liveSync.js) — jak odczyt listy
     [/^orders:(list|get|meta|invoices|stamp|refresh)$/, ORD],
