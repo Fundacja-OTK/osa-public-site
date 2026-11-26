@@ -2,10 +2,10 @@
 // (natywne ekrany `int-<slug>`, tylko do odczytu; sekrety maskuje serwer — tu trafia wyłącznie „••• (ustawione)” / „(puste)”).
 // Stan to wyłącznie wartość logiczna wyliczona z już zamaskowanej odpowiedzi; sprawdzany na żądanie (przycisk), po jednej stronie naraz.
 // Także: Sprzedaż hurtowa (grupy rabatowe) i Edytor tłumaczeń.
-import { el, loadingBox } from '../core/ui.js?v=63d59bb';
-import { sellyCall, createNative } from './sellyNative.js?v=63d59bb';
-import { createSettings } from './sellyNativeSettings.js?v=63d59bb';
-import { sellyUrl } from './_placeholder.js?v=63d59bb';
+import { el, loadingBox } from '../core/ui.js?v=ad8c30d';
+import { sellyCall, createNative } from './sellyNative.js?v=ad8c30d';
+import { createSettings } from './sellyNativeSettings.js?v=ad8c30d';
+import { sellyUrl } from './_placeholder.js?v=ad8c30d';
 
 /** Katalog: [slug, nazwa, grupa, strona w Selly]. Musi się zgadzać z shared/native/integracje.js (test integracje.test.js). */
 export const CATALOG = [

@@ -1,7 +1,7 @@
 // Wspólne komórki wierszy zamówień — lista Zamówienia (modules/zamowienia.js) i Wysyłka SpeedMail → Zamówienia (modules/speedmailZam.js)
 // wyglądają tak samo: produkty (zdjęcia w 3 rozmiarach, symbol, cena, wartość, rabat), komentarze w kolorach rodzaju,
 // wyróżnione formy dostawy i płatności. Treść z Selly tylko przez el() / textContent. Czysta logika i komórki w jednym pliku (mniej plików do wczytania list).
-import { el, money, cnt, thumb, store } from '../core/ui.js?v=63d59bb';
+import { el, money, cnt, thumb, store } from '../core/ui.js?v=ad8c30d';
 
 
 // ─── Czysta logika (bez DOM; testy: tests/unit/orderView.test.js) ───
@@ -99,28 +99,36 @@ export function applyCommentColors(colors, root) {
   for (const k of COMMENT_KEYS) { if (c[k]) r.style.setProperty('--cm-' + k + '-u', c[k]); else r.style.removeProperty('--cm-' + k + '-u'); }
 }
 /** Komentarze zamówienia z wiersza listy / zamówienia Selly → [{ key, text }] w stałej kolejności, bez pustych. */
+function groupLabel(r) {
+  const ids = String((r && (r.groupNoteIds || r.id_group_notes)) || '').split(/[,;s]+/).filter(Boolean);
+  if (!ids.length) return null;
+  const names = Array.isArray(r.groupNoteNames) ? r.groupNoteNames : [];
+  const named = ids.map((id, i) => names[i] || '').filter(Boolean);
+  return { text: named.length ? named.join(', ') : 'grupy: ' + ids.join(', '), tip: 'Notatka widoczna dla grup administratorów: ' + (named.length ? named.join(', ') + ' (numery ' + ids.join(', ') + ')' : 'numery grup w Selly ' + ids.join(', ')) };
+}
 export function commentsOf(r) {
   const pick = (...ks) => { for (const k of ks) { const v = r && r[k]; if (typeof v === 'string' && v.trim()) return v.trim(); } return ''; };
   return [
     { key: 'client', text: pick('comment', 'client_comment') },
     { key: 'internal', text: pick('attention', 'order_attention') },
-    { key: 'groups', text: pick('groupNotes', 'group_notes') },
+    { key: 'groups', text: pick('groupNotes', 'group_notes'), groups: groupLabel(r) },
   ].filter(x => x.text);
 }
 export const typeOf = key => COMMENT_TYPES.find(t => t.key === key) || null;
 
 // ─── Komórki (DOM) ───
 /** Jeden komentarz: pasek i tło w kolorze rodzaju (lib/orderCells.js), ikona + krótka etykieta, tekst przycięty do 3 linii (całość w tooltipie). */
-export function commentNote(key, text, opts) {
+export function commentNote(key, text, opts, groups) {
   const t = typeOf(key);
   if (!t || !text) return null;
   return el('div', { class: 'cm cm-' + key + (opts && opts.full ? ' full' : ''), 'data-cm': key, title: t.label + ': ' + text },
-    el('span', { class: 'cm-h' }, t.icon + ' ' + t.short + ':'), el('span', { class: 'cm-t' }, text));
+    el('span', { class: 'cm-h' }, t.icon + ' ' + t.short + ':'), el('span', { class: 'cm-t' }, text),
+    groups ? el('span', { class: 'tag tip', title: groups.tip }, groups.text) : null);
 }
 /** Komentarze jeden pod drugim (`keys` — tylko te rodzaje); `extra` = dodatkowe węzły (np. numer przesyłki). */
 export function commentsCell(r, keys, extra) {
   const list = commentsOf(r).filter(c => !keys || keys.includes(c.key));
-  return el('div', { class: 'ord-info-cell' }, list.map(c => commentNote(c.key, c.text)), ...(extra || []));
+  return el('div', { class: 'ord-info-cell' }, list.map(c => commentNote(c.key, c.text, null, c.groups)), ...(extra || []));
 }
 /** Kolumny „po jednej na rodzaj” (wybierane w Kolumny ▾): definicje komórek dla listView. */
 export const commentColumns = (opts) => COMMENT_TYPES.map(t => ({

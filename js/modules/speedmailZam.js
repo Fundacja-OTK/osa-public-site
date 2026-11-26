@@ -1,12 +1,12 @@
 // „Wysyłka SpeedMail” → zakładka Zamówienia: tabela wszystkich otwartych zamówień z podpowiedzią „SpeedMail / pakujemy sami” i powodem
 // (reguły 1–5 specyfikacji). Sortowanie po każdej kolumnie, filtry i wyszukiwanie zapisane w adresie, zaznaczanie zbiorcze, ręczna zmiana
 // decyzji w obie strony, przekazanie paczki zleceń (sm:batch) + status w Selly, „zostają u nas” (sm:keep + status „Złożone OTK”).
-import { payState } from '../lib/payState.js?v=63d59bb';
-import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store, columnMenu, colWidths } from '../core/ui.js?v=63d59bb';
-import { itemsCell, commentsCell, commentColumns, deliveryTag, paymentTag, viewControls, applyPrefs, normView } from '../lib/orderCells.js?v=63d59bb';
-import { askConfirm } from '../core/confirm.js?v=63d59bb';
-import { go } from '../core/router.js?v=63d59bb';
-import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=63d59bb';
+import { payState } from '../lib/payState.js?v=ad8c30d';
+import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store, columnMenu, colWidths } from '../core/ui.js?v=ad8c30d';
+import { itemsCell, commentsCell, commentColumns, deliveryTag, paymentTag, viewControls, applyPrefs, normView } from '../lib/orderCells.js?v=ad8c30d';
+import { askConfirm } from '../core/confirm.js?v=ad8c30d';
+import { go } from '../core/router.js?v=ad8c30d';
+import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=ad8c30d';
 
 const KEYS = ['dec', 'reason', 'status', 'delivery', 'from', 'to', 'product', 'stock', 'pre', 'q'];
 const SORTS = ['num', 'date', 'status', 'delivery', 'items', 'stock', 'dec', 'reason'];
@@ -433,14 +433,13 @@ function stockCell(x) {
 }
 
 const VIEW_KEY = 'osa-sm-view';
-const GROUPS_NA = 'Niedostępne: Selly nie podaje notatek grup w API, więc nie ma ich w kopii panelu — zobaczysz je w karcie zamówienia w Selly.';
 const NOTES_NA = 'Komentarze zamówień widzą osoby z dostępem do sekcji Zamówienia.';
 /** Pozycje zamówienia SpeedMail → kształt wspólnej komórki produktów (lib/orderCells.js). */
 const itemsOf = o => o.items.filter(i => i.qty > 0).map(i => ({ n: i.name + (i.variant ? ' (' + i.variant + ')' : ''), q: i.qty, s: i.symbol || '', v: i.v || null, ph: i.ph || '' }));
 /** Kolumny listy (te same komórki co w Zamówieniach). `v` = dane sm:init (do opisów zależnych od ustawień). */
 function colDefs(v) {
   const notesNa = v && v.notesOk === false ? NOTES_NA : '';
-  const cm = commentColumns({ unavailable: k => (k === 'groups' ? GROUPS_NA : notesNa) });
+  const cm = commentColumns({ unavailable: k => notesNa });
   return [
     { key: 'num', label: 'Zamówienie', sort: 'num', locked: true, tip: 'Numer zamówienia w Selly — klik otwiera kartę zamówienia',
       cell: x => el('td', { class: 'nw' }, el('a', { href: '#/zamowienia/' + encodeURIComponent(x.id), class: 'ord-no', title: 'Otwórz kartę zamówienia ' + x.num }, x.num),

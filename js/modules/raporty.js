@@ -4,17 +4,17 @@
 // Rodzaj raportu wybiera się zakładkami (linki) nad paskiem; panel „Ustawienia” pyta o okres i porównanie, a resztę chowa w „Więcej opcji” (docs/ui-system.md → „Wzorzec ustawień raportu”).
 // Na górze pasek „co oglądasz”: jedno krótkie zdanie (okres · porównanie · statusy) + „Szczegóły ▾” z pełnymi elementami; każdy fragment otwiera swoje ustawienie.
 // Zmiana ustawienia nie czyści ekranu: stare wyniki zostają przyciemnione do nadejścia nowych, a wykres „Okresu” jest aktualizowany w tym samym elemencie.
-import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu, segmented, toggleSwitch } from '../core/ui.js?v=63d59bb';
-import { api, ctx } from '../core/client.js?v=63d59bb';
-import { go } from '../core/router.js?v=63d59bb';
-import { wojLabel } from '../core/osa.js?v=63d59bb';
-import { shortcuts } from '../core/shortcuts.js?v=63d59bb';
-import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=63d59bb';
-import { zyskRender } from './raportyZysk.js?v=63d59bb';
-import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=63d59bb';
-import { lataPeriods, lataRequest, lataRender, lataSummary, MONTHS_GEN } from './raportyLata.js?v=63d59bb';
-import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=63d59bb';
-import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=63d59bb';
+import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu, segmented, toggleSwitch } from '../core/ui.js?v=ad8c30d';
+import { api, ctx } from '../core/client.js?v=ad8c30d';
+import { go } from '../core/router.js?v=ad8c30d';
+import { wojLabel } from '../core/osa.js?v=ad8c30d';
+import { shortcuts } from '../core/shortcuts.js?v=ad8c30d';
+import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=ad8c30d';
+import { zyskRender } from './raportyZysk.js?v=ad8c30d';
+import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=ad8c30d';
+import { lataPeriods, lataRequest, lataRender, lataSummary, MONTHS_GEN } from './raportyLata.js?v=ad8c30d';
+import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=ad8c30d';
+import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=ad8c30d';
 
 /** Domyślne wartości ustawień — w adresie zapisujemy tylko to, co się od nich różni. */
 const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '9', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '', fam: '', set: '', fm: '', sum: '' };

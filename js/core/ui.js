@@ -906,7 +906,7 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=63d59bb';   // pole daty i zakres dat
+export * from './datepicker.js?v=ad8c30d';   // pole daty i zakres dat
 
 // ─── Zmiana szerokości kolumn (core/listView.js, Wysyłka SpeedMail → Zamówienia) ───
 // Uchwyt na prawej krawędzi nagłówka: przeciągnięcie, klawiatura (← → co 16 px, z Shift co 64 px, Delete = auto), dwuklik = auto.

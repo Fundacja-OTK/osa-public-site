@@ -114,7 +114,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     // karta zamówienia formularzem Selly (opiekun, data sprzedaży, paczka…): zapis tylko zmienionych pól, opId; usuwanie pozycji: administrator + Zamówienia
     'orders:cardSave', 'orders:itemDelete',
     // Strażnik Selly: ponowne automatyczne sprawdzenie strony (kasuje wzorzec; obejście diagnostyczne, tylko administrator)
-    'guard:reset',
+    'guard:reset', 'guard:checkShip',
   ];
   const READ_SET = new Set(READ_ACTIONS);
 
@@ -171,7 +171,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     [/^(feedback:(list|status)|client:errors:list|client:exits:list|health:get|map:\w+|logins:list|grants:set|users:\w+)$/, ADMIN],
     // edytor uprawnień grup Selly: tylko administrator panelu (Konta administratorów w Selly); zapis i tak sprawdza Selly (sesja użytkownika)
     [/^perms:(groups|read|cached|save)$/, ADMIN],
-    [/^guard:(status|reset)$/, ADMIN],   // Strażnik Selly (panel/worker/src/modules/sellyGuard.js)
+    [/^guard:(status|reset|checkShip)$/, ADMIN],   // Strażnik Selly (panel/worker/src/modules/sellyGuard.js)
     // orders:stamp (znacznik wersji, 1 wiersz D1) i orders:refresh (synchronizacja zamówień teraz — pisze tylko do kopii panelu w D1, nigdy do Selly;
     // limit globalny i budżet Selly: panel/worker/src/lib/liveSync.js) — jak odczyt listy
     [/^orders:(list|resolve|split|get|meta|invoices|stamp|refresh)$/, ORD],

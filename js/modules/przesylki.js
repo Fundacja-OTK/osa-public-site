@@ -3,11 +3,11 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, shipping:manualQuote (Furgonetka: wycena → wybór oferty → utworzenie), orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=63d59bb';
-import { askConfirm, confirmDialog } from '../core/confirm.js?v=63d59bb';
-import { listView } from '../core/listView.js?v=63d59bb';
-import { api, ctx } from '../core/client.js?v=63d59bb';
-import { registerListKeys } from '../core/listKeys.js?v=63d59bb';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=ad8c30d';
+import { askConfirm, confirmDialog } from '../core/confirm.js?v=ad8c30d';
+import { listView } from '../core/listView.js?v=ad8c30d';
+import { api, ctx } from '../core/client.js?v=ad8c30d';
+import { registerListKeys } from '../core/listKeys.js?v=ad8c30d';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';

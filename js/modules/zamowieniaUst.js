@@ -1,9 +1,9 @@
 // Zamówienia → Kolumny ▾ → „Ustawienia listy…”: kolory komentarzy (własne tej przeglądarki albo — administrator — dla całego sklepu)
 // i nazwy poziomów cen klientów (sklep, administrator). Zapis sklepu: orders:prefsSave (D1, tylko administrator — serwer sprawdza);
 // odczyt: orders:meta → prefs. Kolory działają też w Wysyłce SpeedMail i karcie zamówienia (lib/orderCells.js).
-import { el, store, flash } from '../core/ui.js?v=63d59bb';
-import { api, ctx } from '../core/client.js?v=63d59bb';
-import { COMMENT_TYPES, DEFAULT_COLORS, USER_COLORS_KEY, normColors, applyCommentColors, PRICE_LEVELS, commentNote, applyPrefs, shopPrefsNow } from '../lib/orderCells.js?v=63d59bb';
+import { el, store, flash } from '../core/ui.js?v=ad8c30d';
+import { api, ctx } from '../core/client.js?v=ad8c30d';
+import { COMMENT_TYPES, DEFAULT_COLORS, USER_COLORS_KEY, normColors, applyCommentColors, PRICE_LEVELS, commentNote, applyPrefs, shopPrefsNow } from '../lib/orderCells.js?v=ad8c30d';
 
 /** Okno ustawień w `host`. o: { prefs() → bieżące ustawienia sklepu, onSaved(prefs) — po zapisie sklepu / zmianie własnych kolorów }. */
 export function openPrefs(host, o) {

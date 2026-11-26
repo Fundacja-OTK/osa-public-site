@@ -1,10 +1,10 @@
 // Moduł „Strażnik Selly” (tylko administrator): stan każdej strony Selly, na której opiera się panel (ekrany natywne, formularze przewoźników,
 // formularz faktury) — sprawdzanej automatycznie przez serwer kontem technicznym — oraz trasy Selly znalezione na tych stronach (same nazwy).
 // Backend: guard:status (odczyt), guard:reset (ponowne sprawdzenie; obejście diagnostyczne). Worker: modules/sellyGuard.js.
-import { el, dateStr } from '../core/ui.js?v=63d59bb';
-import { api } from '../core/client.js?v=63d59bb';
-import { listView } from '../core/listView.js?v=63d59bb';
-import { confirmDialog } from '../core/confirm.js?v=63d59bb';
+import { el, dateStr } from '../core/ui.js?v=ad8c30d';
+import { api } from '../core/client.js?v=ad8c30d';
+import { listView } from '../core/listView.js?v=ad8c30d';
+import { confirmDialog } from '../core/confirm.js?v=ad8c30d';
 
 const STATUS = {
   ok: ['działa', 'Budowa strony zgodna z zapisanym wzorcem — funkcja panelu działa.'],
@@ -45,6 +45,8 @@ function summary(d) {
       d.run ? ' · ostatni przebieg: ' + when(d.run.ms) : ''),
     d.configured ? null : el('p', { class: 'notice' }, 'Brak konta technicznego (SELLY_ADMIN_LOGIN / SELLY_ADMIN_PASSWORD) — strażnik nie działa.'),
     perms.length ? el('p', { class: 'notice' }, 'Konto techniczne nie widzi części stron. Nadaj jego grupie w Selly (Konto → Uprawnienia) uprawnienia do tras: ', perms.join(', '), '.') : null,
+    el('p', null, el('button', { class: 'secondary', title: 'Sprawdza teraz formularze przewoźników (najwyżej 3 strony, tylko odczyt). Najwyżej raz na minutę; resztę sprawdzi zwykły przebieg.',
+      onclick: async e => { const b = e.currentTarget; b.disabled = true; try { const r = await api('guard:checkShip', {}); b.textContent = r.throttled ? 'Poczekaj minutę' : r.ran ? 'Sprawdzono' : 'Zaplanowano'; S.data = null; if (S.lvS) S.lvS.reload(); } catch (err) { b.disabled = false; throw err; } } }, 'Sprawdź teraz przewoźników')),
     shapes(d.quoteShapes));
 }
 /** Postać odpowiedzi wyceny Furgonetki (same klucze i typy, bez wartości) — do dopracowania odczytu ofert (docs/verification.md). */
@@ -103,7 +105,7 @@ function routesList() {
 async function reset(key) {
   const ok = await confirmDialog({ title: 'Sprawdzić stronę od nowa?', body: 'Wzorzec tej strony zostanie skasowany, a strażnik przy następnym przebiegu zapisze nowy po automatycznej walidacji (tylko diagnostyka).', confirmLabel: 'Sprawdź od nowa' });
   if (!ok) return;
-  await api('guard:reset', { key });
+  await api('guard:reset', { key });   // serwer od razu sprawdza tę stronę (raz na minutę); gdy limit — zostaje do przebiegu crona
   S.data = null;
   if (S.lvS) S.lvS.reload();
 }
