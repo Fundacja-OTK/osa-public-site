@@ -1044,8 +1044,8 @@ tr.live-chg > td { animation: live-chg 2.4s ease-out; }
 .lv-table tr.pick { cursor: pointer; }
 .lv-table tr.pick:hover { background: var(--hover); }
 .lv-table th.c, .lv-table td.c { width: 32px; text-align: center; }
-.lv-head { margin-top: 0; }
-.lv-head h2 { margin: 0; }
+.lv-head { margin-top: 0; justify-content: flex-start; }
+.lv-head h2 { margin: 0 auto 0 0; } /* tytuł po lewej, akcje razem po prawej (nie rozrzucone przez space-between) */
 .lv-bar .spacer { flex: 1; }
 @media (max-width: 640px) {
   .lv-toolbar input[type=search] { flex: 1 1 100%; min-width: 0; }
