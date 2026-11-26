@@ -1,11 +1,11 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=5a962d8';
-import { askConfirm } from '../core/confirm.js?v=5a962d8';
-import { api, ctx } from '../core/client.js?v=5a962d8';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=5a962d8';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=a9a0d42';
+import { askConfirm } from '../core/confirm.js?v=a9a0d42';
+import { api, ctx } from '../core/client.js?v=a9a0d42';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=a9a0d42';
 // pola z formularza Selly i usuwanie pozycji: moduł ładowany dopiero przy użyciu (budżet zapytań strony — tests/e2e/perf)
-const kartaSelly = () => import('./zamowieniaKartaSelly.js?v=5a962d8');
+const kartaSelly = () => import('./zamowieniaKartaSelly.js?v=a9a0d42');
 function itemDeleteButton(C, p) {
   if (!(ctx.boot && ctx.boot.isAdmin) || p.product_order_id == null) return null;
   const btn = gw(el('button', { type: 'button', class: 'secondary danger small-btn', id: 'ordItemDel-' + p.product_order_id,
@@ -486,7 +486,7 @@ function invoicesCard(C) {
   const issueHost = el('div', { id: 'ordInvIssueHost' });
   const issueBtn = gateWrite(el('button', { type: 'button', class: 'secondary', id: 'ordInvIssue',
     title: 'Pokazuje podgląd faktury VAT przygotowanej przez Selly dla tego zamówienia (numer, nabywca, pozycje, VAT) i pozwala ją wystawić po potwierdzeniu',
-    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=5a962d8');   // leniwie: karta bez dodatkowego pliku na starcie
+    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=a9a0d42');   // leniwie: karta bez dodatkowego pliku na starcie
       if (!issueHost.firstChild) issueHost.replaceChildren(issuePanel({ orderId: C.id, onDone: () => load(), onClose: () => issueHost.replaceChildren() })); } }, 'Wystaw fakturę…'), 'faktury');
   const isAdmin = !!(ctx.boot && ctx.boot.isAdmin);
   const linksFor = hasActive => el('div', { class: 'ord-actions' },

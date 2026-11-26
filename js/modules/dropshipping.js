@@ -1,13 +1,13 @@
 // Moduł „Dropshipping”: paczki dropshipping i produkty w paczkach (Selly REST API /api/dropshipping/packages…).
 // Lista paczek (filtr dat utworzenia, status, sortowanie, strony) → karta paczki (edycja danych, zmiana statusu, produkty: dodawanie,
 // zmiana ilości i magazynu, usuwanie) → nowa paczka (#/dropshipping/nowa). Backend: dropshipping:* (Worker, token READWRITE do zapisów).
-import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, norm, statusPill, field, dateInput } from '../core/ui.js?v=5a962d8';
-import { confirmDialog as coreConfirm } from '../core/confirm.js?v=5a962d8';
-import { listView } from '../core/listView.js?v=5a962d8';
-import { sortRows } from '../core/listLogic.js?v=5a962d8';
-import { api } from '../core/client.js?v=5a962d8';
-import { go } from '../core/router.js?v=5a962d8';
-import { registerListKeys } from '../core/listKeys.js?v=5a962d8';
+import { el, cnt, isUnavailable, loadingBox, pageToolbar, flash, dateStr, norm, statusPill, field, dateInput } from '../core/ui.js?v=a9a0d42';
+import { confirmDialog as coreConfirm } from '../core/confirm.js?v=a9a0d42';
+import { listView } from '../core/listView.js?v=a9a0d42';
+import { sortRows } from '../core/listLogic.js?v=a9a0d42';
+import { api } from '../core/client.js?v=a9a0d42';
+import { go } from '../core/router.js?v=a9a0d42';
+import { registerListKeys } from '../core/listKeys.js?v=a9a0d42';
 
 const STATUS = {
   '-1': { label: 'skasowana', tone: 'bad', tip: 'Paczka skasowana / ignorowana — nie jest brana pod uwagę.' },

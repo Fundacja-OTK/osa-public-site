@@ -56,3 +56,8 @@ td.ship-old { color: var(--no); font-weight: 700; }
 .ord-ship-insp { display: inline-block; }
 .ship-insp-src { max-height: 220px; overflow: auto; white-space: pre-wrap; }
 .ship-insp-msgtext { margin: 2px 0 6px; }
+/* Furgonetka (tryb dwuetapowy): oferty przewoźników z wyceny */
+.ship-offers { border: 1px solid var(--border); border-radius: var(--r2); padding: var(--s2) var(--s3); margin: var(--s3) 0; display: grid; gap: 2px; }
+.ship-offer { display: grid; grid-template-columns: auto minmax(5em, max-content) minmax(0, 1fr) auto; gap: var(--s2); align-items: center; padding: 4px 0; cursor: pointer; }
+.ship-offer-car { font-weight: 600; }
+.ship-offer-price { white-space: nowrap; }

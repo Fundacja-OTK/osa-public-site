@@ -139,7 +139,7 @@ function createRouter() {
     const seq = ++resolveSeq;
     if (lastHash !== null && location.hash !== lastHash) {
       const msg = guardMessage(location.hash);
-      if (msg && !await (await import('./confirm.js?v=5a962d8')).askConfirm(msg, { title: 'Opuścić stronę?', confirmLabel: 'Opuść' })) { if (seq === resolveSeq) history.replaceState(null, '', lastHash); return; }
+      if (msg && !await (await import('./confirm.js?v=a9a0d42')).askConfirm(msg, { title: 'Opuścić stronę?', confirmLabel: 'Opuść' })) { if (seq === resolveSeq) history.replaceState(null, '', lastHash); return; }
     }
     const prevHash = lastHash, fromApp = appNav;
     appNav = false;

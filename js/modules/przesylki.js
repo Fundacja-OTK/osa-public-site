@@ -2,12 +2,12 @@
 // Rohlig Suus, Poczta Polska — „Utwórz przesyłkę” / „Prześlij do bufora” formularzem panelu Selly, jak robi to Selly), filtry / strony /
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
-// shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=5a962d8';
-import { askConfirm } from '../core/confirm.js?v=5a962d8';
-import { listView } from '../core/listView.js?v=5a962d8';
-import { api, ctx } from '../core/client.js?v=5a962d8';
-import { registerListKeys } from '../core/listKeys.js?v=5a962d8';
+// shipping:manualCreate, shipping:manualQuote (Furgonetka: wycena → wybór oferty → utworzenie), orders:meta, orders:setStatus).
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=a9a0d42';
+import { askConfirm, confirmDialog } from '../core/confirm.js?v=a9a0d42';
+import { listView } from '../core/listView.js?v=a9a0d42';
+import { api, ctx } from '../core/client.js?v=a9a0d42';
+import { registerListKeys } from '../core/listKeys.js?v=a9a0d42';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -106,6 +106,9 @@ const manualOf = k => manuals().find(x => x.key === k) || null;
 const manKinds = k => MANUAL_KINDS[k] || ['create'];
 /** Akcja formularzem Selly potwierdzona (SHIP_FORMS verified) — inaczej przycisk wyłączony z wyjaśnieniem. */
 const shipReady = (k, kind) => { const m = manualOf(k); return !!(m && m.ship && m.ship[kind] === true); };
+// tryb dwuetapowy (Furgonetka, nowa integracja): wycena → wybór oferty → utworzenie — zawsze pojedynczo
+const shipTwo = k => { const m = manualOf(k); return !!(m && m.ship && m.ship.twoStep === true); };
+const newOpId = () => 'ship-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 const courierName = k => { const c = couriers().find(x => x.key === k) || manualOf(k); return c ? c.name : k; };
 const maxBatch = () => Math.max(1, Number(S.meta && S.meta.maxBatch) || 10);
 const statuses = () => (S.ordMeta && S.ordMeta.statuses) || [];
@@ -580,6 +583,7 @@ function syncScope() {
 
 function manualNote(key, name) {
   const ready = manKinds(key).filter(k => shipReady(key, k)), what = manKinds(key).map(k => '„' + KIND[k].one + '”').join(' i ');
+  if (shipTwo(key)) return name + ': „Utwórz przesyłkę” działa tu tak jak w Selly — formularz przewoźnika z Selly, „Wyceń” (ceny przewoźników, nic nie kosztuje), wybór oferty i potwierdzenie. Utworzenie przesyłki jest płatne; każdą tworzysz osobno.';
   return ready.length === manKinds(key).length
     ? name + ': ' + what + ' działa tu tak jak w Selly — panel wypełnia formularz przewoźnika w Selly na Twojej sesji (Selly nie ma tego w API, ale ma w panelu). Utworzenie przesyłki jest płatne.'
     : name + ': ' + what + ' zrobimy tu tak jak Selly (formularzem panelu Selly), ale ' + (ready.length ? 'część akcji ' : '') + 'czeka, aż Strażnik Selly sam potwierdzi budowę formularza przewoźnika (stan: Konto → Strażnik Selly). '
@@ -615,7 +619,8 @@ function startManual(given, kind) {
   const costText = kind === 'create' ? 'Utworzenie przesyłki zamawia usługę u przewoźnika ' + name + ' — jest płatne i nie da się go cofnąć z panelu.'
     : 'Przesłanie do bufora przygotowuje przesyłkę u przewoźnika ' + name + ' (dalsze nadanie i opłaty — wg zasad przewoźnika). Z panelu nie da się tego cofnąć.';
   box.scrollIntoView && box.scrollIntoView({ block: 'nearest' });
-  if (given && rows.length === 1 && kind === 'create') single(rows[0]); else confirmMany();   // z wiersza: formularz; z paska: potwierdzenie i po kolei
+  if (kind === 'create' && shipTwo(key)) { if (rows.length === 1) twoStep(rows[0]); else twoMany(); }   // Furgonetka: wycena i wybór oferty — pojedynczo
+  else if (given && rows.length === 1 && kind === 'create') single(rows[0]); else confirmMany();   // z wiersza: formularz; z paska: potwierdzenie i po kolei
 
   async function single(r) {
     box.replaceChildren(el('h3', null, K.one + ' — ' + name + ', zamówienie ' + numOf(r.id)), loadingBox('Pobieram formularz przesyłki z Selly…'));
@@ -656,6 +661,96 @@ function startManual(given, kind) {
         diff.length ? el('ul', { class: 'ship-man-diff' }, diff.map(x => el('li', null, el('span', null, x.label || x.name), ': ', el('s', null, x.beforeText || '(puste)'), ' → ', el('strong', null, x.afterText || '(puste)')))) : null,
         el('div', { class: 'notice warn', role: 'status' }, costText),
         el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipManConfirm', title: costText, onclick: () => run([String(r.id)], { [String(r.id)]: { values, expect: before } }) }, K.one + ' (płatne)'))));
+    }
+  }
+
+  function twoMany() {
+    box.replaceChildren(el('h3', null, 'Utwórz przesyłki — ' + name),
+      el('div', { class: 'notice info', role: 'status', id: 'shipTwoMany' }, name + ': każdą przesyłkę tworzysz osobno — panel pobiera ceny przewoźników dla paczki, a Ty wybierasz ofertę (jak w Selly). Użyj „Utwórz przesyłkę” w wierszu zamówienia.'),
+      el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', id: 'shipClose', onclick: close }, 'Zamknij')));
+  }
+
+  /** Furgonetka (nowa integracja): formularz Selly → „Wyceń” (ceny przewoźników, nic nie zamawia) → wybór oferty → potwierdzenie → utworzenie (płatne). */
+  async function twoStep(r) {
+    const title = () => el('h3', null, 'Utwórz przesyłkę — ' + name + ', zamówienie ' + numOf(r.id));
+    box.replaceChildren(title(), loadingBox('Pobieram formularz przesyłki z Selly…'));
+    let x;
+    try { x = await api('shipping:manualForm', { carrier: key, kind: 'create', orderId: String(r.id) }); } catch (e) { x = { ok: false, error: e.message || 'błąd połączenia' }; }
+    if (!x || !x.ok) {
+      box.replaceChildren(title(), el('div', { class: 'notice error', role: 'alert', id: 'shipManErr' }, (x && x.error) || 'Nie udało się pobrać formularza z Selly.'),
+        el('div', { class: 'ord-actions' }, sellyBtn(r), el('button', { type: 'button', class: 'secondary', id: 'shipClose', onclick: close }, 'Zamknij')));
+      return;
+    }
+    const d = x.data, ed = d.fields.filter(f => f.editable), ro = d.fields.filter(f => !f.editable && f.type !== 'secret' && String(f.value || '') !== '');
+    const before = Object.fromEntries(ed.map(f => [f.name, f.type === 'checkbox' ? (f.checked ? f.onValue : '') : f.value]));
+    const offersBox = el('div', { id: 'shipOffers', 'aria-live': 'polite' });
+    const quoteBtn = el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipQuoteBtn', disabled: !d.canSubmit,
+      title: d.canSubmit ? 'Pobiera z Furgonetki (przez Selly) ceny przewoźników dla tej paczki — nic nie zamawia i nic nie kosztuje' : d.note || 'Formularza nie da się wysłać z panelu', onclick: () => quote() }, 'Wyceń');
+    box.replaceChildren(title(),
+      el('p', { class: 'muted small' }, 'Formularz wypełnił Selly (tak jak po kliknięciu „Utwórz przesyłkę” w Selly). Zmień parametry paczki, jeśli trzeba, kliknij „Wyceń”, wybierz ofertę przewoźnika i potwierdź.'),
+      d.note ? el('div', { class: 'notice warn', role: 'status' }, d.note) : null,
+      (d.notices || []).length ? el('div', { class: 'notice info', role: 'status' }, d.notices.map(n => n.text).join(' · ')) : null,
+      ed.length ? el('div', { class: 'ship-man-fields', id: 'shipManFields' }, ed.map(manField)) : el('p', { class: 'muted small', id: 'shipManNoFields' }, 'Brak pól do zmiany — wycenimy paczkę z ustawieniami wypełnionymi przez Selly.'),
+      ro.length ? el('details', { class: 'ship-man-ro' }, el('summary', { title: 'Dane, które Selly wpisało do formularza (np. odbiorca) — wyślemy je bez zmian; zmienisz je w zamówieniu' }, 'Pozostałe dane formularza Selly (' + ro.length + ', tylko podgląd)'),
+        el('dl', null, ro.map(f => [el('dt', null, f.label || f.name), el('dd', null, f.type === 'select' || f.type === 'radio' ? ((f.options || []).find(o => o.value === f.value) || { text: f.value }).text : f.type === 'checkbox' ? (f.checked ? 'tak' : 'nie') : f.value)]))) : null,
+      offersBox,
+      el('div', { class: 'ord-actions' }, quoteBtn, sellyBtn(r), cancelBtn()));
+
+    async function quote() {
+      const values = {};
+      for (const i of box.querySelectorAll('#shipManFields [data-name]')) { const v = manValue(i); if (v !== before[i.dataset.name]) values[i.dataset.name] = v; }
+      quoteBtn.disabled = true;
+      offersBox.replaceChildren(loadingBox('Pobieram ceny przewoźników…'));
+      let q;
+      try { q = await api('shipping:manualQuote', { carrier: key, kind: 'create', orderId: String(r.id), values, expect: before }); } catch (e) { q = { ok: false, error: e.message || 'błąd połączenia' }; }
+      quoteBtn.disabled = false;
+      if (!q || !q.ok) { offersBox.replaceChildren(el('div', { class: 'notice error', role: 'alert', id: 'shipQuoteErr' }, (q && q.error) || 'Nie udało się pobrać wyceny.')); return; }
+      const w = q.data;
+      if (!w.offers.length) {
+        offersBox.replaceChildren(el('div', { class: 'notice warn', role: 'status', id: 'shipNoOffers' }, [w.message, w.note].filter(Boolean).join(' — ') || 'Brak ofert.', ' ', sellyBtn(r)));
+        return;
+      }
+      Object.assign(quoteBtn, { className: 'secondary', textContent: 'Wyceń ponownie', title: 'Pobierz ceny jeszcze raz (np. po zmianie wagi lub wymiarów)' });
+      const opId = newOpId();   // jeden klucz na tę wycenę: ponowienie po błędzie połączenia nie utworzy drugiej przesyłki
+      const createBtn = el('button', { type: 'button', class: 'primary', write: 'przesylki', id: 'shipTwoCreate', disabled: true,
+        title: 'Utworzy przesyłkę wybraną usługą (płatne) — najpierw pokażemy podsumowanie do potwierdzenia', onclick: () => confirmCreate() }, 'Utwórz przesyłkę (płatne)');
+      const list = el('fieldset', { class: 'ship-offers', id: 'shipOfferList' },
+        el('legend', { class: 'tip', title: 'Ceny z Furgonetki dla tej paczki (wycena ważna ' + (w.ttlMin || 15) + ' min). Wybierz jedną ofertę.' }, 'Oferty przewoźników'),
+        w.offers.map((o, i) => el('label', { class: 'ship-offer', title: 'Usługa ' + (o.name || o.id) + (o.carrier ? ' (' + o.carrier + ')' : '') + ' — cena z wyceny' },
+          el('input', { type: 'radio', name: 'shipOffer', value: o.id, 'data-i': String(i), onchange: () => { createBtn.disabled = false; } }),
+          el('span', { class: 'ship-offer-car' }, o.carrier || '—'), el('span', { class: 'ship-offer-name' }, o.name || o.id), el('strong', { class: 'ship-offer-price' }, money(o.price) + ' zł'))));
+      const another = w.already ? el('label', { class: 'field-inline', id: 'shipAnotherL', title: 'To zamówienie ma już przesyłkę. Zaznacz tylko, jeśli świadomie wysyłasz kolejną paczkę (to kolejna opłata).' },
+        el('input', { type: 'checkbox', id: 'shipAnother' }), ' To kolejna paczka do tego zamówienia') : null;
+      const res = el('div', { id: 'shipTwoRes', 'aria-live': 'polite' });
+      offersBox.replaceChildren(list, w.already ? el('div', { class: 'notice warn', role: 'status', id: 'shipAlready' }, 'To zamówienie ma już przesyłkę — drugą utworzysz tylko po zaznaczeniu „To kolejna paczka”.') : null,
+        another, res, el('div', { class: 'ord-actions' }, createBtn));
+
+      async function confirmCreate() {
+        const sel = list.querySelector('input:checked'); if (!sel) return;
+        const o = w.offers[Number(sel.dataset.i)], cod = Number(String(w.cod || '').replace(',', '.'));
+        const ok = await confirmDialog({ title: 'Utworzyć przesyłkę?', id: 'shipTwoConfirm', write: 'przesylki', confirmLabel: 'Utwórz przesyłkę (płatne)', body: costText,
+          items: ['Przewoźnik: ' + (o.carrier || '—'), 'Usługa: ' + (o.name || o.id), 'Cena: ' + money(o.price) + ' zł', 'Pobranie: ' + (cod > 0 ? money(cod) + ' zł' : 'brak'), 'Odbiorca (miejscowość): ' + (w.city || '—')] });
+        if (!ok) return;
+        createBtn.disabled = true; res.replaceChildren(loadingBox('Tworzę przesyłkę w Selly…'));
+        let c;
+        try { c = await api('shipping:manualCreate', { carrier: key, kind: 'create', orderId: String(r.id), quoteId: w.quoteId, offerId: o.id, expectPrice: o.price, confirm: true, opId,
+          another: !!(box.querySelector('#shipAnother') && box.querySelector('#shipAnother').checked) }); } catch (e) { c = { ok: false, error: (e.message || 'błąd połączenia') + ' — zanim ponowisz, sprawdź w Selly, czy przesyłka nie powstała' }; }
+        if (c && c.ok && c.data && (c.data.created || c.data.unknown)) { done(o, c.data); S.lv.reload(); return; }
+        const msg = (c && (c.error || (c.data && c.data.message))) || 'Selly nie utworzyło przesyłki.';
+        res.replaceChildren(el('div', { class: 'notice error', role: 'alert', id: 'shipTwoErr' }, msg));
+        if (c && c.code === 'exists' && !box.querySelector('#shipAnother')) list.after(el('label', { class: 'field-inline', id: 'shipAnotherL', title: 'Zaznacz tylko, jeśli świadomie wysyłasz kolejną paczkę do tego zamówienia (to kolejna opłata).' }, el('input', { type: 'checkbox', id: 'shipAnother' }), ' To kolejna paczka do tego zamówienia'));
+        createBtn.disabled = false;
+      }
+    }
+
+    function done(o, d) {
+      const href = d.label && /^https:\/\//.test(d.label.href || '') ? d.label.href : '';
+      box.replaceChildren(el('h3', null, d.created ? 'Przesyłka utworzona — zamówienie ' + numOf(r.id) : 'Sprawdź w Selly — zamówienie ' + numOf(r.id)),
+        el('p', { id: 'shipSummary' }, (o.carrier ? o.carrier + ' — ' : '') + (o.name || o.id) + ', ' + money(o.price) + ' zł'),
+        d.created ? el('p', { class: 'ship-done' }, d.tracking ? 'Nr przesyłki ' + d.tracking : el('span', { class: 'muted', title: 'Selly zapisuje numer przesyłki w zamówieniu — pojawi się w kolejce po synchronizacji' }, 'Numer przesyłki pojawi się po synchronizacji'))
+          : el('div', { class: 'notice warn', role: 'status', id: 'shipTwoUnknown' }, d.message || 'Selly nie potwierdziło utworzenia — sprawdź w Selly, zanim spróbujesz ponownie.'),
+        el('div', { class: 'ord-actions' }, href ? el('a', { class: 'btn-secondary', id: 'shipLabelLink', href, target: '_blank', rel: 'noopener', title: 'Etykieta przesyłki (nowa karta)' }, 'Etykieta ↗') : null,
+          d.created ? null : sellyBtn(r), el('button', { type: 'button', class: 'secondary', id: 'shipClose', onclick: close }, 'Zamknij')));
     }
   }
 

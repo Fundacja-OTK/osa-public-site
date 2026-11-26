@@ -1,10 +1,10 @@
 // Moduł „Strażnik Selly” (tylko administrator): stan każdej strony Selly, na której opiera się panel (ekrany natywne, formularze przewoźników,
 // formularz faktury) — sprawdzanej automatycznie przez serwer kontem technicznym — oraz trasy Selly znalezione na tych stronach (same nazwy).
 // Backend: guard:status (odczyt), guard:reset (ponowne sprawdzenie; obejście diagnostyczne). Worker: modules/sellyGuard.js.
-import { el, dateStr } from '../core/ui.js?v=5a962d8';
-import { api } from '../core/client.js?v=5a962d8';
-import { listView } from '../core/listView.js?v=5a962d8';
-import { confirmDialog } from '../core/confirm.js?v=5a962d8';
+import { el, dateStr } from '../core/ui.js?v=a9a0d42';
+import { api } from '../core/client.js?v=a9a0d42';
+import { listView } from '../core/listView.js?v=a9a0d42';
+import { confirmDialog } from '../core/confirm.js?v=a9a0d42';
 
 const STATUS = {
   ok: ['działa', 'Budowa strony zgodna z zapisanym wzorcem — funkcja panelu działa.'],
@@ -44,7 +44,16 @@ function summary(d) {
       el('span', { class: 'tip', title: 'Strażnik sprawdza wszystkie strony raz na dobę, kilka stron na przebieg (limit zapytań do Selly)' }, cyc),
       d.run ? ' · ostatni przebieg: ' + when(d.run.ms) : ''),
     d.configured ? null : el('p', { class: 'notice' }, 'Brak konta technicznego (SELLY_ADMIN_LOGIN / SELLY_ADMIN_PASSWORD) — strażnik nie działa.'),
-    perms.length ? el('p', { class: 'notice' }, 'Konto techniczne nie widzi części stron. Nadaj jego grupie w Selly (Konto → Uprawnienia) uprawnienia do tras: ', perms.join(', '), '.') : null);
+    perms.length ? el('p', { class: 'notice' }, 'Konto techniczne nie widzi części stron. Nadaj jego grupie w Selly (Konto → Uprawnienia) uprawnienia do tras: ', perms.join(', '), '.') : null,
+    shapes(d.quoteShapes));
+}
+/** Postać odpowiedzi wyceny Furgonetki (same klucze i typy, bez wartości) — do dopracowania odczytu ofert (docs/verification.md). */
+function shapes(list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  return el('details', { class: 'sub', id: 'guardQuoteShapes' },
+    el('summary', { class: 'tip', title: 'Zapisywane przy wycenie przesyłki Furgonetki: jak wygląda odpowiedź Selly (klucze i typy, bez wartości i danych). Służy do poprawienia odczytu ofert.' }, 'Postać odpowiedzi wyceny (' + list.length + ')'),
+    list.map(x => el('div', null, el('p', { class: 'sub' }, (x.carrier || '') + ' · ' + (x.kind || '') + ' · ofert odczytanych: ' + (x.offers || 0) + ' · razy: ' + (x.n || 1) + ' · pierwsza: ' + when(x.ms)),
+      el('pre', { class: 'small' }, JSON.stringify(x.shape, null, 1).slice(0, 4000)))));
 }
 
 function screensList() {

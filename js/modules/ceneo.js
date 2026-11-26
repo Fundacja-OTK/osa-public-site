@@ -1,10 +1,10 @@
 // Widok „Ceneo”: produkty widoczne w sklepie — które trafiają do plików dla porównywarek cen (pole „Eksportuj do porównywarek cen”)
 // i którym brakuje danych potrzebnych Ceneo. Dane z kopii w D1 (ceneo:overview, bez zapytań do Selly).
 // Zmiana flagi dla zaznaczonych produktów: ta sama masowa zmiana danych co w „Masowa zmiana danych” (bulk:* — podgląd, potwierdzenie, audyt, cofanie).
-import { el, money, plural, isUnavailable, flash, progressToast } from '../core/ui.js?v=5a962d8';
-import { listView } from '../core/listView.js?v=5a962d8';
-import { confirmDialog } from '../core/confirm.js?v=5a962d8';
-import { api } from '../core/client.js?v=5a962d8';
+import { el, money, plural, isUnavailable, flash, progressToast } from '../core/ui.js?v=a9a0d42';
+import { listView } from '../core/listView.js?v=a9a0d42';
+import { confirmDialog } from '../core/confirm.js?v=a9a0d42';
+import { api } from '../core/client.js?v=a9a0d42';
 
 const CAP = 200;   // produktów na jedno wywołanie z tego widoku (większe zmiany: Masowa zmiana danych)
 const sleep = ms => new Promise(r => setTimeout(r, ms));

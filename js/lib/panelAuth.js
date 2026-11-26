@@ -95,6 +95,8 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     'products:variantUpdate', 'products:photoAdd', 'products:photoUpdate', 'products:photoDelete',
     'products:variantAdd', 'products:variantDelete', 'products:stockAdd', 'products:stockRemove', 'products:delete', 'products:warehouseSave',
     'shipping:create', 'shipping:setMap', 'shipping:manualCreate', 'shipping:inspectSave', 'shipping:inspectApprove',
+    // Furgonetka (tryb dwuetapowy): wycena POST getPrices na sesji Selly — nic nie zamawia, ale to krok przed płatnym utworzeniem (prawo zmian Przesyłek)
+    'shipping:manualQuote',
     'dropshipping:save', 'dropshipping:delete', 'dropshipping:productsAdd', 'dropshipping:productSave', 'dropshipping:productDelete',
     'payments:apply', 'payments:undo',
     'bulk:start', 'bulk:step', 'bulk:pause', 'bulk:resume', 'bulk:stop', 'bulk:undo',
