@@ -3,14 +3,14 @@
 // 2) panel dopasowuje wpłaty do nieopłaconych zamówień (numer w tytule, kwota, nazwisko/e-mail; punktacja i powody),
 // 3) przeglądasz tabelę (pewne / prawdopodobne / brak) i zaznaczasz, co oznaczyć jako opłacone,
 // 4) zapis przez Worker (payments:apply — do serwera idą wyłącznie numery zamówień i kwoty „zapłacono”), podsumowanie i „Cofnij”.
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, norm } from '../core/ui.js?v=5353574';
-import { confirmDialog } from '../core/confirm.js?v=5353574';
-import { listView } from '../core/listView.js?v=5353574';
-import { sortRows } from '../core/listLogic.js?v=5353574';
-import { api } from '../core/client.js?v=5353574';
-import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=5353574';
-import { loadMapping, saveMapping } from './wplatyCsv.js?v=5353574';
-import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=5353574';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, store, norm } from '../core/ui.js?v=8355fc4';
+import { confirmDialog } from '../core/confirm.js?v=8355fc4';
+import { listView } from '../core/listView.js?v=8355fc4';
+import { sortRows } from '../core/listLogic.js?v=8355fc4';
+import { api } from '../core/client.js?v=8355fc4';
+import { BANKS, FORMATS, parseStatement, skipReasons } from './wplatyUniversal.js?v=8355fc4';
+import { loadMapping, saveMapping } from './wplatyCsv.js?v=8355fc4';
+import { matchTransactions, RULES, cleanSettings, defaultSettings, newPaid, scorePair } from './wplatyMatch.js?v=8355fc4';
 
 const zl = v => money(v) + ' zł';
 const SKEY = 'osa-wplaty-rules', DKEY = 'osa-wplaty-days';

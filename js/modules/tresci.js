@@ -1,8 +1,8 @@
 // Treści (CMS) — natywne ekrany Selly z jednego pliku: strony, aktualności, menu, bloki HTML, formularze online, przekierowania SEO, gwarancje, opisy zaawansowane.
 // Lista + karta rekordu na sesji zalogowanego użytkownika (docs/selly-embed.md, docs/auth.md); zapis tylko z allowlisty pól (extension/lib/sellyNative.js, blok „treści (CMS)”).
 // Treść HTML stron, bloków i nowych aktualności: edytor kodu + podgląd oczyszczony (tresciEdytor.js); do Selly idzie dokładnie wpisany tekst.
-// Menu i formularze online — tylko podgląd listy (karty rekordu docs nie opisują). Usuwania nie ma — zawsze w Selly.
-import { createNative } from './sellyNative.js?v=5353574';
+// Formularze online i komentarze bloga — tylko podgląd listy (karty rekordu docs nie opisują). Usuwania nie ma — zawsze w Selly.
+import { createNative } from './sellyNative.js?v=8355fc4';
 
 export const screens = {
   cms: createNative({
@@ -29,8 +29,11 @@ export const screens = {
     headerTips: { 'Id': 'Numer aktualności', 'Data publikacji': 'Od kiedy aktualność jest widoczna', 'Data wycofania': 'Do kiedy jest widoczna (puste = bez końca)', 'Status *': 'Widoczna albo wycofana', 'Autor': 'Kto dodał aktualność', 'Działanie': 'Dostępne czynności w Selly' },
   }),
   'menu-ed': createNative({
-    id: 'menu-ed', title: 'Edytor menu', screen: 'menu-ed', a: 'menu.main', recordRoute: null, noun: 'menu',
-    recordTitle: id => 'Menu ' + id,
+    id: 'menu-ed', title: 'Edytor menu', screen: 'menu-ed', a: 'menu.main', recordRoute: 'menu.record', noun: 'menu',
+    recordTitle: id => 'Menu nr ' + id,
+    create: { title: 'Nowe menu', label: 'Dodaj menu', tip: 'Dodaje puste menu w Selly (po potwierdzeniu). Pozycje menu dodasz w Selly.' },
+    labels: { name: 'Nazwa menu', tag: 'Zmienna w szablonach', status_id: 'Wyświetlanie', shop_id: 'Sklep' },
+    fieldTips: { tag: 'Nazwa zmiennej, którą szablon sklepu zamienia na menu — zmiana może wyłączyć menu w szablonie', status_id: 'Włączone menu jest widoczne w sklepie' },
     headerTips: { 'Nazwa': 'Nazwa menu', 'Zmienna w szablonach': 'Nazwa zmiennej, którą szablon sklepu wstawia w tym miejscu', 'Wyświetlanie': 'Czy menu jest włączone' },
   }),
   bloki: createNative({
@@ -45,6 +48,44 @@ export const screens = {
     id: 'formularze', title: 'Formularze online', screen: 'formularze', a: 'form.lista', recordRoute: null, noun: 'zgłoszenia',
     recordTitle: id => 'Zgłoszenie ' + id,
     headerTips: { 'Id': 'Numer zgłoszenia', 'Datazgłoszenia': 'Kiedy klient wysłał formularz', 'Typ formularza': 'Który formularz sklepu został wypełniony', 'IP': 'Adres IP nadawcy', 'Nr zamówienia': 'Zamówienie, którego dotyczy zgłoszenie', 'Status': 'Etap obsługi zgłoszenia', 'Działanie': 'Dostępne czynności w Selly' },
+  }),
+  rejestracja: createNative({
+    id: 'rejestracja', title: 'Formularze rejestracji', screen: 'rejestracja', a: 'registerform', recordRoute: 'registerform.edit', noun: 'pytania',
+    recordTitle: id => 'Pytanie nr ' + id,
+    create: { title: 'Nowe pytanie', label: 'Dodaj pytanie', tip: 'Dodaje pytanie do formularza rejestracji klientów (po potwierdzeniu, od razu w sklepie).' },
+    labels: { tresc: 'Treść pytania', rodzaj: 'Rodzaj pytania', status: 'Status', wymagane: 'Odpowiedź wymagana', waga: 'Waga (kolejność)' },
+    fieldTips: { rodzaj: 'Pole tekstowe albo lista wyboru', wymagane: 'Czy klient musi odpowiedzieć, by się zarejestrować', waga: 'Mniejsza liczba = wyżej w formularzu' },
+    headerTips: { 'Data utworzenia': 'Kiedy dodano pytanie', 'Treść pytania': 'Pytanie widoczne w formularzu rejestracji', 'Rodzaj pytania': 'Pole tekstowe albo lista wyboru', 'Status': 'Aktywne pytania są widoczne w sklepie', 'Działanie': 'Dostępne czynności w Selly' },
+  }),
+  'blog-kategorie': createNative({
+    id: 'blog-kategorie', title: 'Blog — kategorie', screen: 'blog-kategorie', a: 'artykulyAdm.kategorie', recordRoute: null, noun: 'kategorii',
+    recordTitle: id => 'Kategoria ' + id,
+    create: { title: 'Nowa kategoria bloga', label: 'Dodaj kategorię', tip: 'Dodaje kategorię bloga w Selly (po potwierdzeniu). Edycja i usuwanie — w Selly.' },
+    labels: { kategoria: 'Nazwa kategorii', parent_id: 'Kategoria nadrzędna', kategoria_htaccess: 'Adres (URL) kategorii', pozycja: 'Pozycja', html_title: 'Tytuł (title)', html_description: 'Opis dla wyszukiwarek (description)', html_keywords: 'Słowa kluczowe (keywords)', kategoria_opis: 'Opis kategorii' },
+    labelOf: f => /^sklepy_wyswietlanie\d+$/.test(f.name) ? 'Pokaż w: ' + (f.label || 'sklep') : '',
+    advanced: ['kategoria_htaccess', 'pozycja', 'html_title', 'html_description', 'html_keywords'], advancedTitle: 'Adres, pozycja i SEO',
+    headerTips: { 'Id': 'Numer kategorii', 'Liczbawpisów': 'Ile wpisów ma kategoria', 'Działania': 'Dostępne czynności w Selly' },
+  }),
+  'blog-tagi': createNative({
+    id: 'blog-tagi', title: 'Blog — tagi', screen: 'blog-tagi', a: 'artykulyAdm.tagi', recordRoute: null, noun: 'tagu',
+    recordTitle: id => 'Tag ' + id,
+    create: { title: 'Nowy tag bloga', label: 'Dodaj tag', tip: 'Dodaje tag bloga w Selly (po potwierdzeniu). Edycja i usuwanie — w Selly.' },
+    labels: { tag: 'Nazwa tagu', tag_htaccess: 'Adres (URL) tagu', rozmiar: 'Rozmiar w chmurze tagów', html_description: 'Opis dla wyszukiwarek (description)', html_keywords: 'Słowa kluczowe (keywords)' },
+    advanced: ['tag_htaccess', 'rozmiar', 'html_description', 'html_keywords'], advancedTitle: 'Adres, rozmiar i SEO',
+    headerTips: { 'Id': 'Numer tagu', 'Rozmiar': 'Wielkość tagu w chmurze tagów', 'Liczbawpisów': 'Ile wpisów ma ten tag', 'Działania': 'Dostępne czynności w Selly' },
+  }),
+  'blog-komentarze': createNative({
+    id: 'blog-komentarze', title: 'Blog — komentarze', screen: 'blog-komentarze', a: 'artykulyAdm.komentarze', recordRoute: null, noun: 'komentarza',
+    recordTitle: id => 'Komentarz ' + id,
+    headerTips: { 'Zatwierdzono': 'Czy komentarz jest widoczny pod wpisem', 'Działania': 'Zatwierdzanie i usuwanie — w Selly' },
+  }),
+  'przekierowania-grupy': createNative({
+    id: 'przekierowania-grupy', title: 'Przekierowania — grupy', screen: 'przekierowania-grupy', a: 'redirection.group', recordRoute: null, noun: 'grupy',
+    recordTitle: id => 'Grupa ' + id,
+    create: { title: 'Nowa grupa przekierowań', label: 'Dodaj grupę', tip: 'Dodaje grupę przekierowań SEO (po potwierdzeniu). Usuwanie grup — w Selly.' },
+    labels: { groupname: 'Nazwa grupy', ignore_query_string: 'Ignoruj ciągi zapytań' },
+    fieldTips: { ignore_query_string: 'Tak = adresy różniące się tylko parametrami po znaku zapytania traktowane jak ten sam adres' },
+    headerTips: { 'Nazwa grupy': 'Nazwa grupy przekierowań', 'Ilość przekierowań': 'Ile przekierowań należy do grupy', 'Ignoruj ciągi zapytań': 'Czy parametry po znaku zapytania są pomijane', 'Działanie': 'Dostępne czynności w Selly' },
   }),
   przekierowania: createNative({
     id: 'przekierowania', title: 'Przekierowania SEO', screen: 'przekierowania', a: 'redirection', recordRoute: 'redirection.edit', noun: 'przekierowania',
