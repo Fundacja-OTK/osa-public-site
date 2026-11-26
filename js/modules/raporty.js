@@ -1,18 +1,19 @@
 // Raporty sprzedaży (zastępują ekran Selly „Raporty sprzedaży” i „Analizę OSA” z rozszerzenia). Dane z D1 (akcje reports:sales / reports:years / reports:product).
 // Dwa widoki: „Okres” (okres kontra poprzedni okres albo ten sam okres rok temu) i „Lata” (kilka lat obok siebie: wykres rok do roku, mapa miesięcy, produkty).
 // Cały stan raportu siedzi w adresie (#/raporty?od=…&do=…&cmp=…): link można wysłać dalej, a „wstecz / dalej” w przeglądarce działa.
-// Na górze zawsze pasek „co oglądasz”: zakres, porównanie, statusy, grupowanie — każdy element to przycisk otwierający odpowiednie ustawienie.
-import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu, segmented, toggleSwitch } from '../core/ui.js?v=196affa';
-import { api, ctx } from '../core/client.js?v=196affa';
-import { go } from '../core/router.js?v=196affa';
-import { wojLabel } from '../core/osa.js?v=196affa';
-import { shortcuts } from '../core/shortcuts.js?v=196affa';
-import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=196affa';
-import { zyskRender } from './raportyZysk.js?v=196affa';
-import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=196affa';
-import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=196affa';
-import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=196affa';
-import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=196affa';
+// Na górze pasek „co oglądasz”: jedno krótkie zdanie (okres · porównanie · statusy) + „Szczegóły ▾” z pełnymi elementami; każdy fragment otwiera swoje ustawienie.
+// Zmiana ustawienia nie czyści ekranu: stare wyniki zostają przyciemnione do nadejścia nowych, a wykres „Okresu” jest aktualizowany w tym samym elemencie.
+import { el, isUnavailable, loadingBox, syncedLabel, sortTh, downloadMenuButton, menuButton, dateRange, pageToolbar, isoDate, sellyLink, filterLayout, filterSection, columnMenu, segmented, toggleSwitch } from '../core/ui.js?v=5281496';
+import { api, ctx } from '../core/client.js?v=5281496';
+import { go } from '../core/router.js?v=5281496';
+import { wojLabel } from '../core/osa.js?v=5281496';
+import { shortcuts } from '../core/shortcuts.js?v=5281496';
+import { svg, zl, zl0, int, qty, ddmm, dmy, addDays, addYears, daysBetween, validIso, rangeText, daysText, deltaEl, pctText, pctFmt, niceMax, tile, MONTHS_LONG } from './raportyKit.js?v=5281496';
+import { zyskRender } from './raportyZysk.js?v=5281496';
+import { costShown, costValue, costDefs, costBar, costTip, costLegend } from './chartCost.js?v=5281496';
+import { lataPeriods, lataRequest, lataRender, lataSummary } from './raportyLata.js?v=5281496';
+import { rodzinyFetch, rodzinyRender } from './raportyRodziny.js?v=5281496';
+import { zestawFetch, zestawRender, parseSet } from './raportyZestaw.js?v=5281496';
 
 /** Domyślne wartości ustawień — w adresie zapisujemy tylko to, co się od nich różni. */
 const DEF = { v: 'okres', od: '', do: '', cmp: 'prev', gr: 'auto', st: '', tab: 'series', met: 'value', yf: '', yt: '', per: 'year', ss: '9', ytd: '1', lm: 'value', cm: 'monthly', dim: 'payments', dm: 'qty', q: '', so: '', item: '', fam: '', set: '', fm: '', sum: '' };
@@ -26,7 +27,7 @@ const GROUP_NAME = { view: 'widok', range: 'zakres', cmp: 'porównanie', status:
 
 const S = { root: null, built: false, alive: false, Q: { ...DEF }, E: null, dataKey: '', data: null, seq: 0, timer: 0, shown: null, changed: new Set(), statuses: null, ui: {} };
 
-const GROUPS = [['auto', 'Automatycznie', 'Dni dla krótkich zakresów, tygodnie dla średnich, miesiące dla długich'], ['day', 'Dni', 'Jedna pozycja na dzień'], ['week', 'Tygodnie', 'Tygodnie ISO od poniedziałku (z numerami tygodni w widoku „Lata” i porównaniach)'], ['month', 'Miesiące', 'Miesiące kalendarzowe']];
+const GROUPS = [['auto', 'Auto', 'Automatycznie: dni dla krótkich okresów (do 2 miesięcy), tygodnie dla średnich, miesiące dla długich'], ['day', 'Dni', 'Jedna pozycja na dzień'], ['week', 'Tygodnie', 'Tygodnie ISO od poniedziałku (z numerami tygodni w widoku „Lata” i porównaniach)'], ['month', 'Miesiące', 'Miesiące kalendarzowe']];
 const GROUP_WORD = { day: 'dni', week: 'tygodnie', month: 'miesiące' };
 const METRICS = [['value', 'Wartość', 'Suma wartości zamówień (pozycje + dostawa, brutto)'], ['orders', 'Zamówienia', 'Liczba zamówień'], ['avg', 'Średni koszyk', 'Wartość zamówień podzielona przez ich liczbę']];
 const CMP_OPTS = [['prev', 'Poprzedni okres (tyle samo dni)', 'Okres o tej samej długości, bezpośrednio przed wybranym'], ['year', 'Ten sam okres rok temu', 'Te same dni kalendarzowe rok wcześniej'], ['off', 'Bez porównania', 'Tylko wybrany okres']];
@@ -78,53 +79,77 @@ const autoGroup = days => (days <= 62 ? 'day' : days <= 400 ? 'week' : 'month');
 
 function statusPhrase() {
   const st = S.statuses, ids = S.E.ids;
-  if (!st) return ids.length ? { text: 'wybrane statusy (' + ids.length + ')', tip: 'Liczone są zamówienia w ' + ids.length + ' wybranych statusach.' } : { text: 'wszystkie poza anulowanymi', tip: 'Liczone są zamówienia we wszystkich statusach poza anulowanymi.' };
+  const DEFS = 'wszystkie statusy poza anulowanymi';
+  if (!st) return ids.length ? { text: 'wybrane statusy (' + ids.length + ')', short: 'wybrane statusy (' + ids.length + ')', tip: 'Liczone są zamówienia w ' + ids.length + ' wybranych statusach.' } : { text: 'wszystkie poza anulowanymi', short: DEFS, tip: 'Liczone są zamówienia we wszystkich statusach poza anulowanymi.' };
   const sel = st.filter(s => s.selected), nc = st.filter(s => !s.cancelled), n = ' (' + sel.length + ' z ' + st.length + ')';
-  if (sel.length === nc.length && sel.every(s => !s.cancelled)) return { text: 'wszystkie poza anulowanymi' + n, tip: 'Liczone są zamówienia we wszystkich statusach poza anulowanymi: ' + sel.map(s => s.name).join(', ') + '.' };
-  if (sel.length === st.length) return { text: 'wszystkie, także anulowane' + n, tip: 'Liczone są zamówienia we wszystkich statusach, także anulowanych.' };
-  if (sel.length <= 3) return { text: 'tylko: ' + sel.map(s => s.name).join(', ') + n, tip: 'Liczone statusy: ' + sel.map(s => s.name).join(', ') + '.' };
-  return { text: 'wybrane statusy' + n, tip: 'Liczone statusy (' + sel.length + '): ' + sel.map(s => s.name).join(', ') + '.' };
+  if (sel.length === nc.length && sel.every(s => !s.cancelled)) return { text: 'wszystkie poza anulowanymi' + n, short: DEFS, tip: 'Liczone są zamówienia we wszystkich statusach poza anulowanymi: ' + sel.map(s => s.name).join(', ') + '.' };
+  if (sel.length === st.length) return { text: 'wszystkie, także anulowane' + n, short: 'wszystkie statusy, także anulowane', tip: 'Liczone są zamówienia we wszystkich statusach, także anulowanych.' };
+  if (sel.length <= 3) return { text: 'tylko: ' + sel.map(s => s.name).join(', ') + n, short: 'tylko statusy: ' + sel.map(s => s.name).join(', '), tip: 'Liczone statusy: ' + sel.map(s => s.name).join(', ') + '.' };
+  return { text: 'wybrane statusy' + n, short: 'wybrane statusy' + n, tip: 'Liczone statusy (' + sel.length + '): ' + sel.map(s => s.name).join(', ') + '.' };
 }
 
-/** Elementy paska: [{ k (grupa ustawień), text, tip, sw (znacznik koloru: cur | cmp) }]. */
+/** Krótka forma grupowania do zdania — tylko gdy wybrane ręcznie (automatyczne nie zaśmieca zdania). */
+const groupShort = gr => (gr === 'auto' ? undefined : 'po ' + { day: 'dniach', week: 'tygodniach', month: 'miesiącach' }[gr]);
+/** Nazwa gotowego zakresu, gdy daty dokładnie mu odpowiadają („ostatnie 30 dni”), inaczej pusto. */
+function presetName(from, to) { const p = presets().find(([, a, b]) => a === from && b === to); return p ? p[0].charAt(0).toLowerCase() + p[0].slice(1) : ''; }
+const rangeShort = E => { const pn = presetName(E.from, E.to); return pn ? pn + ' (' + rangeText(E.from, E.to) + ')' : rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')'; };
+
+/**
+ * Elementy paska: [{ k (grupa ustawień), text (szczegóły), short (zdanie skrócone; brak = tylko w szczegółach), tip, sw (znacznik koloru: cur | cmp) }].
+ * Zdanie skrócone odpowiada na pytanie „co, z czym, które zamówienia”; dokładne daty porównania, ucięcie miesiąca i oś są pod „Szczegóły ▾”.
+ */
 function summaryParts() {
   const E = S.E, d = S.data && S.data.kind === E.v ? S.data : null, sp = statusPhrase();
-  if (isYears(E.v) && (E.v === 'lata' || (d && d.mode === 'years'))) { const parts = lataSummary(E, d && d.group ? d : null, sp, GROUP_WORD); return E.v === 'rodziny' ? [{ k: 'view', text: 'Rodzina: ' + d.family.name, tip: 'Rodzina produktów oglądana rok do roku. Kliknij, aby zmienić widok.' }, ...parts] : parts; }
-  if (E.v === 'rodziny') return [{ k: 'view', text: 'Rodziny produktów', tip: 'Wybierz rodzinę, aby zobaczyć ją rok do roku.' }, { k: 'status', text: 'statusy: ' + sp.text, tip: sp.tip }];
+  if (isYears(E.v) && (E.v === 'lata' || (d && d.mode === 'years'))) { const parts = lataSummary(E, d && d.group ? d : null, sp, GROUP_WORD); return E.v === 'rodziny' ? [{ k: 'view', text: 'Rodzina: ' + d.family.name, short: 'Rodzina: ' + d.family.name, tip: 'Rodzina produktów oglądana rok do roku. Kliknij, aby zmienić widok.' }, ...parts] : parts; }
+  if (E.v === 'rodziny') return [{ k: 'view', text: 'Rodziny produktów', short: 'Rodziny produktów — wybierz rodzinę z listy', tip: 'Wybierz rodzinę, aby zobaczyć ją rok do roku.' }, { k: 'status', text: 'statusy: ' + sp.text, short: sp.short, tip: sp.tip }];
   if (E.v === 'zestaw') { const g = d && d.group ? d.group : E.group === 'auto' ? autoGroup(E.days) : E.group, n = parseSet(S.Q.set).length; return [
-    { k: 'view', text: 'Zestaw: ' + n + ' elem.', tip: 'Liczba produktów / rodzin / kategorii w porównaniu. Zestaw jest zapisany w adresie.' },
-    { k: 'range', sw: 'cur', text: 'Sprzedaż ' + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', tip: 'Zakres dat porównania. Kliknij, aby zmienić daty.' },
-    { k: 'status', text: 'statusy: ' + sp.text, tip: sp.tip + ' Kliknij, aby zmienić.' },
-    { k: 'group', text: 'grupowanie: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), tip: 'Na jakie przedziały dzielimy czas na wykresie' }]; }
+    { k: 'view', text: 'Zestaw: ' + n + ' elem.', short: n ? 'Zestaw: ' + n + ' elem.' : 'Zestaw — dodaj produkty', tip: 'Liczba produktów / rodzin / kategorii w porównaniu. Zestaw jest zapisany w adresie.' },
+    { k: 'range', sw: 'cur', text: 'Sprzedaż ' + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', short: rangeShort(E), tip: 'Zakres dat porównania. Kliknij, aby zmienić daty.' },
+    { k: 'status', text: 'statusy: ' + sp.text, short: sp.short, tip: sp.tip + ' Kliknij, aby zmienić.' },
+    { k: 'group', text: 'grupowanie: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), short: groupShort(E.group), tip: 'Na jakie przedziały dzielimy czas na wykresie' }]; }
   const g = d ? d.range.group : E.group === 'auto' ? autoGroup(E.days) : E.group;
   const cmpTip = E.cmp === 'off' ? 'Porównanie jest wyłączone — pokazujemy tylko wybrany okres. Włączysz je w ustawieniach.' : 'Okres porównawczy — z nim zestawiane są wszystkie liczby i wykres (' + (E.cmp === 'year' ? 'te same dni rok wcześniej' : 'tyle samo dni bezpośrednio przed wybranym okresem') + '). Na wykresie to linia przerywana.';
   return [
-    { k: 'range', sw: 'cur', text: (E.v === 'zysk' ? 'Zysk i marża ' : 'Sprzedaż ') + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', tip: 'Okres bieżący — to, co pokazuje raport (słupki w kolorze brązowym). Kliknij, aby zmienić daty.' },
-    { k: 'cmp', sw: E.cmp === 'off' ? null : 'cmp', text: E.cmp === 'off' ? 'bez porównania' : 'porównanie z ' + rangeText(E.prevFrom, E.prevTo) + (E.cmp === 'year' ? ' (rok temu)' : ' (poprzedni okres)'), tip: cmpTip },
-    { k: 'status', text: 'statusy: ' + sp.text, tip: sp.tip + ' Kliknij, aby zmienić.' },
-    { k: 'group', text: 'grupowanie: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), tip: 'Na jakie przedziały dzielimy czas na wykresie i w tabeli „Sprzedaż w czasie”' + (E.group === 'auto' ? ' — wybrane automatycznie na podstawie długości zakresu.' : '.') },
+    { k: 'range', sw: 'cur', text: (E.v === 'zysk' ? 'Zysk i marża ' : 'Sprzedaż ') + rangeText(E.from, E.to) + ' (' + daysText(E.days) + ')', short: (E.v === 'zysk' ? 'Zysk i marża: ' : 'Sprzedaż: ') + rangeShort(E), tip: 'Okres bieżący — to, co pokazuje raport (słupki w kolorze brązowym). Kliknij, aby zmienić daty.' },
+    { k: 'cmp', sw: E.cmp === 'off' ? null : 'cmp', text: E.cmp === 'off' ? 'bez porównania' : 'porównanie z ' + rangeText(E.prevFrom, E.prevTo) + (E.cmp === 'year' ? ' (rok temu)' : ' (poprzedni okres)'), short: E.cmp === 'off' ? 'bez porównania' : E.cmp === 'year' ? 'porównanie z tym samym okresem rok temu' : 'porównanie z poprzednim okresem', tip: cmpTip },
+    { k: 'status', text: 'statusy: ' + sp.text, short: sp.short, tip: sp.tip + ' Kliknij, aby zmienić.' },
+    { k: 'group', text: 'grupowanie: ' + GROUP_WORD[g] + (E.group === 'auto' ? ' (auto)' : ''), short: groupShort(E.group), tip: 'Na jakie przedziały dzielimy czas na wykresie i w tabeli „Sprzedaż w czasie”' + (E.group === 'auto' ? ' — wybrane automatycznie na podstawie długości zakresu.' : '.') },
   ];
 }
 const sentence = () => summaryParts().map(p => p.text).join(' · ');
+const SUM_KEY = 'osa-rp-sum-open';
+const sumOpen = () => { try { return localStorage.getItem(SUM_KEY) === '1'; } catch (e) { return false; } };
+function setSumOpen(open) { try { localStorage.setItem(SUM_KEY, open ? '1' : '0'); } catch (e) { /* bez pamięci — tylko na tę wizytę */ } renderSummary(); }
 
+/**
+ * Pasek „co oglądasz”: domyślnie jedno krótkie zdanie (każdy fragment otwiera swoje ustawienie) i „Szczegóły ▾”,
+ * które rozwijają pełne elementy z datami (stan rozwinięcia zapamiętany w przeglądarce). Podczas przeliczania — „Przeliczam…”.
+ */
 function renderSummary() {
   const box = S.ui.summary;
   if (!box) return;
-  box.replaceChildren(el('div', { class: 'rp-sum-title muted' }, 'Co oglądasz'), granSwitch(),
-    ...summaryParts().map((p, i) => [i ? el('span', { class: 'rp-dot', 'aria-hidden': 'true' }, '·') : null,
-      el('button', { type: 'button', class: 'rp-chip tip' + (S.changed.has(p.k) ? ' chg' : ''), 'data-k': p.k, title: p.tip + (S.changed.has(p.k) ? ' (zmienione przed chwilą)' : ''), onclick: () => focusSetting(p.k) },
-        p.sw ? el('i', { class: 'rp-sw ' + p.sw, 'aria-hidden': 'true' }) : null, p.text)]).flat(),
-    S.changed.size ? el('span', { class: 'rp-changed', role: 'status' }, 'Zmieniono: ' + [...S.changed].map(k => GROUP_NAME[k]).join(', ')) : null);
+  const parts = summaryParts(), open = sumOpen(), chg = k => S.changed.has(k);
+  const line = [];
+  parts.filter(p => p.short).forEach((p, i) => { if (i) line.push(el('span', { class: 'rp-dot', 'aria-hidden': 'true' }, '·'));
+    line.push(el('button', { type: 'button', class: 'rp-sumpart' + (chg(p.k) ? ' chg' : ''), 'data-k': p.k, title: p.tip + (chg(p.k) ? ' (zmienione przed chwilą)' : ''), onclick: () => focusSetting(p.k) }, p.short)); });
+  const more = el('button', { type: 'button', class: 'ghost small rp-summore', id: 'rpSumMore', 'aria-expanded': String(open), 'aria-controls': 'rpSumDetails',
+    title: open ? 'Zwiń szczegóły (skrót S)' : 'Pokaż szczegóły: dokładne daty okresu bieżącego i porównania, liczbę statusów, oś czasu (skrót S)', onclick: () => setSumOpen(!open) }, open ? 'Szczegóły ▴' : 'Szczegóły ▾');
+  const details = el('div', { class: 'rp-sumdetails', id: 'rpSumDetails', hidden: !open },
+    ...parts.map(p => el('button', { type: 'button', class: 'rp-chip tip' + (chg(p.k) ? ' chg' : ''), 'data-k': p.k, title: p.tip + (chg(p.k) ? ' (zmienione przed chwilą)' : ''), onclick: () => focusSetting(p.k) },
+      p.sw ? el('i', { class: 'rp-sw ' + p.sw, 'aria-hidden': 'true' }) : null, p.text)));
+  box.replaceChildren(el('div', { class: 'rp-sumline', id: 'rpSumLine' }, el('span', { class: 'rp-sum-title muted' }, 'Co oglądasz'), el('span', { class: 'rp-sumtext' }, ...line),
+    S.changed.size ? el('span', { class: 'rp-changed', role: 'status' }, 'Zmieniono: ' + [...S.changed].map(k => GROUP_NAME[k]).join(', ')) : null,
+    !S.data ? el('span', { class: 'rp-busy muted', id: 'rpBusy', role: 'status' }, el('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Przeliczam…') : null, more), details);
   document.querySelectorAll('#rpSettings [data-sec]').forEach(f => f.classList.toggle('chg', S.changed.has(f.dataset.sec)));
+  groupNote();
 }
 
-/** Przełącznik ziarnistości osi czasu (dzień / tydzień / miesiąc) w pasku „co oglądasz”; stan w adresie (gr=). */
-function granSwitch() {
-  const E = S.E, d = S.data && S.data.kind === E.v ? S.data : null;
-  if (E.v === 'zysk' && false) return null;
-  const eff = E.group !== 'auto' ? E.group : d && (d.group || (d.range && d.range.group)) ? (d.group || d.range.group) : E.v === 'lata' || E.v === 'rodziny' ? 'month' : autoGroup(E.days);
-  return el('span', { class: 'rp-segs rp-gran', id: 'rpGran', role: 'group', 'aria-label': 'Ziarnistość osi czasu' }, [['day', 'Dzień', 'Jedna pozycja na dzień'], ['week', 'Tydzień', 'Tygodnie ISO (poniedziałek = początek), z numerami tygodni; bieżący niepełny tydzień porównywany do tego samego dnia tygodnia i godziny'], ['month', 'Miesiąc', 'Miesiące kalendarzowe']]
-    .map(([k, l, t]) => el('button', { type: 'button', class: 'rp-seg', 'data-gr': k, 'aria-pressed': String(eff === k), title: t, onclick: () => setQ({ gr: k }) }, l)));
+/** Podpowiedź pod „Oś czasu”: przy „Automatycznie” mówi, co teraz wybrano. */
+function groupNote() {
+  const E = S.E, d = S.data && S.data.kind === E.v ? S.data : null, n = S.ui.groupNote;
+  if (!n) return;
+  const eff = E.group !== 'auto' ? E.group : d && (d.group || (d.range && d.range.group)) ? (d.group || d.range.group) : isYears(E.v) ? 'month' : autoGroup(E.days);
+  n.textContent = E.group === 'auto' ? 'Teraz: ' + GROUP_WORD[eff] + ' (dobrane do długości okresu).' : 'Wybrano ręcznie: ' + GROUP_WORD[eff] + '.';
 }
 
 function focusSetting(k) {
@@ -171,7 +196,7 @@ function bucketLabel(key, group) {
   return ddmm(key);
 }
 
-function chart(d, metric) {
+function chart(d, metric, wrap) {
   const W = 760, H = 260, L = 58, R = 10, T = 10, B = 30, iw = W - L - R, ih = H - T - B;
   const valOf = (s, prev) => (metric === 'orders' ? (prev ? s.prevOrders : s.orders) : metric === 'avg' ? (prev ? (s.prevOrders ? s.prevValue / s.prevOrders : 0) : s.avg) : (prev ? s.prevValue : s.value));
   const cmp = d.range.compare, g = d.range.group;
@@ -187,7 +212,7 @@ function chart(d, metric) {
   }
   const n = d.series.length, bw = iw / n, tip = el('div', { class: 'rp-tip', hidden: true }), hatch = withCost ? costDefs(svg) : null;
   if (hatch) s.append(hatch.defs);
-  const wrap = el('div', { class: 'rp-chart-wrap', id: 'rpChart' }, s, tip);
+  wrap.replaceChildren(s, tip);
   const every = Math.max(1, Math.ceil(n / 12)), pts = [];
   d.series.forEach((x, i) => {
     const v = vals[i], h = max ? ih * v / max : 0, bx = L + i * bw;
@@ -213,14 +238,18 @@ function chart(d, metric) {
   return wrap;
 }
 
+/** Karta wykresu — jeden węzeł na cały pobyt na ekranie: nowe dane podmieniają tylko jej zawartość (wykres #rpChart zostaje tym samym elementem). */
 function chartCard(d) {
+  const u = S.ui;
+  if (!u.chartCard) { u.chartWrap = el('div', { class: 'rp-chart-wrap', id: 'rpChart' }); u.chartCard = el('section', { class: 'card rp-card', id: 'rpChartCard' }); u.chartBody = el('div', { id: 'rpChartBody' }, u.chartWrap); }
   const segs = el('div', { class: 'rp-segs', role: 'group', 'aria-label': 'Co pokazać na wykresie' });
   for (const [k, label, tip] of METRICS) segs.append(el('button', { type: 'button', class: 'rp-seg', 'data-metric': k, 'aria-pressed': String(S.Q.met === k), title: tip, onclick: () => setQ({ met: k }, true) }, label));
   const legend = legendNode(d, null);
-  const card = el('section', { class: 'card rp-card' }, el('div', { class: 'rp-head' }, el('h2', null, 'Sprzedaż w czasie'), segs), legend, el('div', { id: 'rpChartBody' }, chart(d, S.Q.met)));
-  const cl = S.Q.met === 'value' ? costLegend(d.series.map(x => x.cost), () => card.replaceWith(chartCard(d)), 'rpCostLegend') : null;
+  chart(d, S.Q.met, u.chartWrap);
+  u.chartCard.replaceChildren(el('div', { class: 'rp-head' }, el('h2', null, 'Sprzedaż w czasie'), segs), legend, u.chartBody);
+  const cl = S.Q.met === 'value' ? costLegend(d.series.map(x => x.cost), () => chartCard(d), 'rpCostLegend') : null;
   if (cl) legend.append(cl);
-  return card;
+  return u.chartCard;
 }
 
 /** Definicje zakładek: kolumny (klucz, nagłówek, tooltip, typ) i wiersze z odpowiedzi serwera. */
@@ -308,7 +337,7 @@ function clientsCard(d) {
 function emptyBox(what) {
   const widen = el('button', { type: 'button', class: 'secondary', id: 'rpWiden', title: 'Ustaw zakres na ostatnie 90 dni', onclick: () => { const t = isoDate(new Date()); setQ({ od: addDays(t, -89), do: t }); } }, 'Pokaż ostatnie 90 dni');
   return el('div', { class: 'card' }, el('div', { class: 'empty', id: 'rpEmpty' }, 'Brak zamówień w okresie ' + what + ' przy ustawieniu „statusy: ' + statusPhrase().text + '”.',
-    el('p', { class: 'muted' }, 'Zmień zakres dat albo ustawienie statusów (np. dołącz anulowane) — przyciski w pasku powyżej.'), el('div', null, widen)));
+    el('p', { class: 'muted' }, 'Zmień zakres dat albo ustawienie statusów (np. dołącz anulowane) — w „Ustawieniach” (albo kliknij fragment paska „Co oglądasz”).'), el('div', null, widen)));
 }
 
 function renderOkres(d) {
@@ -353,7 +382,8 @@ function buildSettings() {
   u.viewSeg = segmented({ label: 'Widok raportu', cls: 'vert', key: 'v', options: VIEWS.map(([k, l, t]) => [k, l, t, 'rpView-' + k]), value: S.Q.v, onChange: k => setQ({ v: k, tab: 'series', so: '', item: '' }) });
   u.cmp = segmented({ id: 'rpCmp', label: 'Porównanie', cls: 'vert', key: 'cmp', options: [['prev', 'Poprzedni okres', CMP_OPTS[0][2] + ' (tyle samo dni)'], ['year', 'Ten sam okres rok temu', CMP_OPTS[1][2]], ['off', 'Bez porównania', CMP_OPTS[2][2]]], value: S.Q.cmp, onChange: v => setQ({ cmp: v }) });
   u.cmpNote = el('div', { class: 'rp-hint', id: 'rpCmpNote' });
-  u.group = segmented({ id: 'rpGroup', label: 'Grupowanie osi czasu', cls: 'vert', key: 'gr', options: GROUPS, value: S.Q.gr, onChange: v => setQ({ gr: v }) });
+  u.group = segmented({ id: 'rpGroup', label: 'Oś czasu: grupuj po', cls: 'full', key: 'gr', options: GROUPS, value: S.Q.gr, onChange: v => setQ({ gr: v }) });
+  u.groupNote = el('div', { class: 'rp-hint', id: 'rpGroupNote' });
   u.yf = sel('rpYf', years.map(y => [String(y), String(y)]), v => setQ({ yf: v }), 'Od roku'); u.yt = sel('rpYt', years.map(y => [String(y), String(y)]), v => setQ({ yt: v }), 'Do roku');
   u.per = segmented({ id: 'rpPer', label: 'Rodzaj okresów', cls: 'full', key: 'per', options: PERIODS, value: S.Q.per, onChange: v => setQ({ per: v }) });
   u.ss = sel('rpSs', MONTHS_LONG.map((m, i) => [String(i + 1), m]), v => setQ({ ss: v }), 'Sezon od miesiąca');
@@ -368,15 +398,14 @@ function buildSettings() {
     el('div', { class: 'rp-pair' }, mk('range', 'Od roku', 'Pierwszy rok porównania', u.yf), mk('range', 'Do roku', 'Ostatni rok — jest „bieżący”, a poprzedni to „porównanie”', u.yt)),
     mkGroup('range', 'Okres w każdym roku', 'Jak wyznaczyć okres w każdym roku: cały rok kalendarzowy, sezon od wybranego miesiąca albo te same dni (pola niżej)', u.per), u.ssField);
   u.rangeBlock = el('div', { class: 'rp-stack rp-field', 'data-sec': 'range' }, u.presets, u.range.node);
-  u.rangeSec = filterSection('Okres', el('div', { class: 'rp-stack' }, u.lataBlock, u.rangeBlock), { tip: 'Jakie dni (albo lata) pokazuje raport' });
+  u.groupField = el('div', { class: 'rp-stack' }, mkGroup('group', 'Oś czasu', 'Na jakie przedziały dzielić czas na wykresie i w tabeli „Sprzedaż w czasie”. „Auto” dobiera je do długości okresu: dni do 2 miesięcy, tygodnie do ok. roku, dalej miesiące. Skrót O.', u.group), u.groupNote);
+  u.rangeSec = filterSection('Okres', el('div', { class: 'rp-stack' }, u.lataBlock, u.rangeBlock, u.groupField), { tip: 'Jakie dni (albo lata) pokazuje raport i jak dzielić je na osi czasu' });
   u.cmpSec = filterSection('Porównanie', el('div', { class: 'rp-stack' }, el('div', { class: 'rp-stack', 'data-sec': 'cmp', id: 'rpCmpBlock' }, u.cmp, u.cmpNote), u.ytdSw), { tip: 'Z czym zestawić okres bieżący — każda liczba pokazuje zmianę względem porównania' });
   u.panelNodes = [
     filterSection('Widok', u.viewSeg, { tip: 'Co raport pokazuje: jeden okres, lata obok siebie, zysk, rodziny albo dowolny zestaw produktów' }),
     u.rangeSec, u.cmpSec,
-    filterSection('Grupowanie osi czasu', el('div', { class: 'rp-stack' }, el('p', { class: 'rp-hint' }, 'Na jakie przedziały dzielić czas na wykresie i w tabeli „Sprzedaż w czasie”. „Automatycznie” dobiera je do długości zakresu.'),
-      mkGroup('group', 'Grupuj po', 'Jak grupować sprzedaż na wykresie i w tabeli czasu', u.group)), { fold: true, tip: 'Opcja zaawansowana: dni, tygodnie albo miesiące. Domyślnie wybierane automatycznie.' }),
     filterSection('Które zamówienia liczyć', el('div', { 'data-sec': 'status', class: 'rp-stack rp-field', id: 'rpStatusSec' }, el('p', { class: 'rp-hint' }, 'Domyślnie liczone są zamówienia we wszystkich statusach poza anulowanymi. Tabela „Statusy” pokazuje wszystkie.'), u.cancelSw, u.statusBox),
-      { fold: true, tip: 'Opcja zaawansowana: wybór statusów zamówień wchodzących do sum. Domyślnie wszystkie poza anulowanymi.' }),
+      { fold: true, id: 'rpStatusFold', tip: 'Opcja zaawansowana: wybór statusów zamówień wchodzących do sum. Domyślnie wszystkie poza anulowanymi.' }),
     el('div', { class: 'rp-reset' }, u.reset)];
 }
 
@@ -449,14 +478,17 @@ function sync() {
   S.shown = { ...S.Q };
   syncControls();
   const key = JSON.stringify(dataKeys(S.Q).map(k => S.Q[k]));
-  if (key !== S.dataKey || !S.data) { S.dataKey = key; load(); } else { renderSummary(); renderBody(); }
+  if (key !== S.dataKey || !S.data) {
+    S.dataKey = key; clearTimeout(S.loadTimer);
+    if (S.bodyKind === S.Q.v) { S.seq++; S.data = null; S.ui.body.classList.add('rp-stale'); S.ui.body.setAttribute('aria-busy', 'true'); renderSummary(); S.loadTimer = setTimeout(load, 150); } else load();
+  } else { renderSummary(); renderBody(); }
 }
 
 function load() {
   const my = ++S.seq, E = S.E;
   S.data = null;
   renderSummary();
-  S.ui.body.replaceChildren(loadingBox('Liczenie raportu: ' + sentence() + '…'));
+  if (S.bodyKind !== E.v) { S.ui.body.replaceChildren(loadingBox('Liczenie raportu: ' + sentence() + '…')); S.bodyKind = ''; }   // inny widok — stare wyniki nic nie mówią
   const req = E.v === 'rodziny' ? rodzinyFetch(api, E, S.Q, lataRequest) : E.v === 'zestaw' ? zestawFetch(api, E, S.Q) : E.v === 'lata' ? api('reports:years', lataRequest(E)) : api(E.v === 'zysk' ? 'reports:profit' : 'reports:sales', { from: E.from, to: E.to, group: E.group, compare: E.cmp !== 'off', compareTo: E.cmp === 'year' ? 'year' : 'prev', statusIds: E.ids });
   req.then(d => {
     if (my !== S.seq || !S.alive) return;
@@ -467,6 +499,7 @@ function load() {
   }).catch(err => {
     if (my !== S.seq || !S.alive) return;
     const adm = (ctx.boot && ctx.boot.adminUrl) || 'https://takimarket.pl/adm/';
+    S.bodyKind = ''; unstale();
     S.ui.body.replaceChildren(el('div', { class: 'card' }, el('div', { class: 'empty error', id: 'rpError' },
       isUnavailable(err) ? 'Raporty sprzedaży potrzebują backendu Cloudflare — ten serwer ich nie obsługuje.' : 'Nie udało się policzyć raportu (' + sentence() + '): ' + err.message,
       el('p', null, sellyLink('Otwórz raporty w panelu Selly ↗', adm + '?a=statistics.orders', 'Raporty sprzedaży w panelu Selly (nowa karta)')),
@@ -474,21 +507,23 @@ function load() {
   });
 }
 
+function unstale() { S.ui.body.classList.remove('rp-stale'); S.ui.body.removeAttribute('aria-busy'); }
 function renderBody() {
   const d = S.data;
   if (!d) return;
+  S.bodyKind = d.kind; unstale();
   S.ui.body.replaceChildren(...(d.kind === 'rodziny' ? rodzinyRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence, reload: load }) : d.kind === 'zestaw' ? zestawRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence }) : d.kind === 'lata' ? lataRender({ Q: S.Q, E: S.E, d, setQ, api, statusPhrase, sentence }) : d.kind === 'zysk' ? zyskRender({ Q: S.Q, d, setQ, statusPhrase, legend: legendNode(d, 'rpLegend') }) : renderOkres(d)));
 }
 
 function build(el0) {
   const u = S.ui;
   buildSettings();
-  u.summary = el('section', { class: 'rp-summary', id: 'rpSummary', 'aria-label': 'Co oglądasz: zakres, porównanie, statusy i grupowanie' });
+  u.summary = el('section', { class: 'rp-summary', id: 'rpSummary', 'aria-label': 'Co oglądasz: okres, porównanie i liczone statusy' });
   u.body = el('div', { id: 'rpBody' });
   u.layout = filterLayout({ key: 'raporty', panelId: 'rpSettings', panelNodes: u.panelNodes, mainNodes: [u.body], defaultOpen: window.innerWidth >= 980 });
   u.panelEl = u.layout.panel;
   u.settingsBtn = el('button', { type: 'button', class: 'secondary', id: 'rpSettingsBtn', 'aria-expanded': 'false', 'aria-controls': 'rpSettings', title: 'Pokaż lub ukryj ustawienia raportu: zakres, porównanie, grupowanie, statusy', onclick: () => toggleSettings() }, 'Ustawienia ▾');
-  el0.replaceChildren(pageToolbar({ title: 'Raporty sprzedaży', sub: 'Sprzedaż, produkty, klienci i regiony — policzone z zamówień zapisanych w panelu. Aktualne ustawienia widać w pasku poniżej.', actions: [u.settingsBtn] }), u.summary, u.layout.node);
+  el0.replaceChildren(pageToolbar({ title: 'Raporty sprzedaży', sub: 'Ile sprzedaliśmy i jak to wypada na tle poprzedniego okresu — z zamówień w kopii panelu. Zmień okres lub widok w „Ustawieniach”.', actions: [u.settingsBtn] }), u.summary, u.layout.node);
   toggleSettings(u.layout.isOpen());
   S.built = true;
 }
@@ -499,16 +534,18 @@ export default {
   routes: [],
   mount(el0, params) {
     S.alive = true;
-    if (!S.built || S.root !== el0) { S.root = el0; S.dataKey = ''; S.data = null; S.shown = null; build(el0); }
+    if (!S.built || S.root !== el0) { S.root = el0; S.dataKey = ''; S.data = null; S.shown = null; S.bodyKind = ''; S.ui.chartCard = null; build(el0); }
     S.Q = readQ(params && params.query);
     const click = id => () => { const n = document.getElementById(id); if (!n || n.disabled) return false; n.click(); return true; };
     shortcuts.scope('raporty', [
       { keys: ['d'], label: 'D', desc: 'Przejdź do pola daty „od dnia”', run: () => { const n = document.getElementById('rpFrom'); if (!n || n.offsetParent === null) return false; n.focus(); return true; } },
       { keys: ['c'], label: 'C', desc: 'Przejdź do ustawienia porównania', run: () => { focusSetting('cmp'); return true; } },
       { keys: ['f'], label: 'F', desc: 'Przejdź do wyboru liczonych statusów', run: () => { focusSetting('status'); return true; } },
+      { keys: ['o'], label: 'O', desc: 'Przejdź do ustawienia osi czasu (dni / tygodnie / miesiące)', run: () => { focusSetting('group'); return true; } },
+      { keys: ['s'], label: 'S', desc: 'Pokaż lub zwiń szczegóły paska „Co oglądasz”', run: () => { setSumOpen(!sumOpen()); return true; } },
       { keys: ['e'], label: 'E', desc: 'Otwórz menu pobierania tabeli', run: click('rpDl') },
     ]);
     sync();
   },
-  unmount() { S.seq++; S.alive = false; clearTimeout(S.timer); },
+  unmount() { S.seq++; S.alive = false; clearTimeout(S.timer); clearTimeout(S.loadTimer); },
 };

@@ -780,9 +780,9 @@ export function filterLayout({ key, panelId, mainNodes, panelNodes, defaultOpen 
   return L;
 }
 /** Sekcja panelu filtrów: tytuł + treść; `fold: true` zwija ją (opcje zaawansowane). */
-export function filterSection(title, body, { fold = false, open = false, tip } = {}) {
-  if (!fold) return el('section', { class: 'fp-sec' }, el('h3', { title: tip || null, class: tip ? 'tip' : null }, title), body);
-  return el('details', { class: 'fp-sec fold', open }, el('summary', { title: tip || null }, title), body);
+export function filterSection(title, body, { fold = false, open = false, tip, id } = {}) {
+  if (!fold) return el('section', { class: 'fp-sec', id: id || null }, el('h3', { title: tip || null, class: tip ? 'tip' : null }, title), body);
+  return el('details', { class: 'fp-sec fold', open, id: id || null }, el('summary', { title: tip || null }, title), body);
 }
 
 /**
@@ -904,4 +904,4 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=196affa';   // pole daty i zakres dat
+export * from './datepicker.js?v=5281496';   // pole daty i zakres dat

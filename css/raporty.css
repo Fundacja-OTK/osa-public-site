@@ -8,14 +8,26 @@
 .rp-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s2); font-size: var(--fs-xs); margin: 0 0 var(--s2); }
 
 /* Pasek „co oglądasz” */
-.rp-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px; margin-top: var(--s3); padding: var(--s2) var(--s3); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r2); box-shadow: var(--shadow-card); }
+.rp-summary { display: block; margin-top: var(--s3); padding: var(--s2) var(--s3); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r2); box-shadow: var(--shadow-card); }
 @media (min-width: 980px) { .rp-summary { position: sticky; top: 0; z-index: 5; } }
 .rp-sum-title { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin-right: var(--s2); }
 .rp-dot { color: var(--muted); }
 .rp-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 10px; border: 1px solid var(--border-strong); border-radius: var(--r-pill); background: var(--surface-2); color: var(--text); font-size: var(--fs-sm); cursor: pointer; text-align: left; max-width: 100%; }
 .rp-chip:hover { border-color: var(--accent); background: var(--hover); }
 .rp-chip.chg { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); font-weight: 600; }
-.rp-changed { flex-basis: 100%; font-size: var(--fs-xs); color: var(--accent); font-weight: 600; }
+.rp-changed { font-size: var(--fs-xs); color: var(--accent); font-weight: 600; }
+.rp-sumline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--s2); min-height: 30px; }
+.rp-sumtext { flex: 1 1 auto; min-width: 0; display: inline; line-height: 1.6; }
+.rp-sumpart { border: 0; background: transparent; padding: 0 2px; margin: 0; font: inherit; font-size: var(--fs-sm); color: var(--text); cursor: pointer; text-align: left; border-radius: var(--r1); }
+.rp-sumpart:first-child { font-weight: 600; }
+.rp-sumpart:hover { text-decoration: underline dotted; text-underline-offset: 3px; background: var(--hover); }
+.rp-sumpart.chg { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
+.rp-summore { flex: none; margin-left: auto; }
+.rp-busy { display: inline-flex; align-items: center; font-size: var(--fs-xs); }
+.rp-sumdetails { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--border); }
+.rp-sumdetails[hidden] { display: none; }
+/* Przeliczanie: stare wyniki zostają (przyciemnione, bez skoku układu), aż przyjdą nowe */
+#rpBody.rp-stale > * { opacity: .55; transition: opacity var(--dur) var(--ease); pointer-events: none; }
 [data-sec].chg { outline: 2px solid var(--accent-soft); outline-offset: 2px; border-radius: var(--r1); }
 [data-sec].flash { animation: rpflash 1.6s var(--ease); }
 @keyframes rpflash { 0%, 60% { background: var(--accent-soft); } 100% { background: transparent; } }

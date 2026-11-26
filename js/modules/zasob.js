@@ -1,14 +1,14 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=196affa';
-import { askConfirm } from '../core/confirm.js?v=196affa';
-import { listView } from '../core/listView.js?v=196affa';
-import { api, ctx } from '../core/client.js?v=196affa';
-import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=196affa';
-import { go, setLeaveGuard } from '../core/router.js?v=196affa';
-import { RESOURCES } from '../core/resources.js?v=196affa';
-import { registerListKeys } from '../core/listKeys.js?v=196affa';
-import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=196affa';
+import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=5281496';
+import { askConfirm } from '../core/confirm.js?v=5281496';
+import { listView } from '../core/listView.js?v=5281496';
+import { api, ctx } from '../core/client.js?v=5281496';
+import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=5281496';
+import { go, setLeaveGuard } from '../core/router.js?v=5281496';
+import { RESOURCES } from '../core/resources.js?v=5281496';
+import { registerListKeys } from '../core/listKeys.js?v=5281496';
+import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=5281496';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
