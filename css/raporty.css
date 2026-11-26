@@ -30,7 +30,13 @@
 /* Ustawienia */
 #rpSettings .rp-stack { display: grid; gap: var(--s3); }
 #rpSettings [hidden] { display: none; }
-.rp-viewsw { display: flex; flex-wrap: wrap; gap: var(--s2); }
+#rpSettings .fp-sec[hidden] { display: none; }
+.rp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.rp-flabel { align-self: flex-start; }
+.rp-hint { margin: 0; font-size: var(--fs-xs); color: var(--muted); font-weight: 400; line-height: 1.4; }
+#rpSettings .rp-presets { width: 100%; justify-content: center; }
+#rpSettings .menu:has(> .rp-presets) { display: flex; }
+#rpSettings .switch { align-self: flex-start; }
 .rp-checks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: var(--s2) 0; max-height: 240px; overflow: auto; }
 .rp-opts-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .rp-reset { border-top: 1px solid var(--border); padding-top: var(--s3); }

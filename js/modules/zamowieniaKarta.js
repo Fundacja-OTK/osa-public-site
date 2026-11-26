@@ -1,9 +1,9 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=c31db2e';
-import { askConfirm } from '../core/confirm.js?v=c31db2e';
-import { api, ctx } from '../core/client.js?v=c31db2e';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=c31db2e';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput } from '../core/ui.js?v=1c81125';
+import { askConfirm } from '../core/confirm.js?v=1c81125';
+import { api, ctx } from '../core/client.js?v=1c81125';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=1c81125';
 const gw = e => gateWrite(e, 'zamowienia');   // bez prawa zmian w sekcji: wyszarzone z podpowiedzią (core/ui.js)
 
 const EDIT_KEY = 'osa-ord-edit';
@@ -456,14 +456,23 @@ function totalsCard(C) {
 function invoicesCard(C) {
   const host = el('div', { class: 'card', id: 'ordInvoices' });
   const pick = (inv, keys) => { for (const k of keys) if (inv[k] != null && inv[k] !== '') return inv[k]; return ''; };
-  // Wystawianie zostaje w Selly: POST /api/orders/{id}/invoices wymaga podania numeru i danych sprzedawcy, a numerację prowadzi Selly
-  // (numer nadany przez API mógłby się powtórzyć albo wyprzedzić licznik Selly). Panel: odczyt, rozliczenie, wydruk.
+  // Wystawianie: formularz Selly „Utworzenie faktury do zamówienia” na sesji użytkownika (fakturaWystaw.js → invoices:issue) — numer i dane
+  // sprzedawcy nadaje Selly (nie REST API, które wymagałoby wpisania numeru ręcznie). Korekta i usunięcie: w Selly (administrator).
   const admin = String(C.sellyUrl || '').split('?')[0];
-  const links = el('div', { class: 'ord-actions' },
-    sellyLink('Wystaw fakturę w Selly ↗', issueUrl(admin, C.id), 'Otwiera w nowej karcie ekran Selly „Utworzenie faktury do zamówienia” dla tego zamówienia. To Selly nadaje kolejny numer i wpisuje dane sprzedawcy — dlatego wystawianie zostaje w Selly. Po zapisie wróć tu i kliknij „Odśwież”.'),
+  const issueHost = el('div', { id: 'ordInvIssueHost' });
+  const issueBtn = gateWrite(el('button', { type: 'button', class: 'secondary', id: 'ordInvIssue',
+    title: 'Pokazuje podgląd faktury VAT przygotowanej przez Selly dla tego zamówienia (numer, nabywca, pozycje, VAT) i pozwala ją wystawić po potwierdzeniu',
+    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=1c81125');   // leniwie: karta bez dodatkowego pliku na starcie
+      if (!issueHost.firstChild) issueHost.replaceChildren(issuePanel({ orderId: C.id, onDone: () => load(), onClose: () => issueHost.replaceChildren() })); } }, 'Wystaw fakturę…'), 'faktury');
+  const isAdmin = !!(ctx.boot && ctx.boot.isAdmin);
+  const linksFor = hasActive => el('div', { class: 'ord-actions' },
+    hasActive ? null : issueBtn,
+    hasActive && isAdmin ? sellyLink('Korekta / usunięcie w Selly ↗', issueUrl(admin, C.id), 'Tylko administrator: korekta i usunięcie faktury są w panelu Selly (numeracja korekt). Otwiera fakturę tego zamówienia w nowej karcie.') : null,
+    hasActive ? null : sellyLink('Wystaw w Selly ↗', issueUrl(admin, C.id), 'Otwiera w nowej karcie ekran Selly „Utworzenie faktury do zamówienia” — gdy trzeba zmienić pozycje, kwoty albo dane nabywcy przed wystawieniem'),
     el('a', { href: '#/zamowienia/faktury', class: 'btn-link', id: 'ordInvAll', title: 'Lista faktur ze wszystkich zamówień: filtry, rozliczenia, eksport' }, 'Wszystkie faktury →'));
+  let links = linksFor(false);
   const refresh = el('button', { type: 'button', class: 'small-btn secondary', id: 'ordInvRefresh', title: 'Pobiera faktury tego zamówienia z Selly jeszcze raz (np. po wystawieniu faktury w Selly)', onclick: () => load() }, '↻ Odśwież');
-  const head = el('div', { class: 'card-head' }, el('h2', null, 'Faktury i paragon'), el('div', { class: 'sub' }, 'Dokumenty sprzedaży tego zamówienia z Selly: wydruk i rozliczenie.'), refresh);
+  const head = el('div', { class: 'card-head' }, el('h2', null, 'Faktury i paragon'), el('div', { class: 'sub' }, 'Dokumenty sprzedaży tego zamówienia z Selly: wystawienie faktury VAT, wydruk i rozliczenie.'), refresh);
   const o = C.o || {};
   const receipt = o.receipt_number ? dl([[el('span', { class: 'tip', title: 'Numer paragonu zapisany w zamówieniu w Selly' }, 'Paragon'), el('span', { id: 'ordReceipt' }, String(o.receipt_number) + (o.receipt_date ? ' (' + dayOf(o.receipt_date) + ')' : ''))]]) : null;
   const editHost = el('div', { id: 'ordInvEditHost' });
@@ -473,6 +482,7 @@ function invoicesCard(C) {
     try {
       const r = await api('orders:invoices', { id: C.id });
       const list = r.invoices || [];
+      links = linksFor(list.some(i => Number(i.status_id) !== 4));
       const cols = [['Numer', 'Numer faktury (prefiks + numer + sufiks)'], ['Data', 'Data wystawienia'], ['Wartość (zł)', 'Wartość faktury (brutto)'],
         ['Zapłacono (zł)', 'Kwota zapłacona za fakturę (pole „Zapłacono za fakturę” w Selly)'], ['Termin', 'Termin płatności z faktury'], ['Status', 'Stan rozliczenia faktury w Selly'], ['Działania', 'Działania']];
       const openEdit = inv => editHost.replaceChildren(invoiceEditor({ orderId: C.id, inv, key: 'c' + inv.invoice_id,
@@ -487,7 +497,7 @@ function invoicesCard(C) {
             el('td', { class: 'nw inv-acts' }, printButton('ordInvPrint-' + inv.invoice_id, async () => inv, { orderNumber: o.order_number }),
               Number(inv.status_id) === 4 ? null : gw(el('button', { type: 'button', class: 'small-btn secondary', id: 'ordInvEdit-' + inv.invoice_id,
                 title: 'Zmień status rozliczenia, kwotę zapłaconą, termin lub formę płatności i uwagi (numer i pozycje bez zmian)', onclick: () => openEdit(inv) }, 'Rozliczenie')))); })))) :
-        el('div', { class: 'empty' }, 'Do tego zamówienia nie wystawiono faktur.'), editHost, links);
+        el('div', { class: 'empty' }, 'Do tego zamówienia nie wystawiono faktur.'), editHost, links, issueHost);
     } catch (e) { host.replaceChildren(head, receipt, el('div', { class: 'notice warn', role: 'status' }, 'Nie udało się pobrać faktur z Selly: ' + (e.message || 'błąd')), links); }
   }
   load();
@@ -498,7 +508,7 @@ function invoicesCard(C) {
 
 const SELLY_ONLY = [
   ['Usuwanie pozycji z zamówienia', 'API pozwala pozycje dodawać i zmieniać, ale nie usuwać.'],
-  ['Wystawianie, korekta i usuwanie faktury oraz paragon', 'Numerację i dane sprzedawcy prowadzi Selly; API wymagałoby wpisania numeru ręcznie. Rozliczenie i wydruk faktury — w sekcji „Faktury i paragon”.'],
+  ['Korekta i usuwanie faktury oraz paragon', 'Numerację korekt i paragonów prowadzi Selly. Fakturę VAT wystawisz w sekcji „Faktury i paragon” (formularzem Selly); rozliczenie i wydruk — tamże.'],
   ['Opiekun zamówienia', 'API nie udostępnia listy pracowników, z której można by wybrać opiekuna.'],
   ['Data sprzedaży, zwrot transakcji, numer paczki i waga przesyłki', 'Tych pól nie ma w zapisie zamówienia przez API.'],
   ['Notatki grupowe (widoczne dla wybranych grup)', 'API nie opisuje, jak wskazać grupy, które widzą notatkę.'],

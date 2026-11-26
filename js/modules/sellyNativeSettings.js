@@ -2,12 +2,12 @@
 // edycja tylko pól dozwolonych (allowlista w extension/lib/sellyNative.js), podgląd zmian (było → będzie) i potwierdzenie przed zapisem.
 // Pola poufne (hasła, klucze, SMTP…) Worker maskuje po stronie serwera — tu widać tylko „••• (ustawione)” / „(puste)”, bez edycji.
 // Użycie: createSettings({ id, title, screen, a, intro? }) → moduł panelu (mount / unmount), tak jak createNative.
-import { el, loadingBox } from '../core/ui.js?v=c31db2e';
-import { confirmDialog } from '../core/confirm.js?v=c31db2e';
-import { sellyCall } from './sellyNative.js?v=c31db2e';
-import { sellyUrl } from './_placeholder.js?v=c31db2e';
+import { el, loadingBox } from '../core/ui.js?v=1c81125';
+import { confirmDialog } from '../core/confirm.js?v=1c81125';
+import { sellyCall } from './sellyNative.js?v=1c81125';
+import { sellyUrl } from './_placeholder.js?v=1c81125';
 
-/** cfg: { id, title, screen (klucz w SCREENS), a (trasa strony w Selly), intro? (krótki opis ekranu) } */
+/** cfg: { id, title, screen (klucz w SCREENS), a (trasa strony w Selly), intro? (krótki opis ekranu), links?: [{ href:'#/…', label, tip }] (powiązane widoki panelu) } */
 export function createSettings(cfg) {
   let root = null, seq = 0, open = {};
   const sellyLink = (label, tip) => el('a', { href: sellyUrl('', '?a=' + cfg.a), target: '_blank', rel: 'noopener', class: 'btn-link', id: 'cfgSelly', title: tip || 'Otwiera ten sam ekran w panelu Selly, w nowej karcie' }, label);
@@ -16,7 +16,7 @@ export function createSettings(cfg) {
   function unmount() { seq++; root = null; }
 
   const toolbar = (sub, extra, canSave) => el('div', { class: 'page-toolbar' }, el('div', { class: 'pt-title' }, el('h2', null, cfg.title), sub ? el('div', { class: 'sub' }, sub) : null),
-    el('div', { class: 'pt-actions' }, extra, sellyLink(canSave === false ? 'Zmień w Selly ↗' : 'Otwórz w Selly ↗',
+    el('div', { class: 'pt-actions' }, extra, (cfg.links || []).filter(l => /^#\/[\w/-]+$/.test(l.href)).map(l => el('a', { href: l.href, class: 'btn-secondary', title: l.tip || null }, l.label)), sellyLink(canSave === false ? 'Zmień w Selly ↗' : 'Otwórz w Selly ↗',
       canSave === false ? 'Tego ekranu nie zmieniasz z panelu OSA — otwiera go w panelu Selly, w nowej karcie' : null)));
 
   function errorBox(r) {

@@ -2,7 +2,7 @@
 //   const ok = await confirmDialog({ title: 'Usunąć?', body: 'Tego nie można cofnąć.', confirmLabel: 'Usuń', danger: true });
 // Dostępność: role=dialog (przy danger — alertdialog), aria-modal, aria-labelledby/-describedby, pułapka Tab, Esc = anuluj,
 // kliknięcie tła = anuluj, fokus wraca do elementu, który otworzył okno. Treść wyłącznie przez el()/textContent.
-import { el } from './ui.js?v=c31db2e';
+import { el } from './ui.js?v=1c81125';
 
 let cur = null;   // { finish } — jedno okno naraz (nowe anuluje poprzednie)
 let seq = 0;

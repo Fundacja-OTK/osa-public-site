@@ -1,25 +1,26 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Lista = wspólny komponent core/listView.js (tabela, sortowanie, strony, zaznaczenie z dolnym paskiem, stan w adresie, świeżość).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=c31db2e';
-import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=c31db2e';
-import { askConfirm } from '../core/confirm.js?v=c31db2e';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=c31db2e';
-import { api, ctx } from '../core/client.js?v=c31db2e';
-import { go, setLeaveGuard } from '../core/router.js?v=c31db2e';
-import { noteVisit } from '../core/recents.js?v=c31db2e';
-import { registerListKeys } from '../core/listKeys.js?v=c31db2e';
-import { changedIds } from '../core/liveRefresh.js?v=c31db2e';
-import { cachedRead } from '../core/cache.js?v=c31db2e';
-import { listView } from '../core/listView.js?v=c31db2e';
-import * as LL from '../core/listLogic.js?v=c31db2e';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=c31db2e';
-import { showNewOrder } from './zamowienieNowe.js?v=c31db2e';
-import { showInvoices } from './zamowieniaFaktury.js?v=c31db2e';
-import { showPick } from './zamowieniaKompletacja.js?v=c31db2e';
-import { createFilterUi } from './zamowieniaFiltry.js?v=c31db2e';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=c31db2e';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=c31db2e';
+import { payState } from '../lib/payState.js?v=1c81125';
+import { photoSrc } from '../core/photo.js?v=1c81125';
+import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=1c81125';
+import { askConfirm } from '../core/confirm.js?v=1c81125';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=1c81125';
+import { api, ctx } from '../core/client.js?v=1c81125';
+import { go, setLeaveGuard } from '../core/router.js?v=1c81125';
+import { noteVisit } from '../core/recents.js?v=1c81125';
+import { registerListKeys } from '../core/listKeys.js?v=1c81125';
+import { changedIds } from '../core/liveRefresh.js?v=1c81125';
+import { cachedRead } from '../core/cache.js?v=1c81125';
+import { listView } from '../core/listView.js?v=1c81125';
+import * as LL from '../core/listLogic.js?v=1c81125';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=1c81125';
+import { showNewOrder } from './zamowienieNowe.js?v=1c81125';
+import { showInvoices } from './zamowieniaFaktury.js?v=1c81125';
+import { showPick } from './zamowieniaKompletacja.js?v=1c81125';
+import { createFilterUi } from './zamowieniaFiltry.js?v=1c81125';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=1c81125';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=1c81125';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SIZES = [25, 50, 100, 200];
@@ -139,15 +140,13 @@ function itemsCell(r) {
   return ul;
 }
 function paidBadge(r) {
-  const paid = Number(r.paid) || 0, total = Number(r.total) || 0;
-  if (total > 0 && paid >= total - 0.01) return el('span', { class: 'ord-ico yes', title: 'Zamówienie opłacone w całości (wpłacono ' + money(paid) + ' zł)' }, '✓ opłacone');
-  if (paid > 0) return el('span', { class: 'ord-ico', title: 'Wpłacono ' + money(paid) + ' z ' + money(total) + ' zł' }, '◐ częściowo');
-  return el('span', { class: 'ord-ico no', title: 'Brak wpłaty w Selly (dla płatności przy odbiorze to normalne)' }, '✗ nieopłacone');
+  const ps = payState(r.paid, r.total);
+  return el('span', { class: 'ord-ico ' + ps.cls, title: ps.tip }, ps.label);
 }
 
 const COLS = [
   { key: 'nr', label: 'Nr i status', locked: true, tipHeader: true,
-    tip: 'Numer zamówienia, data złożenia, status w Selly oraz stan płatności (opłacone / nieopłacone). Kliknij Nr, Data lub Status, aby sortować.',
+    tip: 'Numer zamówienia, data złożenia, status w Selly oraz stan płatności (opłacone / nieopłacone / nadpłata / niedopłata). Kliknij Nr, Data lub Status, aby sortować.',
     sorts: [{ label: 'Nr', sort: 'number', tip: 'Sortuj po numerze zamówienia' }, { label: 'Data', sort: 'date', firstDir: 'desc', tip: 'Sortuj po dacie i godzinie złożenia' }, { label: 'Status', sort: 'status', tip: 'Sortuj po statusie zamówienia' }],
     cell: r => el('div', { class: 'ord-cell-no' },
       el('a', { href: '#/zamowienia/' + encodeURIComponent(r.id), class: 'big-id ord-no', title: 'Otwórz zamówienie', onclick: () => { S.listHash = location.hash; } }, r.number || r.id),

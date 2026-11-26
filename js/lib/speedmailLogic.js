@@ -478,6 +478,150 @@
     });
   }
 
+  // ─── Poprzednie sezony: porównanie tempa i propozycje szczytów sprzedaży ──────────────────────────────
+
+  // years — ile poprzednich sezonów pobiera panel (domyślnie); maxYears — górna granica parametru akcji sm:history; win — długość okna szczytu (dni)
+  const HIST = { years: 6, maxYears: 8, win: 7, top: 3, maxDays: 400 };
+  const leap = y => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  /** Ten sam dzień kalendarzowy k lat wcześniej (29.02 w roku nieprzestępnym → 28.02). */
+  function shiftYear(d, k) {
+    const y = Number(String(d).slice(0, 4)) - k, md = String(d).slice(5, 10);
+    return String(y).padStart(4, '0') + '-' + (md === '02-29' && !leap(y) ? '02-28' : md);
+  }
+  /** Sezony porównawcze: ten sam zakres dat (cfg.pace) 1…n lat wcześniej; year = rok początku sezonu. */
+  function seasons(cfg, n) {
+    const out = [], from = cfg.pace.from, to = cfg.pace.to;
+    const m = Math.min(HIST.maxYears, Math.max(0, Math.floor(Number(n) || 0)));
+    for (let k = 1; k <= m; k++) out.push({ year: Number(from.slice(0, 4)) - k, k, from: shiftYear(from, k), to: shiftYear(to, k) });
+    return out;
+  }
+  /** Dni bieżącego sezonu (od cfg.pace.from do cfg.pace.to, najwyżej HIST.maxDays). */
+  function seasonDays(cfg) {
+    const a = dayNum(cfg.pace.from), b = Math.min(dayNum(cfg.pace.to), a + HIST.maxDays - 1), out = [];
+    for (let n = a; n <= b; n++) out.push(dayOf(n));
+    return out;
+  }
+
+  /**
+   * Agregat poprzednich sezonów wyrównany do dat bieżącego sezonu (ten sam dzień i miesiąc). Wejście z D1:
+   * sales [{ day, productId, qty }] (zestawy rozbijane jak w pace), orders [{ day, n }] — liczba zamówień z produktami SM danego dnia;
+   * list = seasons(cfg, n). → { from, to, n, seasons: [{ year, from, to, orders: [n na dzień], total, keys: { key: [ilość na dzień] } }] },
+   * tablice długości n, indeks i = dzień bieżącego sezonu from + i. Same liczby — bez danych zamówień.
+   */
+  function historyAgg(cfg, sales, orders, list) {
+    const ix = index(cfg), days = seasonDays(cfg), n = days.length;
+    const out = { from: cfg.pace.from, to: days[n - 1], n, seasons: [] };
+    for (const s of list) {
+      const pos = new Map();
+      days.forEach((d, i) => pos.set(shiftYear(d, s.k), i));
+      const at = d => {
+        if (d < s.from || d > s.to) return -1;
+        const i = pos.has(d) ? pos.get(d) : pos.get(addDays(d, -1));   // 29.02 roku przestępnego → dzień wcześniej
+        return i == null ? -1 : i;
+      };
+      const keys = {}, ord = new Array(n).fill(0);
+      const add = (key, i, q) => { if (!keys[key]) keys[key] = new Array(n).fill(0); keys[key][i] = r3(keys[key][i] + q); };
+      for (const r of sales || []) {
+        const d = String(r.day).slice(0, 10), q = Number(r.qty) || 0, id = String(r.productId), i = isDay(d) && q > 0 ? at(d) : -1;
+        if (i < 0) continue;
+        const b = ix.bundles.get(id), p = ix.byId.get(id);
+        if (b) for (const part of b.parts) add(part.key, i, part.qty * q);
+        else if (p) add(p.key, i, p.per * q);
+      }
+      for (const r of orders || []) {
+        const d = String(r.day).slice(0, 10), i = isDay(d) ? at(d) : -1;
+        if (i >= 0) ord[i] += Math.max(0, Math.round(Number(r.n) || 0));
+      }
+      out.seasons.push({ year: s.year, from: s.from, to: s.to, orders: ord, total: ord.reduce((a, x) => a + x, 0), keys });
+    }
+    return out;
+  }
+
+  const cumOf = arr => { let c = 0; return arr.map(v => (c = r3(c + v))); };
+  /**
+   * Krzywa porównawcza produktu: pick = { year } (jeden sezon) albo { a, b } (średnia sezonów a…b, rok początku). Sezony bez sprzedaży
+   * produktu są pomijane w średniej (produktu wtedy nie było albo miał inne ID w Selly).
+   * → { values: [narastająco] | null, years: [użyte, malejąco], skipped: [bez danych] } | null
+   */
+  function histCurve(hist, key, pick) {
+    if (!hist || !pick) return null;
+    const one = pick.year != null, lo = one ? pick.year : Math.min(pick.a, pick.b), hi = one ? pick.year : Math.max(pick.a, pick.b);
+    const inRange = hist.seasons.filter(s => s.year >= lo && s.year <= hi);
+    const used = inRange.filter(s => s.keys[key] && s.keys[key].some(v => v > 0));
+    const skipped = inRange.filter(s => !used.includes(s)).map(s => s.year);
+    if (!used.length) return { values: null, years: [], skipped };
+    const curves = used.map(s => cumOf(s.keys[key]));
+    const values = curves[0].map((_, i) => r3(curves.reduce((a, c) => a + c[i], 0) / curves.length));
+    return { values, years: used.map(s => s.year).sort((x, y) => y - x), skipped };
+  }
+
+  /**
+   * Szczyty sprzedaży z poprzednich sezonów (liczba zamówień z produktami SM na dzień). Każdy sezon zamieniamy na udział dni w jego
+   * sprzedaży (żeby duży rok nie zagłuszył małego), uśredniamy i szukamy HIST.top rozłącznych okien HIST.win dni z największym udziałem.
+   * years = [rok początku sezonu] (puste = wszystkie z danymi).
+   * → { years, cum: [średni udział narastająco 0–1], top: [{ i, from, to, share, perYear: [{ year, orders, share }] }] (wg daty),
+   *     core: { from, to, share } (najkrótszy okres z połową sprzedaży), each: [{ year, from, to, orders }] (najlepszy tydzień każdego
+   *     roku, daty z tamtego roku) } | null, gdy brak danych. Daty top / core — w bieżącym sezonie.
+   */
+  function peaks(hist, years) {
+    if (!hist) return null;
+    const want = years && years.length ? new Set(years.map(Number)) : null;
+    const used = hist.seasons.filter(s => s.total > 0 && (!want || want.has(s.year)));
+    if (!used.length) return null;
+    const n = hist.n, w = Math.min(HIST.win, n), day = i => addDays(hist.from, i), y0 = Number(hist.from.slice(0, 4));
+    const avg = new Array(n).fill(0);
+    for (const s of used) s.orders.forEach((v, i) => { avg[i] += v / s.total / used.length; });
+    const winSum = (arr, i) => { let t = 0; for (let j = i; j < i + w; j++) t += arr[j]; return t; };
+    const sums = [];
+    for (let i = 0; i + w <= n; i++) sums.push(winSum(avg, i));
+    const top = [];
+    while (top.length < HIST.top) {
+      let best = -1;
+      for (let i = 0; i < sums.length; i++) if (sums[i] > 0 && !top.some(t => Math.abs(t.i - i) < w) && (best < 0 || sums[i] > sums[best])) best = i;
+      if (best < 0) break;
+      top.push({ i: best, from: day(best), to: day(best + w - 1), share: r3(sums[best] * 100),
+        perYear: used.map(s => { const o = winSum(s.orders, best); return { year: s.year, orders: o, share: r3(o / s.total * 100) }; }) });
+    }
+    const cum = [];
+    let c = 0;
+    for (const v of avg) cum.push(r3(c += v));
+    // najkrótszy okres z co najmniej połową średniej sprzedaży (dwa wskaźniki)
+    let core = null, t = 0, a = 0;
+    for (let b = 0; b < n; b++) {
+      t += avg[b];
+      while (a < b && t - avg[a] >= 0.5 - 1e-9) t -= avg[a++];
+      if (t >= 0.5 - 1e-9 && (!core || b - a < core.b - core.a)) core = { a, b, share: t };
+    }
+    const each = used.map(s => {
+      let bi = 0, bv = -1;
+      for (let i = 0; i + w <= n; i++) { const v = winSum(s.orders, i); if (v > bv) { bv = v; bi = i; } }
+      return { year: s.year, from: shiftYear(day(bi), y0 - s.year), to: shiftYear(day(bi + w - 1), y0 - s.year), orders: bv };
+    });
+    return { years: used.map(s => s.year), cum, top: top.sort((x, y) => x.i - y.i), core: core && { from: day(core.a), to: day(core.b), share: r3(core.share * 100) }, each };
+  }
+
+  /**
+   * Punkty krzywej prognozy (cfg.pace.points) ze średniej z poprzednich sezonów (pk = peaks(...)): % sprzedaży narastająco w dniach-węzłach —
+   * dzień przed i ostatni dzień wskazanych okien szczytu oraz co `step` dni. Spełniają walidację ustawień: między początkiem a końcem
+   * sezonu, kolejne dni, niemalejący procent, najwyżej LIMITS.points.
+   */
+  function peakPoints(cfg, pk, windows, step = 14) {
+    if (!pk) return [];
+    const n = pk.cum.length, from = dayNum(cfg.pace.from), to = dayNum(cfg.pace.to), must = new Set(), knots = new Set();
+    for (const win of windows || []) { must.add(dayNum(win.from) - from - 1); must.add(dayNum(win.to) - from); }
+    for (const i of must) knots.add(i);
+    for (let i = step; i < n; i += step) knots.add(i);
+    let pts = [...knots].filter(i => i > 0 && i < n && from + i < to).sort((x, y) => x - y)
+      .map(i => ({ i, day: dayOf(from + i), pct: Math.min(100, Math.round(pk.cum[i] * 1000) / 10) }));
+    while (pts.length > LIMITS.points) {
+      const j = pts.findIndex(p => !must.has(p.i));
+      pts.splice(j < 0 ? pts.length - 1 : j, 1);
+    }
+    let last = 0;
+    pts = pts.filter(p => p.pct < 100 && p.pct >= last && ((last = p.pct), true));
+    return pts.map(p => ({ day: p.day, pct: p.pct }));
+  }
+
   // ─── Statusy i wejście akcji ───────────────────────────────────────────────────────────────────────────
 
   /** Statusy z nazw Selly, gdy w ustawieniach nic nie wybrano: sm „Złożone SpeedMail”, acc „Przyjęte / Zrealizowano SpeedMail”, otk „Złożone OTK”, open — nowe / złożone / opłacone. */
@@ -563,6 +707,7 @@
 
   const api = { MOVE_KINDS, ORDERED, LIMITS, REASONS, LEVELS, plain, isDay, dayNum, addDays, r3, nf, ddmm,
     defaultConfig, checkConfig, index, explode, isCourier, stockOf, plan, selectionUse, stockRows, batchRef, tableProducts, smTable, curveAt, pace,
+    HIST, shiftYear, seasons, seasonDays, historyAgg, histCurve, peaks, peakPoints,
     defaultStatuses, effectiveStatuses, orderIds, checkMoves, parseRef, shipInput };
   globalThis.OSA_SPEEDMAIL = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -2,10 +2,12 @@
 // Lista produktów SpeedMail (ID Selly, opakowanie, kolumna w pliku, ilość wysłana, minimum, prognoza), rozbicia zestawów, terminy sezonu,
 // formy dostawy liczone jako „Kurier”, statusy w Selly, progi alertów, plik dla SM, krzywa prognozy. Wspólne dla wszystkich (D1);
 // zapis tylko administrator panelu (sm:configSave z wersją — dwie osoby nie nadpiszą sobie zmian). Walidacja: shared/speedmail.js.
-import { el, dateInput, flash } from '../core/ui.js?v=c31db2e';
-import { S, SM, nf, dmy, notice, statusName, fold, save, reload, jobBusy } from './speedmailKit.js?v=c31db2e';
+// W „Tempo sprzedaży”: propozycje szczytów sprzedaży z poprzednich sezonów (sm:history, SM.peaks) — „Użyj” wstawia punkty prognozy do szkicu.
+import { el, dateInput, flash } from '../core/ui.js?v=1c81125';
+import { S, SM, nf, dmy, notice, statusName, fold, save, reload, jobBusy, loadError } from './speedmailKit.js?v=1c81125';
 
 let draft = null;   // { of: wersja, cfg: kopia robocza, info: '' }
+let peakYears = null;   // lata wybrane do propozycji szczytów (null = wszystkie z danymi)
 const clone = x => JSON.parse(JSON.stringify(x));
 const dirty = () => !!draft && JSON.stringify(draft.cfg) !== JSON.stringify(S.d.v.cfg);
 function markDirty() {
@@ -153,7 +155,8 @@ export function viewSettings() {
       dateF(c.pace, 'from', 'Początek sprzedaży sezonu', 'Od tego dnia liczymy sprzedaż narastająco', 'smSetPaceFrom'), dateF(c.pace, 'to', 'Koniec sezonu', 'Dzień, w którym sprzedaż powinna osiągnąć 100% prognozy', 'smSetPaceTo')),
     el('label', { title: 'Jak sprzedaż rozkłada się w czasie. Jeden punkt w wierszu: data = procent prognozy sprzedany do tego dnia, np. „2026-12-01 = 40”. Bez punktów panel przyjmuje równą sprzedaż każdego dnia (prosta) — to uproszczenie.' },
       el('span', { class: 'tip' }, 'Punkty prognozy (data = % prognozy sprzedany do tego dnia)'),
-      (() => { const t = el('textarea', { id: 'smSetPoints', rows: '4', 'aria-label': 'Punkty prognozy', placeholder: '2026-11-16 = 15\n2026-12-01 = 45\n2026-12-15 = 85' }); t.value = pointsText(c.pace.points); t.addEventListener('input', () => { c.pace.points = parsePoints(t.value); markDirty(); }); return t; })())));
+      (() => { const t = el('textarea', { id: 'smSetPoints', rows: '4', 'aria-label': 'Punkty prognozy', placeholder: '2026-11-16 = 15\n2026-12-01 = 45\n2026-12-15 = 85' }); t.value = pointsText(c.pace.points); t.addEventListener('input', () => { c.pace.points = parsePoints(t.value); markDirty(); }); return t; })()),
+    peakBox(c, v.cfg, rerender)));
 
   // 9. Zaawansowane
   if (admin) {
@@ -164,6 +167,59 @@ export function viewSettings() {
   return box;
 }
 
+const PEAK_TIP = 'Jak liczymy: dla każdego poprzedniego sezonu (te same daty, rok wcześniej) bierzemy liczbę zamówień z produktami SpeedMail na każdy dzień ' +
+  '(statusy liczone jako zakup) i zamieniamy ją na udział w sprzedaży całego sezonu — żeby rok z większą sprzedażą nie zagłuszył pozostałych. Udziały uśredniamy ' +
+  'i szukamy ' + SM.HIST.top + ' rozłącznych okresów po ' + SM.HIST.win + ' dni z największym średnim udziałem. Daty pokazujemy w tegorocznym kalendarzu (ten sam dzień i miesiąc). ' +
+  'Dane z kopii zamówień w panelu — bez zapytań do Selly.';
+const ddmm = d => dmy(d).slice(0, 5);
+
+/** Propozycje szczytów sprzedaży z poprzednich sezonów + „Użyj” (punkty prognozy do szkicu ustawień). */
+function peakBox(c, saved, rerender) {
+  const e = S.hist, H = e && e.v && Array.isArray(e.v.seasons) ? e.v : null;
+  const head = el('h4', { style: 'margin:var(--s4) 0 var(--s2)' }, el('span', { class: 'tip', title: PEAK_TIP }, 'Szczyty sprzedaży w poprzednich sezonach'));
+  if (!H) {
+    if (S.loading.hist) return el('div', { id: 'smSetPeaks' }, head, el('p', { class: 'muted small', role: 'status' }, el('span', { class: 'spinner' }), ' wczytuję sprzedaż z poprzednich sezonów…'));
+    return el('div', { id: 'smSetPeaks' }, head, loadError('hist', 'sprzedaż z poprzednich sezonów') || el('p', { class: 'muted small' }, 'Brak danych z poprzednich sezonów.'));
+  }
+  const all = H.seasons.filter(x => x.total > 0).map(x => x.year);
+  if (!all.length) return el('div', { id: 'smSetPeaks' }, head, el('p', { class: 'muted small', id: 'smSetPeaksNone' }, 'W kopii zamówień nie ma sprzedaży produktów SpeedMail w tych samych datach w poprzednich latach — nie ma z czego policzyć szczytów. Jeśli w poprzednich latach produkty miały w Selly inne ID, dopisz je w „Produkty SpeedMail”.'));
+  const years = peakYears ? all.filter(y => peakYears.has(y)) : all;
+  const pk = SM.peaks(H, years.length ? years : all);
+  const same = H.from === c.pace.from && saved.pace.from === c.pace.from && saved.pace.to === c.pace.to;
+  const why = same ? null : 'Najpierw zapisz zmienione daty sezonu — propozycje są liczone dla zapisanego zakresu dat';
+  const use = (windows, what) => {
+    c.pace.points = SM.peakPoints(c, pk, windows);
+    draft.info = 'Wstawiono PROPOZYCJĘ punktów prognozy (' + what + ', średnia z sezonów ' + pk.years.join(', ') + '). Sprawdź je w polu „Punkty prognozy” i kliknij „Zapisz ustawienia” — dopiero wtedy zaczną obowiązywać.';
+    rerender();
+  };
+  const useTip = 'Wstawia do „Punkty prognozy” procent sprzedaży narastająco ze średniej poprzednich sezonów: na dzień przed i na koniec tego szczytu oraz co 14 dni. Zastępuje obecne punkty; nic się nie zmieni bez „Zapisz ustawienia”.';
+  const yearPick = fold('smSetPeakYears', ['Z których sezonów liczyć', ' — ' + (years.length && years.length < all.length ? years.join(', ') : 'wszystkie z danymi (' + all.join(', ') + ')')],
+    el('p', { class: 'muted small' }, 'Odznacz sezon nietypowy (np. inny termin wydarzenia), żeby nie zniekształcał średniej. Wybór obowiązuje tylko na tym ekranie.'),
+    el('div', { class: 'statuses', id: 'smSetPeakYearList' }, all.map(y => {
+      const cb = el('input', { type: 'checkbox', value: String(y) });
+      cb.checked = years.includes(y);
+      cb.addEventListener('change', () => { const set = new Set(years); if (cb.checked) set.add(y); else set.delete(y); peakYears = set.size && set.size < all.length ? set : null; rerender(); });
+      const s0 = H.seasons.find(x => x.year === y);
+      return el('label', { title: 'Sezon ' + y + ': ' + dmy(s0.from) + '–' + dmy(s0.to) + ', ' + s0.total.toLocaleString('pl-PL') + ' zamówień z produktami SpeedMail' }, cb, ' ', String(y));
+    })));
+  return el('div', { id: 'smSetPeaks' }, head,
+    el('p', { class: 'muted small', style: 'margin-top:0' }, 'Okresy, w których w poprzednich latach sprzedawało się najwięcej (najlepsze ' + SM.HIST.win + '-dniowe okresy, średnio z sezonów ' + pk.years.join(', ') + '). ',
+      pk.core ? el('span', { class: 'tip', id: 'smSetPeakCore', title: 'Najkrótszy okres, w którym średnio przypadała połowa sprzedaży sezonu' }, 'Połowa sprzedaży przypadała zwykle na ' + ddmm(pk.core.from) + '–' + ddmm(pk.core.to) + '.') : null),
+    el('div', { class: 'table-wrap' }, el('table', { id: 'smSetPeakTable' },
+      el('thead', null, el('tr', null, thh('Okres', 'Daty w tegorocznym kalendarzu (ten sam dzień i miesiąc co w poprzednich latach)'),
+        thh('Udział w sezonie', 'Średni udział tych dni w liczbie zamówień całego sezonu'), thh('Zamówień w latach', 'Liczba zamówień z produktami SpeedMail w tych samych datach w każdym z sezonów'), thh('Użyj'))),
+      el('tbody', null, pk.top.map((w, i) => el('tr', { 'data-from': w.from },
+        el('td', { class: 'nw' }, ddmm(w.from) + '–' + ddmm(w.to)), el('td', { class: 'n' }, nf(Math.round(w.share * 10) / 10) + '%'),
+        el('td', null, w.perYear.map(x => x.year + ': ' + x.orders.toLocaleString('pl-PL')).join(' · ')),
+        el('td', null, el('button', { type: 'button', class: 'secondary small', id: 'smSetPeakUse' + i, disabled: why ? true : null, title: why || useTip, onclick: () => use([w], 'szczyt ' + ddmm(w.from) + '–' + ddmm(w.to)) }, 'Użyj'))))))),
+    el('p', { class: 'muted small', id: 'smSetPeakEach', title: 'Najlepszy ' + SM.HIST.win + '-dniowy okres osobno w każdym roku (daty z tamtego roku)' },
+      'Najlepszy tydzień w każdym roku: ' + pk.each.slice().sort((a, b) => b.year - a.year).map(x => x.year + ' — ' + ddmm(x.from) + '–' + ddmm(x.to) + ' (' + x.orders.toLocaleString('pl-PL') + ' zam.)').join('; ') + '.'),
+    el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', id: 'smSetPeakUseAll', disabled: why ? true : null,
+      title: why || 'Wstawia do „Punkty prognozy” krzywą ze średniej poprzednich sezonów: punkty na granicach wszystkich szczytów z tabeli oraz co 14 dni. Zastępuje obecne punkty; nic się nie zmieni bez „Zapisz ustawienia”.',
+      onclick: () => use(pk.top, 'wszystkie szczyty') }, 'Użyj krzywej z poprzednich sezonów')),
+    yearPick);
+}
+
 async function saveCfg() {
   let cfg;
   try { cfg = SM.checkConfig(clone(draft.cfg)); } catch (e) { S.err = 'Nie zapisano: ' + e.message; S.rerender(); return; }
@@ -171,7 +227,7 @@ async function saveCfg() {
   if (!r) return;
   draft = null;
   flash('', 'Zapisano ustawienia SpeedMail');
-  await reload('init');
+  await reload('init', 'hist');
 }
 
 /** Czy są niezapisane zmiany ustawień (ostrzeżenie przy wyjściu z zakładki). */

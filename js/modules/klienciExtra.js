@@ -1,9 +1,9 @@
 // Klienci — sekcje karty ładowane na żądanie (adresy dodatkowe, ceny indywidualne, program partnerski, subkonta, rozwiązania „tylko w Selly”)
 // (ekran „Grupy klientów”, zmiana grupy i limit zamówień: klienciGrupy.js). Sekcje pobierają dane dopiero po rozwinięciu (oszczędność limitu Selly).
-import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=c31db2e';
-import { askConfirm } from '../core/confirm.js?v=c31db2e';
-import { api } from '../core/client.js?v=c31db2e';
-import { nipError, postcodeError } from './klienciForm.js?v=c31db2e';
+import { el, flash, loadingBox, sellyLink, field, money, fullName, debounce } from '../core/ui.js?v=1c81125';
+import { askConfirm } from '../core/confirm.js?v=1c81125';
+import { api } from '../core/client.js?v=1c81125';
+import { nipError, postcodeError } from './klienciForm.js?v=1c81125';
 
 const errBox = (host, e) => host.replaceChildren(el('div', { class: 'notice error' }, (e && e.message) || 'Nie udało się pobrać danych.'));
 
@@ -156,11 +156,10 @@ export function relatedBlock(x, openClient) {
 export function sellyOnlyBlock(id, sellyUrl) {
   const u = a => sellyUrl + '?a=' + a + '&id=' + encodeURIComponent(id);
   const li = (a, text, tip) => el('li', null, sellyLink(text, u(a), tip));
-  return el('details', { class: 'card fold', id: 'cliSellyOnly' }, el('summary', { title: 'Te funkcje są dostępne tylko w panelu Selly — API sklepu ich nie udostępnia' }, el('h2', null, 'Tylko w Selly'), el('span', { class: 'muted small' }, 'Rabaty wg producentów, blokowani producenci, faktury ERP, notatki i doładowania PP')),
+  return el('details', { class: 'card fold', id: 'cliSellyOnly' }, el('summary', { title: 'Te funkcje są dostępne tylko w panelu Selly — API sklepu ich nie udostępnia' }, el('h2', null, 'Tylko w Selly'), el('span', { class: 'muted small' }, 'Faktury ERP, dodawanie rabatów wg producentów, zmiana zablokowanych producentów, subkonta')),
     el('ul', { class: 'kf-list' },
-      li('klienci.discounts', 'Edytuj w Selly ↗ — rabaty wg producentów', 'Rabat procentowy klienta osobno dla każdego producenta (brak w API)'),
-      li('klienci.producenci', 'Edytuj w Selly ↗ — producenci blokowani dla klienta', 'Lista producentów, których produktów klient nie widzi (brak w API)'),
+      li('klienci.discounts', 'Dodaj / usuń w Selly ↗ — rabaty wg producentów', 'Nowy rabat dla producenta i usuwanie; zmianę procentu zrobisz w sekcji „Rabaty wg producentów”'),
+      li('klienci.producenci', 'Zmień w Selly ↗ — producenci zablokowani dla klienta', 'Panel pokazuje listę w sekcji „Producenci zablokowani”; zmiana tylko w Selly'),
       li('klienci.erpInvoices', 'Otwórz w Selly ↗ — faktury ERP klienta', 'Faktury z systemu ERP przypisane klientowi (brak w API)'),
-      li('klienci.notatki', 'Edytuj w Selly ↗ — historia notatek (data, status)', 'Wiele notatek ze statusem otwarte/zamknięte; panel edytuje główną notatkę klienta'),
-      li('klienci.subkonta', 'Edytuj w Selly ↗ — subkonta', 'Zarządzanie subkontami w panelu Selly')));
+      li('klienci.subkonta', 'Edytuj w Selly ↗ — subkonta', 'Zarządzanie subkontami w panelu Selly (uprawnienia poziomów: Klienci → Więcej ▾ → Uprawnienia subkont)')));
 }

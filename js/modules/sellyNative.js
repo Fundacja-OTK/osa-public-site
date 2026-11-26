@@ -3,13 +3,13 @@
 // czyta je i zwraca strukturę (sekrety zamaskowane po stronie serwera); zapis tylko z allowlisty pól, zawsze przez podgląd zmian (dryRun)
 // i potwierdzenie (docs/selly-embed.md, docs/auth.md). „Tylko do podglądu” = flaga `readOnly` z odpowiedzi serwera (jedna, z silnika).
 // Strony ustawień (jedna strona-formularz) obsługuje modules/sellyNativeSettings.js.
-import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=c31db2e';
-import { confirmDialog, askConfirm } from '../core/confirm.js?v=c31db2e';
-import { api } from '../core/client.js?v=c31db2e';
-import { sellyUrl } from './_placeholder.js?v=c31db2e';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=c31db2e';
-import { addLeaveGuard } from '../core/router.js?v=c31db2e';
-import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=c31db2e';
+import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=1c81125';
+import { confirmDialog, askConfirm } from '../core/confirm.js?v=1c81125';
+import { api, ctx } from '../core/client.js?v=1c81125';
+import { sellyUrl } from './_placeholder.js?v=1c81125';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=1c81125';
+import { addLeaveGuard } from '../core/router.js?v=1c81125';
+import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=1c81125';
 
 /** Żądanie do Workera: native:read / native:save / native:create → { ok, data } albo { ok:false, code, error } (nigdy nie rzuca). */
 export function sellyCall(req) {
@@ -48,6 +48,7 @@ const num = s => parseFloat(String(s).replace(/\s/g, '').replace(',', '.')) || 0
  *  copy: { label, tip, note, fields: [pola kopiowane] } (przycisk „Kopiuj” na karcie: nowa pozycja z wartościami z karty — przez dodawanie, podgląd i potwierdzenie),
  *  quick(rec) → [{ key, label, tip, changes }] (szybkie akcje na karcie — przez to samo potwierdzenie zmian),
  *  advanced: [pole | RegExp] (pola schowane w zwijanym panelu „Ustawienia zaawansowane”), advancedTitle, labelOf(f) → etykieta (pola o zmiennych nazwach),
+ *  remove: { title?, tip?, body?(id) } (przycisk „Usuń” na karcie — tylko administrator; serwer: native:delete, ekran z `del`), links: [{ href:"#/…", label, tip }] (powiązane widoki panelu w pasku — linki drugorzędne),
  *  contentTitle (nagłówek edytora treści HTML — pola `content` z odpowiedzi serwera; edytor: tresciEdytor.js) }
  */
 export function createNative(cfg) {
@@ -74,10 +75,12 @@ export function createNative(cfg) {
   }
   function unmount() { seq++; root = null; dirty = null; }
 
+  /** Linki do powiązanych widoków panelu (np. zdarzenia, słownik statusów) — zawsze drugorzędne, jako <a href="#/…">. */
+  const navLinks = () => (cfg.links || []).filter(l => /^#\/[\w/-]+$/.test(l.href)).map(l => el('a', { href: l.href, class: 'btn-secondary', title: l.tip || null }, l.label));
   const RO_TIP = 'Ten ekran w panelu OSA służy tylko do podglądu — niczego tu nie zmienisz. Zmiany wprowadzisz w Selly.';
   const isRO = () => !!(S.data && S.data.readOnly);
   const toolbar = (sub, extra) => el('div', { class: 'page-toolbar' }, el('div', { class: 'pt-title' }, el('h2', null, cfg.title, isRO() ? el('span', { class: 'pill tip nat-ro', id: 'natRo', title: RO_TIP }, 'tylko podgląd') : null), sub ? el('div', { class: 'sub' }, sub) : null),
-    el('div', { class: 'pt-actions' }, extra,
+    el('div', { class: 'pt-actions' }, extra, navLinks(),
       el('a', { href: sellyList(), target: '_blank', rel: 'noopener', class: 'btn-link', title: isRO() ? RO_TIP : 'Otwiera ten sam ekran w panelu Selly, w nowej karcie' }, isRO() ? 'Zmień w Selly ↗' : 'Otwórz w Selly ↗')));
 
   function errorBox(r, retry) {
@@ -301,6 +304,7 @@ export function createNative(cfg) {
       toolbar(isNew ? ((cfg.create && cfg.create.title) || 'Nowa pozycja') : cfg.recordTitle(id)),
       message || null,
       el('p', null, el('button', { type: 'button', class: 'secondary', id: 'natBack', onclick: backToList, title: 'Wraca do listy' }, '← Wróć do listy'),
+        !isNew && cfg.remove && !d.readOnly && ctx.boot && ctx.boot.isAdmin ? [' ', el('button', { type: 'button', class: 'secondary danger', id: 'natDelete', title: cfg.remove.tip || 'Usuwa ten wpis z Selly (tylko administrator, po potwierdzeniu)', onclick: () => confirmDelete(id) }, 'Usuń')] : null,
         isNew || !cfg.copy || !d.canCreate ? null : [' ', el('button', { type: 'button', class: 'secondary', id: 'natCopy', title: cfg.copy.tip, onclick: () => showCopy(d) }, cfg.copy.label)],
         isNew || !cfg.recordRoute ? null : [' ', el('a', { href: sellyRecord(id), target: '_blank', rel: 'noopener', class: 'btn-link', title: 'Pełna karta w Selly (wszystkie pola, załączniki, wysyłka e-maila)' }, 'Pełna karta w Selly ↗')]),
       d.canSave || d.readOnly ? null : el('div', { class: 'card nat-err', id: 'natNoSave' }, el('p', null, 'Formularz w Selly wygląda inaczej niż oczekiwano — ' + (isNew ? 'dodawanie' : 'edycja') + ' wyłączona. Użyj Selly.')),
@@ -314,7 +318,7 @@ export function createNative(cfg) {
         cEdit.map(f => contentEditor(f, d, isNew, sync)),
         el('div', { class: 'nat-actions' }, save, quick.map(q => el('button', { type: 'button', class: 'secondary', 'data-quick': q.key || null, title: q.tip, onclick: () => confirmSave(id, q.changes, orig) }, q.label)))) : null,
       ...contentRO,
-      (d.tables || []).map((t, i) => t.rows.length ? el('div', { class: 'card' }, el('h3', null, i === 0 && d.tables.length > 1 ? 'Pozycje' : 'Historia zdarzeń'),
+      ...(d.tables || []).map((t, i) => t.rows.length ? el('div', { class: 'card' }, el('h3', null, i === 0 && d.tables.length > 1 ? 'Pozycje' : 'Historia zdarzeń'),
         el('div', { class: 'table-wrap' }, el('table', null, el('thead', null, el('tr', null, t.headers.map(h => el('th', { title: h }, h)))),
           el('tbody', null, t.rows.map(r => el('tr', null, r.map(c => el('td', null, c)))))))) : null));
     if (pre0) { sync(); if (!message) root.querySelector('.page-toolbar').after(el('div', { class: 'card', id: 'natCopyNote' }, cfg.copy ? cfg.copy.note : 'Skopiowano wartości — sprawdź je i zapisz.')); }
@@ -341,6 +345,20 @@ export function createNative(cfg) {
     });
   }
 
+  /** Usuwanie wpisu (cfg.remove; tylko administrator — serwer też to sprawdza): podgląd → okno „Usuń” → native:delete → powrót do listy. */
+  async function confirmDelete(id) {
+    const pre = await sellyCall({ op: 'delete', screen: cfg.screen, id, dryRun: true });
+    if (!pre || !pre.ok) { paintRecord(id, el('div', { class: 'card nat-err', id: 'natMsg' }, el('p', null, (pre && pre.error) || 'Nie udało się przygotować usunięcia'))); return; }
+    confirmDialog({ id: 'natDelConfirm', title: cfg.remove.title || 'Usunąć wpis?', danger: true, confirmLabel: 'Usuń', focus: 'cancel',
+      body: el('div', null, el('p', null, cfg.remove.body ? cfg.remove.body(id) : 'Usunąć ' + (cfg.recordTitle ? cfg.recordTitle(id) : 'wpis nr ' + id) + ' z Selly?'), pre.data.warn ? el('p', { class: 'muted' }, pre.data.warn) : null, el('p', null, el('strong', null, 'Tego nie można cofnąć.'))),
+      onConfirm: async ({ close }) => {
+        const r = await sellyCall({ op: 'delete', screen: cfg.screen, id });
+        close();
+        if (!r || !r.ok) { paintRecord(id, el('div', { class: 'card nat-err', id: 'natMsg' }, el('p', null, 'Usuwanie nie powiodło się: ' + ((r && r.error) || 'błąd')))); return; }
+        dirty = null; await showList();
+        const tb = root && root.querySelector('.page-toolbar'); if (tb) tb.after(el('div', { class: 'card nat-ok', id: 'natMsg' }, 'Usunięto w Selly.'));
+      } });
+  }
   async function confirmSave(id, changes, orig) {
     const hasContent = !!(S.rec.content && S.rec.content.length);
     // ekran z treścią: oczekiwany stan WSZYSTKICH edytowalnych pól z chwili otwarcia — zmiana czegokolwiek w Selly od tamtej pory = odmowa (konflikt)

@@ -226,6 +226,66 @@ if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') 
   });
 }
 
+// ─── Położenie okienek menu (Kopiuj ▾ / Kolumny ▾ / lista wyboru) ──────────
+
+/** Najbliższy przodek, który przycina zawartość (overflow ≠ visible) — np. przewijany panel filtrów albo .table-wrap. */
+function clipAncestor(n) {
+  for (let p = n.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (/auto|scroll|hidden|clip/.test(s.overflowX + ' ' + s.overflowY)) return p;
+  }
+  return null;
+}
+
+/**
+ * Ustawia otwarte okienko `pop` przy przycisku `btn`: zawsze w obrębie ekranu, nad przyciskiem, gdy pod nim brak miejsca
+ * (np. przyklejony pasek u dołu ekranu). W przewijanym / przycinającym kontenerze okienko dostaje position: fixed (`.menu-pop.fixed`),
+ * więc nie jest obcinane; przy przewijaniu jedzie za przyciskiem, a gdy przycisk zniknie z widoku kontenera — `onLost()` (zamknij).
+ * Zwraca funkcję sprzątającą — wywołaj ją przy zamknięciu okienka.
+ */
+export function placePop(btn, pop, onLost) {
+  const clip = clipAncestor(btn);
+  const reset = () => {
+    pop.classList.remove('fixed', 'up');
+    for (const k of ['transform', 'left', 'top', 'minWidth', 'maxHeight']) pop.style[k] = '';
+  };
+  const place = () => {
+    reset();
+    const b = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight, r = pop.getBoundingClientRect();
+    if (!clip) {
+      if (r.bottom > vh - 8 && b.top - 6 - r.height >= 8) pop.classList.add('up');
+      let dx = 0;
+      if (r.left < 8) dx = 8 - r.left;
+      if (r.right + dx > vw - 8) dx = vw - 8 - r.right;
+      if (dx) pop.style.transform = 'translateX(' + Math.round(dx) + 'px)';
+      return;
+    }
+    const c = clip.getBoundingClientRect();
+    if (b.bottom < c.top || b.top > c.bottom) { if (onLost) onLost(); return; }
+    const alignLeft = Math.abs(r.left - b.left) < Math.abs(r.right - b.right);
+    pop.style.minWidth = Math.round(r.width) + 'px';
+    pop.classList.add('fixed');
+    const w = pop.offsetWidth, h = pop.offsetHeight;
+    const left = Math.max(8, Math.min(alignLeft ? b.left : b.right - w, vw - 8 - w));
+    let top = b.bottom + 6;
+    if (top + h > vh - 8) {
+      if (b.top - 6 - h >= 8) { top = b.top - 6 - h; pop.classList.add('up'); }
+      else if (vh - b.bottom >= b.top) pop.style.maxHeight = Math.max(120, vh - 8 - top) + 'px';
+      else { const mh = Math.max(120, b.top - 14); pop.style.maxHeight = mh + 'px'; top = Math.max(8, b.top - 6 - Math.min(h, mh)); pop.classList.add('up'); }
+    }
+    pop.style.left = Math.round(left) + 'px'; pop.style.top = Math.round(top) + 'px';
+    // Przodek z transform zmienia odniesienie position: fixed — wyrównaj o różnicę (drobne przesunięcia to animacja otwarcia).
+    const q = pop.getBoundingClientRect(), ddx = left - q.left, ddy = top - q.top;
+    if (Math.abs(ddx) > 12 || Math.abs(ddy) > 12) { pop.style.left = Math.round(left + ddx) + 'px'; pop.style.top = Math.round(top + ddy) + 'px'; }
+  };
+  place();
+  if (!clip || pop.hidden) return () => {};
+  const onMove = ev => { if (ev && ev.target && ev.target.nodeType === 1 && pop.contains(ev.target)) return; if (!pop.hidden) place(); };
+  window.addEventListener('scroll', onMove, true);
+  window.addEventListener('resize', onMove);
+  return () => { window.removeEventListener('scroll', onMove, true); window.removeEventListener('resize', onMove); reset(); };
+}
+
 // ─── Menu rozwijane (Kopiuj ▾ / Pobierz ▾) ─────────────────────────────────
 
 /**
@@ -243,10 +303,12 @@ export function menuButton({ id, label, cls, title, items, disabled, write }) {
   const enabled = () => [...pop.querySelectorAll('.menu-item:not(:disabled)')];
   const isOpen = () => !pop.hidden;
   const onDoc = ev => { if (!wrap.isConnected || !wrap.contains(ev.target)) close(false); };
+  let unplace = () => {};
 
   function close(refocus) {
     if (!isOpen()) return;
     pop.hidden = true;
+    unplace(); unplace = () => {};
     btn.setAttribute('aria-expanded', 'false');
     document.removeEventListener('mousedown', onDoc, true);
     if (refocus) btn.focus();
@@ -258,15 +320,10 @@ export function menuButton({ id, label, cls, title, items, disabled, write }) {
       'data-active': it.active ? '1' : null, id: it.id || null,
       onclick: () => { close(true); it.run(); },
     }, it.label, it.count == null ? null : el('span', { class: 'menu-count' }, ' · ' + it.count), it.desc ? el('span', { class: 'menu-desc' }, it.desc) : null)));
-    pop.style.transform = '';
     pop.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
-    // Wyrównanie do prawej krawędzi przycisku, ale zawsze w obrębie ekranu (telefon)
-    const r = pop.getBoundingClientRect(), vw = document.documentElement.clientWidth;
-    let dx = 0;
-    if (r.left < 8) dx = 8 - r.left;
-    if (r.right + dx > vw - 8) dx = vw - 8 - r.right;
-    if (dx) pop.style.transform = 'translateX(' + Math.round(dx) + 'px)';
+    // W obrębie ekranu; nad przyciskiem, gdy pod nim brak miejsca; w przewijanym kontenerze — bez obcinania (placePop)
+    unplace = placePop(btn, pop, () => close(false));
     document.addEventListener('mousedown', onDoc, true);
     const first = enabled()[0];
     if (first) first.focus();
@@ -620,10 +677,12 @@ export function columnMenu(o) {
   }));
   const node = el('span', { class: 'menu' }, btn, pop);
   const onDoc = ev => { if (!node.contains(ev.target)) close(); };
-  function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); }
+  let unplace = () => {};
+  function close() { pop.hidden = true; unplace(); unplace = () => {}; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); }
   btn.addEventListener('click', () => {
     if (!pop.hidden) { close(); return; }
     pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); document.addEventListener('mousedown', onDoc, true);
+    unplace = placePop(btn, pop, close);
   });
   node.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !pop.hidden) { ev.stopPropagation(); close(); btn.focus(); } });
   return { node, isOn };
@@ -676,11 +735,13 @@ export function multiSelect(o) {
     filter();
   }
   const onDoc = ev => { if (!node.contains(ev.target)) close(); };
-  function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); }
+  let unplace = () => {};
+  function close() { pop.hidden = true; unplace(); unplace = () => {}; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); }
   btn.addEventListener('click', () => {
     if (!pop.hidden) { close(); return; }
     pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); document.addEventListener('mousedown', onDoc, true);
-    if (!search.hidden) search.focus();
+    unplace = placePop(btn, pop, close);
+    if (!search.hidden) search.focus({ preventScroll: true });
   });
   node.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !pop.hidden) { ev.stopPropagation(); close(); btn.focus(); } });
   paint();
@@ -722,6 +783,31 @@ export function filterLayout({ key, panelId, mainNodes, panelNodes, defaultOpen 
 export function filterSection(title, body, { fold = false, open = false, tip } = {}) {
   if (!fold) return el('section', { class: 'fp-sec' }, el('h3', { title: tip || null, class: tip ? 'tip' : null }, title), body);
   return el('details', { class: 'fp-sec fold', open }, el('summary', { title: tip || null }, title), body);
+}
+
+/**
+ * Przełącznik segmentowy — wybór jednej z kilku (2–5) krótkich opcji (`.seg`; przyciski z aria-pressed).
+ * o: { id?, label (aria-label grupy), options: [[wartość, etykieta, tooltip, id?]], value, onChange(v), cls?: 'full' | 'vert' | 'wrap', key?: 'v' (atrybut data-<key>) }.
+ * Zwraca węzeł z metodą set(wartość) (bez wywołania onChange).
+ */
+export function segmented(o) {
+  const key = o.key || 'val';
+  const node = el('div', { class: 'seg' + (o.cls ? ' ' + o.cls : ''), id: o.id || null, role: 'group', 'aria-label': o.label },
+    o.options.map(([v, l, t, id]) => el('button', { type: 'button', id: id || null, ['data-' + key]: v, title: t || null, 'aria-pressed': 'false', onclick: () => { if (node.value !== v) o.onChange(v); } }, l)));
+  node.set = v => { node.value = v; for (const b of node.children) b.setAttribute('aria-pressed', String(b.dataset[key] === v)); };
+  node.set(o.value);
+  return node;
+}
+
+/**
+ * Przełącznik wł. / wył. (`.switch`): pole wyboru z role=switch, opis obok, tooltip na całej etykiecie.
+ * o: { id, label, tip?, checked?, onChange(bool), sec? (data-sec) }. Zwraca etykietę; `node.input` = pole.
+ */
+export function toggleSwitch(o) {
+  const input = el('input', { type: 'checkbox', role: 'switch', id: o.id || null, checked: !!o.checked, onchange: ev => o.onChange(ev.target.checked) });
+  const node = el('label', { class: 'switch', title: o.tip || null, 'data-sec': o.sec || null }, input, el('span', { class: 'sw-track', 'aria-hidden': 'true' }), el('span', { class: 'sw-text' }, o.label));
+  node.input = input;
+  return node;
 }
 
 /** Ton plakietki statusu zamówienia z jego nazwy (Selly API nie podaje kolorów statusów): ok | warn | bad | acc | info | neutral. */
@@ -818,4 +904,4 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=c31db2e';   // pole daty i zakres dat
+export * from './datepicker.js?v=1c81125';   // pole daty i zakres dat

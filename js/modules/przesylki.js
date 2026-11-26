@@ -3,11 +3,11 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=c31db2e';
-import { askConfirm } from '../core/confirm.js?v=c31db2e';
-import { listView } from '../core/listView.js?v=c31db2e';
-import { api, ctx } from '../core/client.js?v=c31db2e';
-import { registerListKeys } from '../core/listKeys.js?v=c31db2e';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=1c81125';
+import { askConfirm } from '../core/confirm.js?v=1c81125';
+import { listView } from '../core/listView.js?v=1c81125';
+import { api, ctx } from '../core/client.js?v=1c81125';
+import { registerListKeys } from '../core/listKeys.js?v=1c81125';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -727,6 +727,7 @@ async function startInspect(r) {
   const fieldRow = f => el('tr', null, el('td', null, f.name), el('td', null, f.type + (f.hidden ? ' (ukryte)' : '')), el('td', null, f.required ? 'tak' : ''),
     el('td', { class: 'small' }, (f.options || []).join(', ')), el('td', null, c.editable.includes(f.name) ? el('span', { class: 'tip', title: 'Panel pozwoli zmienić to pole (parametr paczki)' }, 'tak') : ''));
   const status = el('div', { id: 'shipInspStatus', role: 'status' });
+  let pickSel = null;
   box.replaceChildren(
     el('h3', null, 'Budowa formularza przesyłki — ' + nm),
     el('p', { class: 'muted small' }, 'Selly otworzyło formularz tak jak po kliknięciu „Utwórz przesyłkę” (trasa ' + d.route + '). Poniżej tylko budowa — bez wartości i danych zamówienia. Nic nie zostało zapisane w Selly.'),
@@ -744,9 +745,16 @@ async function startInspect(r) {
         el('th', { title: 'Nazwa pola w formularzu Selly' }, 'Pole'), el('th', { title: 'Rodzaj pola' }, 'Typ'), el('th', { title: 'Czy Selly wymaga wypełnienia' }, 'Wymagane'),
         el('th', { title: 'Wartości opcji listy — tylko techniczne; inne ukryte jako <v>' }, 'Opcje'), el('th', { title: 'Czy panel pozwoli zmienić to pole przy tworzeniu przesyłki' }, 'Edytowalne'))),
         el('tbody', null, f.fields.map(fieldRow)))))),
+    // trasy obiektu JS przewoźnika (np. furgonetkaDelivery) ze skryptów Selly — same nazwy tras i pól; panel ich nie wywołuje
+    (st.routes || []).length ? el('details', { class: 'card', id: 'shipInspRoutes', open: true }, el('summary', { class: 'tip', title: 'Trasy znalezione w plikach skryptów Selly (' + ((d.scripts && d.scripts.checked) || 0) + ' sprawdzonych). Panel ich nie wywołał — to tylko nazwy.' }, 'Trasy skryptu Selly (' + st.routes.length + ')'),
+      el('ul', { class: 'small' }, st.routes.map(x => el('li', null, el('code', null, x.route), ' — ' + x.method + (x.serialize ? ', wszystkie pola formularza' : '') + (x.fields.length ? ', pola: ' + x.fields.join(', ') : ''))))) : null,
+    d.scripts && d.scripts.note ? el('div', { class: 'notice warn small' }, 'Skrypty Selly: ' + d.scripts.note) : null,
     st.ajax.length ? el('p', { class: 'small', id: 'shipInspAjax' }, 'Zapis skryptem Selly: ' + st.ajax.map(a => a.method + ' ' + (a.route || '?') + (a.serialize ? ' (wszystkie pola)' : a.params.length ? ' (' + a.params.join(', ') + ')' : '')).join('; ')) : null,
     el('div', { class: 'card', id: 'shipInspCand' }, el('strong', null, 'Propozycja dla panelu: '),
-      'formularz ' + c.form + ', zapis ' + (c.save || '— nieznany') + ', pola do zmiany: ' + (c.editable.join(', ') || 'brak'),
+      'formularz ' + c.form + (c.quote ? ', wycena ' + c.quote.route : '') + ', zapis ' + (c.save || '— nieznany') + ', pola do zmiany: ' + (c.editable.join(', ') || 'brak'),
+      // wybór trasy zapisu (tylko administrator; serwer przyjmie wyłącznie trasę z tej listy — odkrytą przy tym sprawdzeniu)
+      (d.choices || []).length ? el('label', { class: 'small', title: 'Trasa, którą Selly tworzy przesyłkę po wyborze oferty. Lista = trasy ze skryptu Selly bez wyceny, bufora, usuwania i konfiguracji.' },
+        'Trasa zapisu: ', pickSel = el('select', { id: 'shipInspPick' }, el('option', { value: '' }, c.save ? '(proponowana: ' + c.save + ')' : '— wybierz —'), d.choices.map(x => el('option', { value: x }, x)))) : null,
       d.missing.length ? el('div', { class: 'notice warn' }, 'Brakuje: ' + d.missing.join('; ')) : null,
       d.approved ? el('div', { class: 'notice info' }, 'Formularz tego przewoźnika jest już zatwierdzony w panelu.') : null),
     status,
@@ -754,7 +762,7 @@ async function startInspect(r) {
       el('button', { type: 'button', class: 'secondary', id: 'shipInspSave', disabled: !st.forms.length, title: st.forms.length ? 'Zapisuje tę budowę (bez wartości) jako propozycję dla panelu — jeszcze niczego nie włącza' : 'Brak formularza do zapisania',
         onclick: async ev => {
           ev.target.disabled = true;
-          try { const s2 = await api('shipping:inspectSave', { carrier: key, structure: st }); status.replaceChildren(el('div', { class: 'notice info' }, 'Zapisano budowę dla panelu.' + (s2.data.missing.length ? ' Brakuje: ' + s2.data.missing.join('; ') : ' Można ją zatwierdzić.')));
+          try { const s2 = await api('shipping:inspectSave', { carrier: key, ...(pickSel && pickSel.value ? { save: pickSel.value } : {}) });   // budowę serwer bierze z ostatniego sprawdzenia status.replaceChildren(el('div', { class: 'notice info' }, 'Zapisano budowę dla panelu.' + (s2.data.missing.length ? ' Brakuje: ' + s2.data.missing.join('; ') : ' Można ją zatwierdzić.')));
             box.querySelector('#shipInspApprove').disabled = !!s2.data.missing.length; }
           catch (e) { status.replaceChildren(el('div', { class: 'notice error' }, e.message || 'Nie zapisano.')); ev.target.disabled = false; }
         } }, 'Zapisz budowę dla panelu'),

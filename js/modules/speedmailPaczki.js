@@ -1,12 +1,12 @@
 // „Wysyłka SpeedMail” → zakładka Paczki zleceń (sekcja 7 specyfikacji): każda przekazana paczka jest zapisana (Zlecenia_SM) —
 // plik .xlsx w stałym układzie kolumn do pobrania w każdej chwili, statusy w Selly („Złożone SpeedMail” → „Przyjęte SpeedMail”) z ponowieniem,
 // anulowanie zlecenia (towar wraca na stan) i świadome ponowne przekazanie (z powodem — blokada duplikatów); raport wysyłek SpeedMail (speedmailImport.js).
-import { el, cnt, sortTh, flash } from '../core/ui.js?v=c31db2e';
-import { askConfirm } from '../core/confirm.js?v=c31db2e';
-import { api } from '../core/client.js?v=c31db2e';
-import { go } from '../core/router.js?v=c31db2e';
-import { S, WRITE, STATUS_WRITE, dmy, notice, statusName, needText, freshBar, loadError, skeleton, timeOf, save, reload, runStatus, jobBusy, downloadBatch, copyBatch } from './speedmailKit.js?v=c31db2e';
-import { shipCard } from './speedmailImport.js?v=c31db2e';
+import { el, cnt, sortTh, flash } from '../core/ui.js?v=1c81125';
+import { askConfirm } from '../core/confirm.js?v=1c81125';
+import { api } from '../core/client.js?v=1c81125';
+import { go } from '../core/router.js?v=1c81125';
+import { S, WRITE, STATUS_WRITE, dmy, notice, statusName, needText, freshBar, loadError, skeleton, timeOf, save, reload, runStatus, jobBusy, downloadBatch, copyBatch } from './speedmailKit.js?v=1c81125';
+import { shipCard } from './speedmailImport.js?v=1c81125';
 
 const SORTS = { no: b => b.no, day: b => b.day, orders: b => b.orders, cancelled: b => b.cancelled, author: b => b.author };
 const details = new Map();   // nr paczki → { t, v } | { err } | { loading }

@@ -1,6 +1,6 @@
 // WYGENEROWANE z shared/panelAuth.js i shared/native/*.js przez scripts/sync-parser.sh — nie edytuj ręcznie.
 
-globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access":"write"},"dostepnosc":{"access":"write"},"ksztalty":{"access":"write"},"uslugi":{"access":"read"},"uslugi-partnerow":{"access":"read"},"rozszerzenia":{"access":"read"},"klient-blokada":{"access":"write"},"klient-limit":{"access":"write"},"klienci-grupy":{"access":"write"},"api":{"access":"read"},"frontapi":{"access":"read"},"konf":{"access":"read"},"panel-konf":{"access":"read"},"znaki":{"access":"write"},"jezyki":{"access":"write"},"int-porownywarki":{"access":"write"},"int-przesylki":{"access":"read"},"int-fk":{"access":"read"},"int-dodatkowe":{"access":"write"},"dostawy-konf":{"access":"write"},"statusy-konf":{"access":"write"},"admini":{"access":"read"},"grupy":{"access":"read"},"uprawnienia":{"access":"read"},"odo":{"access":"read"},"zgloszenia":{"access":"read"},"platnosci":{"access":"read"},"zlecenia":{"access":"read"},"wizyty":{"access":"read"},"kupony":{"access":"write"},"koszyki":{"access":"read"},"koszyki-powiadomienia":{"access":"read"},"kupony-auto":{"access":"write"},"newsletter":{"access":"read"},"powiadomienia":{"access":"read"},"partnerzy":{"access":"read"},"partnerzy-prowizje":{"access":"read"},"partnerzy-konf":{"access":"read"},"ankieta":{"access":"read"},"wyszukiwarka":{"access":"read"},"allegro":{"access":"read"},"allegro-aukcje":{"access":"write"},"empik":{"access":"read"},"allegro-aukcje-lista":{"access":"read"},"allegro-zdarzenia":{"access":"read"},"allegro-wysylka":{"access":"write"},"allegro-operatorzy":{"access":"write"},"allegro-szablony":{"access":"read"},"ceneo-opinie":{"access":"read"},"ceneo-mapa":{"access":"read"},"pliki":{"access":"read"},"automatyzacje":{"access":"read"},"ceny-auto":{"access":"read"},"integrator":{"access":"read"},"przekierowania":{"access":"write"},"ai":{"access":"write"},"reklamacje":{"access":"write"},"oferty":{"access":"write"},"furgonetka":{"access":"read"},"suus":{"access":"read"},"cms":{"access":"write"},"aktualnosci":{"access":"write"},"menu-ed":{"access":"write"},"bloki":{"access":"write"},"formularze":{"access":"read"},"rejestracja":{"access":"write"},"blog-kategorie":{"access":"write"},"blog-tagi":{"access":"write"},"blog-komentarze":{"access":"read"},"przekierowania-grupy":{"access":"write"},"wyglad-konf":{"access":"write"},"slajdy":{"access":"write"}};   // WYGENEROWANE z shared/native/*.js (scripts/sync-parser.sh)
+globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"access":"write"},"gwarancje":{"access":"write"},"opisy":{"access":"write"},"dostepnosc":{"access":"write"},"ksztalty":{"access":"write"},"uslugi":{"access":"read"},"uslugi-partnerow":{"access":"read"},"rozszerzenia":{"access":"read"},"klient-blokada":{"access":"write"},"klient-limit":{"access":"write"},"klienci-grupy":{"access":"write"},"klient-notatka":{"access":"write"},"klienci-notatki":{"access":"read"},"klient-rabaty-prod":{"access":"write"},"klient-producenci":{"access":"read"},"subkonta-uprawnienia":{"access":"write"},"api":{"access":"read"},"frontapi":{"access":"read"},"konf":{"access":"read"},"panel-konf":{"access":"read"},"znaki":{"access":"write"},"jezyki":{"access":"write"},"int-porownywarki":{"access":"write"},"int-przesylki":{"access":"read"},"int-fk":{"access":"read"},"int-dodatkowe":{"access":"write"},"dostawy-konf":{"access":"write"},"statusy-konf":{"access":"write"},"admini":{"access":"read"},"grupy":{"access":"read"},"uprawnienia":{"access":"read"},"odo":{"access":"read"},"zgloszenia":{"access":"read"},"platnosci":{"access":"read"},"zlecenia":{"access":"read"},"wizyty":{"access":"read"},"kupony":{"access":"write"},"koszyki":{"access":"read"},"koszyki-powiadomienia":{"access":"read"},"kupony-auto":{"access":"write"},"newsletter":{"access":"read"},"powiadomienia":{"access":"read"},"partnerzy":{"access":"read"},"partnerzy-prowizje":{"access":"read"},"partnerzy-konf":{"access":"read"},"ankieta":{"access":"read"},"wyszukiwarka":{"access":"read"},"allegro":{"access":"read"},"allegro-aukcje":{"access":"write"},"empik":{"access":"read"},"allegro-aukcje-lista":{"access":"read"},"allegro-zdarzenia":{"access":"read"},"allegro-wysylka":{"access":"write"},"allegro-operatorzy":{"access":"write"},"allegro-szablony":{"access":"read"},"ceneo-opinie":{"access":"write"},"ceneo-mapa":{"access":"read"},"pliki":{"access":"read"},"automatyzacje":{"access":"read"},"ceny-auto":{"access":"read"},"integrator":{"access":"read"},"przekierowania":{"access":"write"},"ai":{"access":"write"},"reklamacje":{"access":"write"},"reklamacje-zdarzenia":{"access":"read"},"reklamacje-statusy":{"access":"read"},"zwroty-obsluga":{"access":"write","perm":["zwroty"]},"zwroty-zdarzenia":{"access":"read","perm":["zwroty"]},"zwroty-statusy":{"access":"read","perm":["zwroty"]},"oferty":{"access":"write"},"furgonetka":{"access":"read"},"suus":{"access":"read"},"cms":{"access":"write"},"aktualnosci":{"access":"write"},"menu-ed":{"access":"write"},"bloki":{"access":"write"},"formularze":{"access":"read"},"rejestracja":{"access":"write"},"blog-kategorie":{"access":"write"},"blog-tagi":{"access":"write"},"blog-komentarze":{"access":"read"},"przekierowania-grupy":{"access":"write"},"wyglad-konf":{"access":"write"},"slajdy":{"access":"write"}};   // WYGENEROWANE z shared/native/*.js (scripts/sync-parser.sh)
 /**
  * Panel OSA — uprawnienia z sesji Selly (wspólne dla Workera, Apps Script i frontendu panelu).
  * Źródło: shared/panelAuth.js; kopie generuje scripts/sync-parser.sh:
@@ -51,7 +51,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
   const SESSION_WRITE = [];
   // Sekcje, na które administrator może nadać zgodę na zmiany (zapisy przez API Selly tokenem sklepu); reszta to odczyty / natywne ekrany
   const GRANTABLE = ['zamowienia', 'dropshipping', 'klienci', 'przesylki', 'produkty', 'magazyny', 'zmiana-cen', 'zmiana-danych', 'zmiana-kategorii',
-    'subskrypcje', 'zwroty', 'zestawy', 'kategorie', 'producenci', 'atrybuty', 'tagi', 'opinie', 'blog', 'wplaty'];
+    'subskrypcje', 'zwroty', 'zestawy', 'kategorie', 'producenci', 'atrybuty', 'tagi', 'opinie', 'blog', 'wplaty', 'faktury'];
   // Strona sekcji przekierowuje w Selly na stronę tego samego modułu, która też jest podglądem (potwierdzone na prawdziwym Selly)
   const VIEW_REDIRECTS = { kategorie: ['kategorie.edycja'] };
   // Sekcje tylko z odczytami (zapis nieszkodliwy, np. „Odśwież dane” = synchronizacja) — zapis = podgląd
@@ -61,17 +61,19 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
   // Uwaga: mag:moves DODAJE ruchy magazynowe (Warehouses.gs addMoves) — to zapis; historia ruchów przychodzi w mag:init.
   const READ_ACTIONS = [
     'init', 'whoami', 'report', 'orszaki', 'changes', 'refresh', 'auth:refresh', 'auth:perms',
-    'orders:list', 'orders:get', 'orders:meta', 'orders:invoices', 'orders:stamp', 'orders:refresh', 'orders:invoiceList', 'orders:invoiceScan',
+    'orders:list', 'orders:get', 'orders:meta', 'orders:invoices', 'orders:stamp', 'orders:refresh', 'orders:invoiceList', 'orders:invoiceScan', 'orders:invoiceTodo',
+    // wystawianie faktur: podgląd faktury wypełnionej przez Selly (GET formularza sesją użytkownika, nic nie wysyła)
+    'invoices:issueForm',
     'clients:list', 'clients:get', 'clients:meta', 'clients:addresses', 'clients:affiliate', 'clients:extra', 'clients:groups', 'clients:prices', 'clients:emailsExist',
     'products:list', 'products:get', 'products:facets', 'products:dicts', 'products:extra', 'products:warehouses',
     'shipping:meta', 'shipping:queue', 'shipping:label', 'shipping:manualForm', 'shipping:inspect',
     'dropshipping:list', 'dropshipping:get',
     'payments:candidates',
     'reports:sales', 'reports:years', 'reports:product', 'reports:profit', 'reports:families', 'reports:familyYears', 'reports:productSearch', 'reports:compare',
-    'dashboard:get',
+    'dashboard:get', 'ceneo:overview',
     'bulk:list', 'bulk:get', 'bulk:meta', 'bulk:preview', 'bulk:select',
     'mag:init', 'mag:orders', 'mag:settled',
-    'sm:init', 'sm:list', 'sm:get', 'sm:pace', 'sm:shipMatch',
+    'sm:init', 'sm:list', 'sm:get', 'sm:pace', 'sm:history', 'sm:shipMatch',
     // stany wg Selly per magazyn (kopia D1) i podgląd startu; mag:sellyRefresh — jak orders:invoiceScan: tylko odczyt w Selly, porcja ≤ 15, budżet minutowy
     'mag:sellyStock', 'mag:sellyPreview', 'mag:sellyRefresh', 'mag:sellyLive',
     'res:list', 'res:get', 'res:options',
@@ -84,7 +86,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
     'auth:logout', 'feedback:send', 'feedback:status', 'client:errors', 'client:exits', 'grants:set', 'map:report', 'map:retry',
     'orders:setStatus', 'orders:update', 'orders:addItem', 'orders:updateItem', 'orders:create', 'orders:invoiceUpdate',
     'clients:save', 'clients:create', 'clients:update', 'clients:setBlock', 'clients:addressSave', 'clients:addressDelete', 'clients:affiliateAdd',
-    'clients:affiliateDelete', 'clients:groupName', 'clients:priceSave', 'clients:priceDelete',
+    'clients:affiliateDelete', 'clients:groupName', 'clients:priceSave', 'clients:priceDelete', 'clients:noteDelete',
     'products:create', 'products:update', 'products:duplicate', 'products:setCategories', 'products:setFeatures', 'products:setMeta', 'products:setStock',
     'products:variantUpdate', 'products:photoAdd', 'products:photoUpdate', 'products:photoDelete',
     'products:variantAdd', 'products:variantDelete', 'products:stockAdd', 'products:stockRemove', 'products:delete', 'products:warehouseSave',
@@ -97,8 +99,10 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
     'mag:sellyStart',
     'res:save', 'res:delete', 'res:itemSave', 'res:itemDelete', 'res:marginsSave',
     'reports:familySave',
-    'native:save', 'native:create',
+    'native:save', 'native:create', 'native:delete',
     'perms:save',
+    // wystawienie faktury formularzem Selly (dokument księgowy: prawo zmian „Wystawianie faktur” — administrator albo zgoda; opId, blokada duplikatu)
+    'invoices:issue',
   ];
   const READ_SET = new Set(READ_ACTIONS);
 
@@ -110,6 +114,9 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
     wplaty: ['zamowienia'],          // import wpłat: dopasowanie wpłat do zamówień i oznaczanie opłaconych
     pulpit: ['zamowienia'],
     speedmail: ['zamowienia', 'magazyny'],   // kreator wysyłki do SpeedMail: statusy zamówień (Selly) + ruchy magazynu SM
+    // wystawianie faktur z panelu (modules/invoiceIssue.js): podgląd z zamówień; WYSTAWIENIE (zapis) tylko administrator albo login ze zgodą „faktury”
+    // (GRANTABLE) — osobno od zgody na zamówienia, bo to dokument księgowy z numeracją
+    faktury: ['zamowienia'],
   };
   // Sekcje tylko dla administratora panelu
   const ADMIN_SECTIONS = ['uzytkownicy', 'selly-zmiany', 'zgloszenia-osa', 'uprawnienia'];
@@ -134,7 +141,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
   // Wejście awaryjne (docs/auth.md → „Wejście awaryjne”): sesja bez ciasteczek Selly — akcje, które otwierają strony Selly sesją użytkownika
   // (natywne ekrany, formularze przesyłek przewoźników bez API), są niedostępne; nadawanie zgód też (decyzje o uprawnieniach tylko po zwykłym logowaniu).
   // Odczyty i zapisy przez REST API (token sklepu) działają wg uprawnień z ostatniego zwykłego logowania.
-  const EMERGENCY_BLOCKED = /^(native:\w+|shipping:manual\w+|grants:set|perms:\w+)$/;
+  const EMERGENCY_BLOCKED = /^(native:\w+|shipping:manual\w+|invoices:issue\w*|grants:set|perms:\w+)$/;
   const EMERGENCY_MSG = 'Niedostępne w trybie awaryjnym — ten ekran działa na Twojej sesji w Selly, a w trybie awaryjnym jej nie ma. Skorzystaj z panelu Selly albo poczekaj, aż zwykłe logowanie znowu zadziała.';
 
   const ORD = ['zamowienia', 'dropshipping', 'przesylki', 'wplaty', 'klienci', 'raporty', 'magazyny', 'licencje'];
@@ -156,8 +163,11 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
     // limit globalny i budżet Selly: panel/worker/src/lib/liveSync.js) — jak odczyt listy
     [/^orders:(list|get|meta|invoices|stamp|refresh)$/, ORD],
     [/^orders:setStatus$/, ['zamowienia', 'przesylki']],
+    // wystawianie faktur: tylko sekcja „faktury” (pochodna zamówień); zapis wymaga prawa zmian tej sekcji (administrator albo zgoda)
+    [/^invoices:(issueForm|issue)$/, ['faktury']],
     [/^orders:\w+$/, ['zamowienia']],
     [/^clients:(list|get|meta|addresses|affiliate|extra|groups|prices)$/, CLI],
+    [/^clients:noteDelete$/, ADMIN],   // usuwanie notatki klienta: tylko administrator panelu (decyzja właściciela, P6)
     [/^clients:\w+$/, ['klienci']],
     [/^products:(list|get|facets|dicts|extra|warehouses)$/, PRD],
     // ustawienia magazynów Selly (trasa „magazyny” w Selly) — zapis tylko z prawem do sekcji Magazyny
@@ -171,6 +181,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
     [/^reports:familySave$/, ADMIN],
     [/^reports:\w+$/, ['raporty']],
     [/^dashboard:\w+$/, ['pulpit']],
+    [/^ceneo:\w+$/, ['produkty']],
     // start / podgląd: sekcja wg rodzaju operacji (nieznany rodzaj — dowolna z trzech; operację i tak odrzuca walidacja 400);
     // kroki, wstrzymanie, cofanie istniejącej partii: dowolna z trzech + kontrola rodzaju partii w module (bulk.js needBatchWrite)
     [/^bulk:(start|preview)$/, p => { const s = bulkSection(p && p.op && p.op.kind); return s ? [s] : BULK; }],
@@ -183,13 +194,15 @@ globalThis.OSA_NATIVE_ACCESS = {"gwarancje":{"access":"write"},"opisy":{"access"
     [/^res:(list|get|options)$/, p => { const r = String((p && p.res) || ''); return DICTS.includes(r) ? ANY : [r]; }],
     [/^res:\w+$/, p => [String((p && p.res) || '')]],
     // natywne ekrany: tylko z allowlisty; nieznany ekran / operacja = brak dostępu (pusta lista sekcji → 403)
+    // usuwanie wpisu (ekran z `del`: gpsr, zwroty, reklamacje): tylko administrator panelu, tylko ekran z allowlisty z zapisem; trasę i przycisk sprawdza silnik
+    [/^native:delete$/, p => { const id = String((p && p.screen) || ''); return NATIVE_SCREENS.includes(id) && !NATIVE_READ_ONLY.includes(id) ? ADMIN : []; }],
     [/^native:(read|save|create)$/, p => NATIVE_SCREENS.includes(String((p && p.screen) || '')) ? NATIVE : []],
     [/^native:\w+$/, () => []],
   ];
 
   const TITLES = {
     zamowienia: 'Zamówienia', dropshipping: 'Dropshipping', klienci: 'Klienci', przesylki: 'Przesyłki', produkty: 'Produkty', magazyny: 'Magazyny',
-    raporty: 'Raporty sprzedaży', 'zmiana-cen': 'Masowa zmiana cen', 'zmiana-danych': 'Masowa zmiana danych', 'zmiana-kategorii': 'Masowa zmiana kategorii',
+    raporty: 'Raporty sprzedaży', faktury: 'Wystawianie faktur', 'zmiana-cen': 'Masowa zmiana cen', 'zmiana-danych': 'Masowa zmiana danych', 'zmiana-kategorii': 'Masowa zmiana kategorii',
     subskrypcje: 'Subskrypcje', zwroty: 'Zwroty', zestawy: 'Zestawy', kategorie: 'Kategorie', producenci: 'Producenci',
     atrybuty: 'Warianty i opcje', tagi: 'Tagi', opinie: 'Opinie o produktach', blog: 'Blog', licencje: 'Raport licencji', wplaty: 'Import wpłat bankowych', pulpit: 'Pulpit', speedmail: 'Wysyłka SpeedMail',
   };

@@ -1,11 +1,11 @@
 // „Wysyłka SpeedMail” — wspólny stan i klocki zakładek (speedmail.js + speedmailZam / Stan / Paczki / Tempo / Ust).
-// Dane (sm:init / sm:list / sm:pace) są trzymane w pamięci i w sessionStorage (same numery zamówień, daty, produkty i liczby —
+// Dane (sm:init / sm:list / sm:pace / sm:history) są trzymane w pamięci i w sessionStorage (same numery zamówień, daty, produkty i liczby —
 // żadnych danych klientów), więc strona rysuje się od razu z ostatniej kopii i odświeża w tle. Bez odpytywania w pętli.
-import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=c31db2e';
-import { api, ctx } from '../core/client.js?v=c31db2e';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=c31db2e';
-import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=c31db2e';
-import { SM } from '../lib/speedmailLogic.js?v=c31db2e';
+import { $, el, flash, buildXlsx, saveBlob, tableTsv, tableHtml, copyToClipboard } from '../core/ui.js?v=1c81125';
+import { api, ctx } from '../core/client.js?v=1c81125';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=1c81125';
+import { liveRefresh, changedIds } from '../core/liveRefresh.js?v=1c81125';
+import { SM } from '../lib/speedmailLogic.js?v=1c81125';
 
 export { SM };
 export const WRITE = ['magazyny'];                       // jak reguła sm:* (shared/panelAuth.js)
@@ -14,9 +14,9 @@ export const FRESH_MS = 60e3;                            // młodszych danych ni
 
 export const S = {
   view: 'zamowienia', query: new URLSearchParams(), err: '', rerender: () => {},
-  d: null, list: null, pace: null,                       // wpisy pamięci: { t, v }
-  loading: { init: false, list: false, pace: false }, errs: { init: '', list: '', pace: '' },
-  since: { init: 0, list: 0, pace: 0 }, retryAt: { init: 0, list: 0, pace: 0 }, mounted: false,   // początek pobierania; kiedy automatyczne ponowienie
+  d: null, list: null, pace: null, hist: null,           // wpisy pamięci: { t, v }
+  loading: { init: false, list: false, pace: false, hist: false }, errs: { init: '', list: '', pace: '', hist: '' },
+  since: { init: 0, list: 0, pace: 0, hist: 0 }, retryAt: { init: 0, list: 0, pace: 0, hist: 0 }, mounted: false,   // początek pobierania; kiedy automatyczne ponowienie
   sel: new Set(), dlg: null, job: null, busy: false, lastBatch: null, flashIds: null,
 };
 
@@ -28,6 +28,7 @@ const SHAPE = {
   init: v => !!(v && v.cfg && Array.isArray(v.cfg.products) && Array.isArray(v.orders) && Array.isArray(v.statuses) && v.use && Array.isArray(v.use.open) && typeof v.today === 'string'),
   list: v => !!(v && Array.isArray(v.batches) && Array.isArray(v.moves)),
   pace: v => !!(v && Array.isArray(v.rows)),
+  hist: v => !!(v && Array.isArray(v.seasons) && Number.isInteger(v.n) && typeof v.from === 'string'),
 };
 export const validSnapshot = (kind, e) => !!(e && e.t && e.s === SNAP && SHAPE[kind] && SHAPE[kind](e.v));
 const mem = new Map();
@@ -54,14 +55,14 @@ function remember(k, v) {
 }
 function forget(k) { mem.delete(keyOf(k)); try { sessionStorage.removeItem(keyOf(k)); } catch (e) { /* ok */ } }
 
-const ACTION = { init: 'sm:init', list: 'sm:list', pace: 'sm:pace' }, SLOT = { init: 'd', list: 'list', pace: 'pace' };
+const ACTION = { init: 'sm:init', list: 'sm:list', pace: 'sm:pace', hist: 'sm:history' }, SLOT = { init: 'd', list: 'list', pace: 'pace', hist: 'hist' };
 const running = {};
 // Automatyczne ponowienie po błędzie pobrania (sieć, przekroczony czas, serwer zapasowy bez nadzoru SpeedMail): po 3 s, 10 s, potem co 30 s,
 // tylko gdy ekran jest otwarty. Ostatnia kopia (jeśli jest) zostaje na ekranie z komunikatem; „Spróbuj ponownie” — od razu.
 export const RETRY_MS = [3000, 10000, 30000];
 // Gdy pierwsze pobranie (bez kopii) trwa dłużej — komunikat „serwer odpowiada wolniej”, zamiast samego szkieletu
 export const SLOW_MS = 8000;
-const retries = { init: 0, list: 0, pace: 0 }, retryTimer = {};
+const retries = { init: 0, list: 0, pace: 0, hist: 0 }, retryTimer = {};
 function scheduleRetry(kind) {
   clearTimeout(retryTimer[kind]);
   const ms = RETRY_MS[Math.min(retries[kind], RETRY_MS.length - 1)];
@@ -172,7 +173,7 @@ export function fold(id, summary, ...body) {
     el('summary', null, el('span', null, summary[0]), summary[1] ? el('span', { class: 'sum' }, summary[1]) : null), ...body);
 }
 
-/** Pasek „dane z 12:04 · odświeżam…” + przycisk odświeżenia (kind = init | list | pace). */
+/** Pasek „dane z 12:04 · odświeżam…” + przycisk odświeżenia (kind = init | list | pace | hist). */
 export function freshBar(kind, extra) {
   const e = S[SLOT[kind]], busy = S.loading[kind];
   return el('div', { class: 'sm-fresh muted small', id: 'smFresh' },

@@ -3,18 +3,18 @@
 // paczki — przekazane paczki zleceń (plik .xlsx, statusy, anulowanie); tempo — sprzedaż wobec prognozy; ustawienia — lista produktów SM,
 // rozbicia, terminy, progi. Dane i zapisy: akcje sm:* (Worker + D1), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: shared/speedmail.js → lib/speedmailLogic.js (ta sama na serwerze). Bez danych osobowych.
-import { $, el } from '../core/ui.js?v=c31db2e';
-import { go, addLeaveGuard } from '../core/router.js?v=c31db2e';
-import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop, resumeRetries, SLOW_MS } from './speedmailKit.js?v=c31db2e';
-import { importRetry } from '../core/preload.js?v=c31db2e';
-import { viewOrders } from './speedmailZam.js?v=c31db2e';
+import { $, el } from '../core/ui.js?v=1c81125';
+import { go, addLeaveGuard } from '../core/router.js?v=1c81125';
+import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop, resumeRetries, SLOW_MS } from './speedmailKit.js?v=1c81125';
+import { importRetry } from '../core/preload.js?v=1c81125';
+import { viewOrders } from './speedmailZam.js?v=1c81125';
 // Zakładki poza domyślną (Zamówienia) ładują się dopiero po otwarciu — mniej plików przy pierwszym wejściu.
 // [() => import('…') (dosłownie — scripts/bust-cache.js), moduł → widok]; nieudane pobranie: jedno ponowienie z ominięciem pamięci (importRetry).
 const LAZY = {
-  stan: [() => import('./speedmailStan.js?v=c31db2e'), m => m.viewStock],
-  paczki: [() => import('./speedmailPaczki.js?v=c31db2e'), m => m.viewBatches],
-  tempo: [() => import('./speedmailTempo.js?v=c31db2e'), m => m.viewPace],
-  ustawienia: [() => import('./speedmailUst.js?v=c31db2e'), m => { settingsDirty = m.settingsDirty; return m.viewSettings; }],
+  stan: [() => import('./speedmailStan.js?v=1c81125'), m => m.viewStock],
+  paczki: [() => import('./speedmailPaczki.js?v=1c81125'), m => m.viewBatches],
+  tempo: [() => import('./speedmailTempo.js?v=1c81125'), m => m.viewPace],
+  ustawienia: [() => import('./speedmailUst.js?v=1c81125'), m => { settingsDirty = m.settingsDirty; return m.viewSettings; }],
 };
 const tabLoading = {};
 const VIEWS = { zamowienia: viewOrders };
@@ -24,8 +24,8 @@ const TABS = [
   ['zamowienia', 'Zamówienia', 'Wszystkie otwarte zamówienia z podpowiedzią, kto je pakuje — SpeedMail czy my — i dlaczego. Stąd przekazujesz zamówienia do SpeedMail.', viewOrders, []],
   ['stan', 'Stan w SpeedMail', 'Ile towaru ma SpeedMail (wysłane + dosyłki − zlecone ± korekty), na ile dni wystarczy i co wymaga dosyłki', null, ['list']],
   ['paczki', 'Paczki zleceń', 'Paczki zamówień przekazane do SpeedMail: plik Excel, statusy w Selly, anulowanie zlecenia', null, ['list']],
-  ['tempo', 'Tempo sprzedaży', 'Sprzedaż narastająco wobec prognozy — sygnał do dodruku albo zmiany ceny', null, ['pace']],
-  ['ustawienia', 'Ustawienia', 'Lista produktów SpeedMail, rozbicia zestawów, terminy sezonu, formy dostawy, statusy, progi alertów, prognozy', null, []],
+  ['tempo', 'Tempo sprzedaży', 'Sprzedaż narastająco wobec prognozy — sygnał do dodruku albo zmiany ceny', null, ['pace', 'hist']],
+  ['ustawienia', 'Ustawienia', 'Lista produktów SpeedMail, rozbicia zestawów, terminy sezonu, formy dostawy, statusy, progi alertów, prognozy', null, ['hist']],
 ];
 // Dawne kroki kreatora → nowe zakładki (stare linki i zakładki przeglądarki działają dalej)
 const OLD = { kandydaci: 'zamowienia', podzial: 'zamowienia', plik: 'paczki', zatwierdz: 'paczki', historia: 'paczki' };
@@ -47,7 +47,7 @@ function render() {
   try { draw(root); } catch (e) {
     console.error(e);
     root.replaceChildren(notice('error', 'Nie udało się pokazać danych SpeedMail (' + String((e && e.message) || e).slice(0, 120) + '). ',
-      el('button', { type: 'button', class: 'secondary', id: 'smDrawRetry', onclick: () => { S.d = null; S.list = null; S.pace = null; ensure('init', true); for (const k of (tabOf(S.view) || [])[4] || []) ensure(k, true); render(); } }, 'Spróbuj ponownie')));
+      el('button', { type: 'button', class: 'secondary', id: 'smDrawRetry', onclick: () => { S.d = null; S.list = null; S.pace = null; S.hist = null; ensure('init', true); for (const k of (tabOf(S.view) || [])[4] || []) ensure(k, true); render(); } }, 'Spróbuj ponownie')));
   }
 }
 function draw(root) {

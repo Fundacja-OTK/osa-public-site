@@ -74,3 +74,13 @@
   body.pk-printing .pk-slip { break-before: page; page-break-before: always; border-top: 0; margin-top: 0; padding-top: 0; }
   body.pk-printing .pk-foot { color: #555 !important; }
 }
+
+/* Wystawianie faktury z panelu (fakturaWystaw.js) i „Zamówienia bez faktury” */
+.inv-todo { margin: var(--s3) 0; }
+.inv-todo > summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.inv-issue { margin-top: var(--s3); }
+.inv-issue-fields { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin: var(--s3) 0; }
+.inv-issue-fields .field { display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
+.inv-issue-more { margin: var(--s2) 0; }
+.inv-issue-more > summary { cursor: pointer; color: var(--accent); }
+.inv-issue-items tfoot th, .inv-issue-items tfoot td { border-top: 2px solid var(--border-strong); }

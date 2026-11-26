@@ -1,18 +1,20 @@
 // Moduł „Klienci”: lista z wyszukiwarką (#/klienci?q=..&page=..) i szczegóły (#/klienci/<id>).
 // Dane i zapisy: backend Cloudflare (akcje clients:list, clients:get, clients:update — notatka klienta).
 // Grupy (ekran, zmiana na karcie, masowo z listy) i limit zamówień: klienciGrupy.js; import CSV (#/klienci/import): klienciImport.js.
-import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, syncedLabel, fetchAllRows } from '../core/ui.js?v=c31db2e';
-import { listView } from '../core/listView.js?v=c31db2e';
-import { api, ctx } from '../core/client.js?v=c31db2e';
-import { go, setLeaveGuard } from '../core/router.js?v=c31db2e';
-import { noteVisit } from '../core/recents.js?v=c31db2e';
-import { registerListKeys } from '../core/listKeys.js?v=c31db2e';
-import { clientForm } from './klienciForm.js?v=c31db2e';
-import { mountBlockToggle } from './klienciBlokada.js?v=c31db2e';
-import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=c31db2e';
-import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=c31db2e';
-import { renderImport } from './klienciImport.js?v=c31db2e';
-import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=c31db2e';
+import { el, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, dateStr, fullName, isUnavailable, loadingBox, sellyLink, dl, syncedLabel, fetchAllRows } from '../core/ui.js?v=1c81125';
+import { listView } from '../core/listView.js?v=1c81125';
+import { api, ctx } from '../core/client.js?v=1c81125';
+import { go, setLeaveGuard } from '../core/router.js?v=1c81125';
+import { noteVisit } from '../core/recents.js?v=1c81125';
+import { registerListKeys } from '../core/listKeys.js?v=1c81125';
+import { clientForm } from './klienciForm.js?v=1c81125';
+import { mountBlockToggle } from './klienciBlokada.js?v=1c81125';
+import { askConfirm } from '../core/confirm.js?v=1c81125';
+import { addressesFold, pricesFold, affiliateFold, relatedBlock, sellyOnlyBlock } from './klienciExtra.js?v=1c81125';
+import { renderGroups, cardGroup, limitFold, bulkGroupDialog, sellyGroups, mergeGroups, groupName } from './klienciGrupy.js?v=1c81125';
+import { noteStatusFold, producerDiscountsFold, blockedProducersFold, renderNotes, renderSubPerms } from './klienciNatywne.js?v=1c81125';
+import { renderImport } from './klienciImport.js?v=1c81125';
+import { OSA_CLEAR, readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, osaDetailPairs, applyBadgePrefs } from '../core/osa.js?v=1c81125';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 // Filtry z Selly (lista klientów): nazwy jak w parametrach akcji clients:list
@@ -111,6 +113,8 @@ function buildList() {
   } });
   u.moreBtn = menuButton({ id: 'cliMore', label: 'Więcej', cls: 'secondary', title: 'Grupy klientów, import z pliku CSV i funkcje dostępne tylko w panelu Selly', items: () => [
     { label: 'Grupy klientów', title: 'Grupy z Selly: nazwy, liczba klientów, dodawanie nowej grupy', run: () => go('/klienci/grupy') },
+    { label: 'Notatki klientów', title: 'Klienci z wpisaną notatką — filtr otwarte / zamknięte (z Selly)', run: () => go('/klienci/notatki') },
+    { label: 'Uprawnienia subkont', title: 'Co mogą subkonta na poziomie pełnym, średnim i niskim (z Selly, zmiana po potwierdzeniu)', run: () => go('/klienci/subkonta-uprawnienia') },
     { label: 'Importuj klientów z pliku CSV', title: 'Plik czytany w przeglądarce → sprawdzenie bez zapisu (błędy, duplikaty) → dodanie po potwierdzeniu', run: () => go('/klienci/import') },
     { label: 'Import CSV w Selly ↗', title: 'Oryginalny import Selly (inny układ pliku, bez podglądu przed zapisem)', run: () => window.open(adminUrl() + '?a=klienci', '_blank', 'noopener') },
     { label: 'Eksport CSV w Selly ↗', title: 'Oryginalny eksport Selly (z polami, których panel nie pokazuje)', run: () => window.open(adminUrl() + '?a=klienci', '_blank', 'noopener') }] });
@@ -189,7 +193,13 @@ async function renderDetail(id) {
   const noteHost = el('div', { id: 'cliNoteBox' });
   const showNote = () => noteHost.replaceChildren(
     c.notes ? el('p', { class: 'cli-note-text', id: 'cliNoteText' }, c.notes) : el('p', { class: 'muted', id: 'cliNoteText' }, 'Brak notatki.'),
-    el('button', { type: 'button', class: 'secondary', write: 'klienci', id: 'cliNoteEdit', title: 'Edytuj notatkę klienta (zapisze się w Selly)', onclick: editNote }, 'Edytuj notatkę'));
+    el('button', { type: 'button', class: 'secondary', write: 'klienci', id: 'cliNoteEdit', title: 'Edytuj notatkę klienta (zapisze się w Selly)', onclick: editNote }, 'Edytuj notatkę'),
+    c.notes && ctx.boot && ctx.boot.isAdmin ? [' ', el('button', { type: 'button', class: 'danger', id: 'cliNoteDel', title: 'Usuwa treść notatki klienta w Selly (tylko administrator panelu; nie da się cofnąć)', onclick: deleteNote }, 'Usuń notatkę')] : null);
+  async function deleteNote() {
+    if (!await askConfirm('Usunąć notatkę tego klienta w Selly? Treści nie da się przywrócić z panelu.', { title: 'Usunąć notatkę?', confirmLabel: 'Usuń', danger: true })) return;
+    try { await api('clients:noteDelete', { id, confirm: true }); flash('', 'Notatka usunięta w Selly'); renderDetail(id); }
+    catch (e) { flash('', e.message || 'Nie udało się usunąć notatki'); }
+  }
   function editNote() {
     const ta = el('textarea', { id: 'cliNoteInput', rows: '5', maxlength: '5000', 'aria-label': 'Notatka klienta' });
     ta.value = c.notes || '';
@@ -238,7 +248,7 @@ async function renderDetail(id) {
       el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Adresy')),
         dl([['Dane do faktury', addressBlock(c, 'invoice')], ['Adres wysyłki', addressBlock(c, 'ship')]]))),
     el('div', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', null, 'Notatka'), el('div', { class: 'sub tip', title: 'W sklepie notatka klienta to zwykle opis orszaku: województwo, miejscowość itp. Zapis trafia do Selly.' }, 'Opis orszaku i uwagi — widoczne w panelu')), noteHost),
-    osaCard, relHost, addressesFold(id, adminUrl()), pricesFold(id, adminUrl()), limitFold(id, adminUrl()), affiliateFold(id), sellyOnlyBlock(id, adminUrl()), ordersCard);
+    osaCard, relHost, addressesFold(id, adminUrl()), pricesFold(id, adminUrl()), producerDiscountsFold(id, adminUrl()), blockedProducersFold(id, adminUrl()), noteStatusFold(id, adminUrl()), limitFold(id, adminUrl()), affiliateFold(id), sellyOnlyBlock(id, adminUrl()), ordersCard);
   fillExtra(id, my, relHost);
 }
 
@@ -332,6 +342,8 @@ function mountRoute() {
     extra: [{ keys: ['n'], label: 'N', desc: 'Dodaj klienta', id: 'cliAdd' }, { keys: ['r'], label: 'R', desc: 'Edytuj dane klienta (na karcie)', id: 'cliEdit' }, { keys: ['b'], label: 'B', desc: 'Zablokuj lub odblokuj konto (na karcie)', id: 'cliBlockBtn' }] });
   S.lv.node.hidden = !!route.id; S.detailBox.hidden = !route.id;
   dropGuard();
+  if (route.id === 'notatki') { S.routeSeq++; renderNotes(S.detailBox, { back: S.listHash }); return; }
+  if (route.id === 'subkonta-uprawnienia') { S.routeSeq++; renderSubPerms(S.detailBox, { back: S.listHash }); return; }
   if (route.id === 'grupy') { const my = ++S.routeSeq; renderGroups(S.detailBox, { sellyUrl: adminUrl(), back: S.listHash, isCurrent: () => my === S.routeSeq }); return; }
   if (route.id === 'import') {
     const my = ++S.routeSeq;
@@ -350,7 +362,7 @@ function mountRoute() {
 export default {
   id: 'klienci',
   title: 'Klienci',
-  routes: ['', '<id>', '<id>/edytuj', 'nowy', 'grupy', 'import'],
+  routes: ['', '<id>', '<id>/edytuj', 'nowy', 'grupy', 'import', 'notatki', 'subkonta-uprawnienia'],
   mount(el0, params) {
     applyBadgePrefs();
     if (!S.root) { S.root = el0; S.detailBox = el('div'); S.detailBox.hidden = true; el0.append(S.detailBox); }

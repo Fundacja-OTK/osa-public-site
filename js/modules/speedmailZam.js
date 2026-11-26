@@ -1,10 +1,11 @@
 // „Wysyłka SpeedMail” → zakładka Zamówienia: tabela wszystkich otwartych zamówień z podpowiedzią „SpeedMail / pakujemy sami” i powodem
 // (reguły 1–5 specyfikacji). Sortowanie po każdej kolumnie, filtry i wyszukiwanie zapisane w adresie, zaznaczanie zbiorcze, ręczna zmiana
 // decyzji w obie strony, przekazanie paczki zleceń (sm:batch) + status w Selly, „zostają u nas” (sm:keep + status „Złożone OTK”).
-import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store } from '../core/ui.js?v=c31db2e';
-import { askConfirm } from '../core/confirm.js?v=c31db2e';
-import { go } from '../core/router.js?v=c31db2e';
-import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=c31db2e';
+import { payState } from '../lib/payState.js?v=1c81125';
+import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store } from '../core/ui.js?v=1c81125';
+import { askConfirm } from '../core/confirm.js?v=1c81125';
+import { go } from '../core/router.js?v=1c81125';
+import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=1c81125';
 
 const KEYS = ['dec', 'reason', 'status', 'delivery', 'from', 'to', 'product', 'stock', 'pre', 'q'];
 const SORTS = ['num', 'date', 'status', 'delivery', 'items', 'stock', 'dec', 'reason'];
@@ -283,6 +284,11 @@ const BAR_OPEN = 'osa.sm.barOpen';
  * Resztę (stan SpeedMail, „Szczegóły braków”, wyjaśnienia) pokazuje panel rozwijany w górę przyciskiem „Szczegóły ▴” (zapamiętane w przeglądarce).
  * Pasek stoi w układzie strony pod tabelą (sticky), więc koniec listy nigdy nie jest nim zasłonięty.
  */
+function payBadge(o) {
+  if (o.total == null) return null;
+  const ps = payState(o.paid, o.total);
+  return el('span', { class: 'ord-ico ' + ps.cls, title: ps.tip }, ps.label);
+}
 function selBar(v, selRows, selSm, selMy, sh, clearSel) {
   const n = selRows.length;
   if (!n) return el('div', { class: 'save-bar lv-bar sm-bar', id: 'smBulk', hidden: true });
@@ -442,7 +448,7 @@ function rowEl(x) {
     el('td', null, cb),
     el('td', { class: 'nw' }, el('a', { href: '#/zamowienia/' + encodeURIComponent(x.id), title: 'Otwórz kartę zamówienia ' + x.num }, x.num),
       x.prev ? el('span', { class: 'ord-st warn', title: 'To zamówienie było już w paczce nr ' + x.prev + ', a zlecenie anulowano. Ponowne przekazanie wymaga podania powodu.' }, 'było w paczce ' + x.prev) : null),
-    el('td', { class: 'nw' }, dmy(x.day)), el('td', null, x.status), el('td', null, x.delivery),
+    el('td', { class: 'nw' }, dmy(x.day)), el('td', null, x.status, ' ', payBadge(r.o)), el('td', null, x.delivery),
     el('td', { class: 'sm-items', title: Object.keys(r.need).length ? 'W produktach SpeedMail: ' + needText(r.need) : null }, x.items || '—',
       r.presale ? el('span', { class: 'ord-st acc', title: 'Zawiera produkty z przedsprzedaży — SpeedMail wysyła je od ' + dmy(S.d.v.cfg.dates.presaleStart) }, 'przedsprzedaż') : null),
     el('td', { class: 'sm-stock' }, stock),

@@ -2,10 +2,10 @@
 // Przebieg: 1) wybór produktów (filtry albo zaznaczenie) → 2) co zmienić → 3) OBOWIĄZKOWY podgląd „przed → po” → potwierdzenie z liczbą →
 // 4) wykonanie partiami z paskiem postępu (wstrzymaj / zatrzymaj, błędy per produkt) → 5) podsumowanie i „Cofnij” (do 7 dni).
 // Backend: akcje bulk:* (Worker, token READWRITE, tempo ≤ 120 zapisów/min do Selly).
-import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=c31db2e';
-import { confirmDialog } from '../core/confirm.js?v=c31db2e';
-import { api, ctx } from '../core/client.js?v=c31db2e';
-import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=c31db2e';
+import { el, money, cnt, plural, isUnavailable, loadingBox, pageToolbar, flash, dateStr, sellyLink } from '../core/ui.js?v=1c81125';
+import { confirmDialog } from '../core/confirm.js?v=1c81125';
+import { api, ctx } from '../core/client.js?v=1c81125';
+import { shortcuts, addKeyTip } from '../core/shortcuts.js?v=1c81125';
 
 const BULK_W = ['zmiana-cen', 'zmiana-danych', 'zmiana-kategorii'];   // jak reguła serwera (bulk:*): dowolna z trzech sekcji
 const zl = v => money(v) + ' zł';
@@ -18,12 +18,12 @@ const MODES = {
   dane: { id: 'zmiana-danych', title: 'Masowa zmiana danych', sub: 'Dostępność, widoczność w sklepie, oznaczenie „Nowość” i lokalizacja w magazynie dla wielu produktów naraz', a: 'scripts.produktyZmianaDanych' },
   kat: { id: 'zmiana-kategorii', title: 'Masowa zmiana kategorii', sub: 'Przenieś wybrane produkty do innej kategorii albo ustaw im producenta', a: 'scripts.produktyZmianaKategorii' },
 };
-const FIELD_LABEL = { price: 'Cena', previous_price: 'Cena poprzednia', visible: 'Widoczność w sklepie', availability_id: 'Dostępność', warehouse_localisation: 'Lokalizacja', promotion_new: 'Nowość', category_id: 'Kategoria', producer_id: 'Producent' };
+const FIELD_LABEL = { price: 'Cena', previous_price: 'Cena poprzednia', visible: 'Widoczność w sklepie', availability_id: 'Dostępność', warehouse_localisation: 'Lokalizacja', promotion_new: 'Nowość', ads_compare_export: 'Eksport do porównywarek (Ceneo)', category_id: 'Kategoria', producer_id: 'Producent' };
 const PRICE_MODES = [['percent', 'Zmień o procent', 'Np. −10 obniża o 10%, 5 podnosi o 5%'], ['amount', 'Zmień o kwotę', 'Np. −2,50 obniża o 2,50 zł, 3 podnosi o 3 zł'], ['set', 'Ustaw jedną cenę', 'Wszystkie wybrane produkty dostaną tę samą cenę'], ['fromPrevious', 'Przywróć cenę poprzednią', 'Cena aktualna = cena poprzednia (sprzed obniżki); produkty bez ceny poprzedniej są pomijane'], ['keep', 'Nie zmieniaj ceny (tylko cena poprzednia)', 'Zmienia wyłącznie cenę poprzednią — wybierz niżej, co z nią zrobić']];
 const ROUNDS = [['none', 'bez zaokrąglania (do groszy)'], ['zl', 'do pełnych złotych (x,00)'], ['dec1', 'do 10 groszy (x,x0)'], ['half', 'do 50 groszy (x,00 / x,50)'], ['x99', 'na końcówkę ,99 (najbliższa)'], ['x99up', 'na końcówkę ,99 (w górę)']];
 const PREVIOUS = [['leave', 'nie ruszaj ceny poprzedniej', 'Cena poprzednia (przekreślona) zostaje jak jest'], ['oldAsPrevious', 'zapisz dotychczasową cenę jako poprzednią', 'Przy zmianie ceny stara cena trafia do pola „cena poprzednia” (pokaże się jako przekreślona)'],
   ['oldIfLower', 'jak wyżej, ale tylko przy obniżce (przy podwyżce wyczyść)', 'Przekreślona cena tylko przy obniżkach'], ['clear', 'wyczyść cenę poprzednią', 'Usuwa przekreśloną cenę'], ['toCurrent', 'ustaw cenę poprzednią = nowa cena', 'Cena poprzednia równa nowej cenie']];
-const DATA_FIELDS = [['availability_id', 'Dostępność', 'Status dostępności widoczny przy produkcie (np. „dostępny”, „na zamówienie”)'], ['visible', 'Widoczność w sklepie', 'Czy produkt jest widoczny dla klientów'], ['promotion_new', 'Oznaczenie „Nowość”', 'Czy produkt ma etykietę „Nowość”'], ['warehouse_localisation', 'Lokalizacja w magazynie', 'Miejsce na półce (np. A-12); puste pole czyści lokalizację']];
+const DATA_FIELDS = [['availability_id', 'Dostępność', 'Status dostępności widoczny przy produkcie (np. „dostępny”, „na zamówienie”)'], ['visible', 'Widoczność w sklepie', 'Czy produkt jest widoczny dla klientów'], ['promotion_new', 'Oznaczenie „Nowość”', 'Czy produkt ma etykietę „Nowość”'], ['ads_compare_export', 'Eksport do porównywarek cen (Ceneo)', 'Czy produkt trafia do plików dla porównywarek cen, np. Ceneo. Zmienia tylko to ustawienie produktu — pliku nie wysyła'], ['warehouse_localisation', 'Lokalizacja w magazynie', 'Miejsce na półce (np. A-12); puste pole czyści lokalizację']];
 
 export function createMode(modeKey) {
   const M = MODES[modeKey];
@@ -40,7 +40,7 @@ export function createMode(modeKey) {
   function buildOp() {
     if (modeKey === 'cen') return { kind: 'price', mode: O.priceMode, value: O.value, round: O.round, previous: O.previous };
     if (modeKey === 'dane') {
-      const v = O.field === 'visible' || O.field === 'promotion_new' ? O.fieldValue === '1' : O.fieldValue;
+      const v = O.field === 'visible' || O.field === 'promotion_new' || O.field === 'ads_compare_export' ? O.fieldValue === '1' : O.fieldValue;
       return { kind: 'field', field: O.field, value: O.field === 'availability_id' ? Number(O.fieldValue) : v };
     }
     return O.target === 'category' ? { kind: 'category', value: O.catId } : { kind: 'producer', value: O.prodId };
@@ -51,7 +51,7 @@ export function createMode(modeKey) {
       if (O.priceMode === 'keep' && O.previous === 'leave') return 'Wybierz, co zrobić z ceną poprzednią.';
     } else if (modeKey === 'dane') {
       if (O.field === 'availability_id' && !O.fieldValue) return 'Wybierz dostępność.';
-      if ((O.field === 'visible' || O.field === 'promotion_new') && O.fieldValue === '') return 'Wybierz wartość.';
+      if ((O.field === 'visible' || O.field === 'promotion_new' || O.field === 'ads_compare_export') && O.fieldValue === '') return 'Wybierz wartość.';
     } else if (O.target === 'category' && !O.catId) return 'Wybierz kategorię docelową.';
     return '';
   }
@@ -153,7 +153,7 @@ export function createMode(modeKey) {
   }
 
   // ─── Krok 3: podgląd ─────────────────────────────────────────────────────
-  const fmtVal = (k, v) => (k === 'price' || k === 'previous_price' ? (Number(v) ? zl(v) : '—') : k === 'visible' ? (v ? 'widoczny' : 'ukryty') : k === 'promotion_new' ? (v ? 'tak' : 'nie')
+  const fmtVal = (k, v) => (k === 'price' || k === 'previous_price' ? (Number(v) ? zl(v) : '—') : k === 'visible' ? (v ? 'widoczny' : 'ukryty') : k === 'promotion_new' || k === 'ads_compare_export' ? (v ? 'tak' : 'nie')
     : k === 'category_id' ? catName(v) : k === 'producer_id' ? prodName(v) : k === 'availability_id' ? availName(v) : (v === '' || v == null ? '— pusto —' : String(v)));
 
   function previewCard() {
