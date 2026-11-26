@@ -2,7 +2,7 @@
 // (#cardSignIn); hasło idzie wyłącznie do serwera głównego (Worker), który przekazuje je do Selly i nigdzie go nie zapisuje.
 // Po zalogowaniu: token sesji (256 bitów) w localStorage — wspólny dla kart (nowa karta otwiera panel od razu; zalogowanie / wylogowanie
 // w jednej karcie dociera do pozostałych przez zdarzenie „storage”) + krótki token dla serwera zapasowego (Apps Script), odświeżany w tle.
-import { $ } from './ui.js?v=ad8c30d';
+import { $ } from './ui.js?v=9e50e6d';
 
 const ENV = () => window.OSA_CONFIG || {};
 export const SESSION_KEY = 'osa-sess';

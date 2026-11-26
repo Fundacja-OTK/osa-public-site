@@ -5,8 +5,8 @@
 // przypisać ręcznie — przypisanie zapamiętujemy po „podpisie” nagłówków (headerSignature). Plik czytamy WYŁĄCZNIE w przeglądarce:
 // raport wysyłek może zawierać dane odbiorców — na serwer idą tylko numery zamówień / paczek, a potem (po potwierdzeniu) numery przesyłek.
 // Parser CSV, kodowanie, kwoty i maskowanie: wspólne z importem wpłat (wplatyCsv.js); .xlsx: lib/xlsxRead.js.
-import { decodeBytes, detectSeparator, parseCsv, normHeader, headerSignature, parseAmount, maskCell } from './wplatyCsv.js?v=ad8c30d';
-import { readXlsx, isZip } from '../lib/xlsxRead.js?v=ad8c30d';
+import { decodeBytes, detectSeparator, parseCsv, normHeader, headerSignature, parseAmount, maskCell } from './wplatyCsv.js?v=9e50e6d';
+import { readXlsx, isZip } from '../lib/xlsxRead.js?v=9e50e6d';
 
 export { headerSignature, maskCell };
 export const MAX_BYTES = 10 * 1024 * 1024;

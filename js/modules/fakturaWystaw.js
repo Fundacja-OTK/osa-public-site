@@ -3,9 +3,9 @@
 // Backend: invoices:issueForm (podgląd, nic nie wysyła) i invoices:issue (opId, potwierdzenie, kwota z podglądu; serwer blokuje duplikat
 // i pilnuje limitu) — panel/worker/src/modules/invoiceIssue.js. Prawo zmian: sekcja „faktury” (administrator albo zgoda administratora).
 // Korekta i usunięcie faktury oraz paragon — w Selly. Treść z Selly wyłącznie przez el() / textContent.
-import { gateWrite, el, flash, money, dl, sellyLink, cnt } from '../core/ui.js?v=ad8c30d';
-import { confirmDialog } from '../core/confirm.js?v=ad8c30d';
-import { api } from '../core/client.js?v=ad8c30d';
+import { gateWrite, el, flash, money, dl, sellyLink, cnt } from '../core/ui.js?v=9e50e6d';
+import { confirmDialog } from '../core/confirm.js?v=9e50e6d';
+import { api } from '../core/client.js?v=9e50e6d';
 
 export const BATCH_MAX = 10;   // faktur w jednej partii (serwer i tak ma twardy limit na osobę)
 const newOpId = () => 'invi-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);

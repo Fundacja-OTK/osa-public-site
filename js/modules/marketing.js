@@ -1,8 +1,8 @@
 // Marketing (natywne ekrany Selly, definicje: shared/native/marketing.js): newsletter (zapisani), powiadomienia o dostępności, program partnerski
 // (partnerzy, prowizje, konfiguracja), ankieta do zamówień, statystyki wyszukiwarki, powiadomienia o koszykach, automatyczna wysyłka kuponów.
 // Listy z adresami e-mail / telefonami / IP maskuje serwer (maskPii) — pełne dane tylko w Selly. Wysyłka masowa (newsletter, kupony) zostaje w Selly.
-import { createNative } from './sellyNative.js?v=ad8c30d';
-import { createSettings } from './sellyNativeSettings.js?v=ad8c30d';
+import { createNative } from './sellyNative.js?v=9e50e6d';
+import { createSettings } from './sellyNativeSettings.js?v=9e50e6d';
 
 const ro = (id, title, a, noun, headerTips) => createNative({ id, title, screen: id, a, noun, recordTitle: i => title + ' nr ' + i, headerTips: headerTips || {} });
 const MASK_TIP = ' — adres i dane kontaktowe są częściowo ukryte; pełne zobaczysz w Selly';

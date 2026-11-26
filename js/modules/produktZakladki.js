@@ -2,10 +2,10 @@
 //   „Płatności i dostawa” (edycja), „Konfigurator wymiarów” (edycja), „Dodatkowe” (podgląd: polecane w koszyku, kategorie dodatkowe, ceny indywidualne,
 //   subskrypcje, aukcje), „Historia” (podgląd: historia ceny, zdarzenia). Zapis: tylko zmienione pola → podgląd (dryRun) → potwierdzenie → zapis → weryfikacja.
 // Uprawnienia i allowlisty rozstrzyga serwer (panelAuth + silnik natywny); tu nic nie jest ukryte „dla ochrony”.
-import { el, sellyLink, flash } from '../core/ui.js?v=ad8c30d';
-import { confirmDialog } from '../core/confirm.js?v=ad8c30d';
-import { ctx } from '../core/client.js?v=ad8c30d';
-import { sellyCall } from './sellyNative.js?v=ad8c30d';
+import { el, sellyLink, flash } from '../core/ui.js?v=9e50e6d';
+import { confirmDialog } from '../core/confirm.js?v=9e50e6d';
+import { ctx } from '../core/client.js?v=9e50e6d';
+import { sellyCall } from './sellyNative.js?v=9e50e6d';
 
 const str = v => (v == null ? '' : String(v));
 const WHAT = { min: 'wartość minimalna', przyrost: 'przyrost', wartosc: 'wartość domyślna', max: 'wartość maksymalna' };

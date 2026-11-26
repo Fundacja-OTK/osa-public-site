@@ -1,7 +1,7 @@
 // Wspólne komórki wierszy zamówień — lista Zamówienia (modules/zamowienia.js) i Wysyłka SpeedMail → Zamówienia (modules/speedmailZam.js)
 // wyglądają tak samo: produkty (zdjęcia w 3 rozmiarach, symbol, cena, wartość, rabat), komentarze w kolorach rodzaju,
 // wyróżnione formy dostawy i płatności. Treść z Selly tylko przez el() / textContent. Czysta logika i komórki w jednym pliku (mniej plików do wczytania list).
-import { el, money, cnt, thumb, store } from '../core/ui.js?v=ad8c30d';
+import { el, money, cnt, thumb, store } from '../core/ui.js?v=9e50e6d';
 
 
 // ─── Czysta logika (bez DOM; testy: tests/unit/orderView.test.js) ───

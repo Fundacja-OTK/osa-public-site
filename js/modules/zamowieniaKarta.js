@@ -1,11 +1,11 @@
 // Karta zamówienia z edycją (moduł Zamówienia): sekcje edytowalne, pozycje z edycją inline, dodawanie produktu, podsumowanie płatności, faktury.
 // Backend: orders:update / orders:updateItem / orders:addItem / orders:invoices / orders:invoiceUpdate / orders:get, products:list (wyszukiwarka produktów).
-import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput, copyToClipboard } from '../core/ui.js?v=ad8c30d';
-import { askConfirm } from '../core/confirm.js?v=ad8c30d';
-import { api, ctx } from '../core/client.js?v=ad8c30d';
-import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=ad8c30d';
+import { gateWrite, el, flash, money, dateStr, fullName, dl, sellyLink, store, debounce, dateInput, copyToClipboard } from '../core/ui.js?v=9e50e6d';
+import { askConfirm } from '../core/confirm.js?v=9e50e6d';
+import { api, ctx } from '../core/client.js?v=9e50e6d';
+import { invoiceEditor, invNumber, invValue, invStatusPill, isOverdue, issueUrl, printButton } from './zamowieniaFakturyKit.js?v=9e50e6d';
 // pola z formularza Selly i usuwanie pozycji: moduł ładowany dopiero przy użyciu (budżet zapytań strony — tests/e2e/perf)
-const kartaSelly = () => import('./zamowieniaKartaSelly.js?v=ad8c30d');
+const kartaSelly = () => import('./zamowieniaKartaSelly.js?v=9e50e6d');
 function itemDeleteButton(C, p) {
   if (!(ctx.boot && ctx.boot.isAdmin) || p.product_order_id == null) return null;
   const btn = gw(el('button', { type: 'button', class: 'secondary danger small-btn', id: 'ordItemDel-' + p.product_order_id,
@@ -488,7 +488,7 @@ function invoicesCard(C) {
   const issueHost = el('div', { id: 'ordInvIssueHost' });
   const issueBtn = gateWrite(el('button', { type: 'button', class: 'secondary', id: 'ordInvIssue',
     title: 'Pokazuje podgląd faktury VAT przygotowanej przez Selly dla tego zamówienia (numer, nabywca, pozycje, VAT) i pozwala ją wystawić po potwierdzeniu',
-    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=ad8c30d');   // leniwie: karta bez dodatkowego pliku na starcie
+    onclick: async () => { if (issueHost.firstChild) return; const { issuePanel } = await import('./fakturaWystaw.js?v=9e50e6d');   // leniwie: karta bez dodatkowego pliku na starcie
       if (!issueHost.firstChild) issueHost.replaceChildren(issuePanel({ orderId: C.id, onDone: () => load(), onClose: () => issueHost.replaceChildren() })); } }, 'Wystaw fakturę…'), 'faktury');
   const isAdmin = !!(ctx.boot && ctx.boot.isAdmin);
   const linksFor = hasActive => el('div', { class: 'ord-actions' },
@@ -765,7 +765,7 @@ function enhanceEvents(root) {
     if (/komentarz|notatk|uwag/i.test(type)) { li.classList.add(...cmClass('event').split(' ')); li.title = 'Komentarz w historii zdarzeń'; }
   }
   // moduł czyszczenia HTML ładowany tylko, gdy w historii jest HTML (budżet plików karty — tests/e2e/perf)
-  if (rich.length) import('../lib/htmlSanitize.js?v=ad8c30d').then(m => { for (const sp of rich) sp.replaceChildren(...richNodes(sp.textContent, m.sanitizeHtml)); }).catch(() => {});
+  if (rich.length) import('../lib/htmlSanitize.js?v=9e50e6d').then(m => { for (const sp of rich) sp.replaceChildren(...richNodes(sp.textContent, m.sanitizeHtml)); }).catch(() => {});
 }
 
 // ─── Układ karty: kolejność sekcji (przeciąganie + ↑ ↓), zwijanie, numer w nagłówku ─────────

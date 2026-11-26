@@ -1166,8 +1166,11 @@ tr.live-chg > td { animation: live-chg 2.4s ease-out; }
 .cm-internal { --c: var(--cm-internal-u, var(--cm-internal)); }
 .cm-groups { --c: var(--cm-groups-u, var(--cm-groups)); }
 .cm-h { font-size: var(--fs-xs); font-weight: 700; color: var(--c); margin-right: 6px; white-space: nowrap; filter: saturate(1.1); }
-.ord-tag { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; margin-top: 3px; padding: 1px 7px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600;
-  border: 1px solid color-mix(in srgb, var(--t) 45%, transparent); background: color-mix(in srgb, var(--t) 10%, var(--surface)); color: var(--text); overflow-wrap: anywhere; }
+.ord-tag { display: inline-flex; align-items: flex-start; gap: 4px; max-width: 100%; margin-top: 3px; padding: 2px 7px; border-radius: 6px; line-height: 1.3; font-size: var(--fs-xs); font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--t) 45%, transparent); background: color-mix(in srgb, var(--t) 10%, var(--surface)); color: var(--text); overflow-wrap: break-word; word-break: normal; hyphens: auto; }
+/* Kolumna z plakietkami dostawy / płatności nie może się zwęzić tak, że tekst łamie się po literze (lista SpeedMail, Zamówienia) */
+td:has(> .ord-tag.dlv, > .ord-tag.pay, > * > .ord-tag.dlv) { min-width: 9.5rem; }
+.ord-tag-i { margin-top: 1px; }
 .ord-tag.dlv { --t: var(--dlv); }
 .ord-tag.pay { --t: var(--pay); }
 .ord-tag-i { font-size: 12px; line-height: 1; }

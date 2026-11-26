@@ -1,12 +1,12 @@
 // „Wysyłka SpeedMail” → zakładka Zamówienia: tabela wszystkich otwartych zamówień z podpowiedzią „SpeedMail / pakujemy sami” i powodem
 // (reguły 1–5 specyfikacji). Sortowanie po każdej kolumnie, filtry i wyszukiwanie zapisane w adresie, zaznaczanie zbiorcze, ręczna zmiana
 // decyzji w obie strony, przekazanie paczki zleceń (sm:batch) + status w Selly, „zostają u nas” (sm:keep + status „Złożone OTK”).
-import { payState } from '../lib/payState.js?v=ad8c30d';
-import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store, columnMenu, colWidths } from '../core/ui.js?v=ad8c30d';
-import { itemsCell, commentsCell, commentColumns, deliveryTag, paymentTag, viewControls, applyPrefs, normView } from '../lib/orderCells.js?v=ad8c30d';
-import { askConfirm } from '../core/confirm.js?v=ad8c30d';
-import { go } from '../core/router.js?v=ad8c30d';
-import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=ad8c30d';
+import { payState } from '../lib/payState.js?v=9e50e6d';
+import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store, columnMenu, colWidths } from '../core/ui.js?v=9e50e6d';
+import { itemsCell, commentsCell, commentColumns, deliveryTag, paymentTag, viewControls, applyPrefs, normView } from '../lib/orderCells.js?v=9e50e6d';
+import { askConfirm } from '../core/confirm.js?v=9e50e6d';
+import { go } from '../core/router.js?v=9e50e6d';
+import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=9e50e6d';
 
 const KEYS = ['dec', 'reason', 'status', 'delivery', 'from', 'to', 'product', 'stock', 'pre', 'q'];
 const SORTS = ['num', 'date', 'status', 'delivery', 'items', 'stock', 'dec', 'reason'];

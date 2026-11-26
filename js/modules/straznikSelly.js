@@ -1,10 +1,10 @@
 // Moduł „Strażnik Selly” (tylko administrator): stan każdej strony Selly, na której opiera się panel (ekrany natywne, formularze przewoźników,
 // formularz faktury) — sprawdzanej automatycznie przez serwer kontem technicznym — oraz trasy Selly znalezione na tych stronach (same nazwy).
 // Backend: guard:status (odczyt), guard:reset (ponowne sprawdzenie; obejście diagnostyczne). Worker: modules/sellyGuard.js.
-import { el, dateStr } from '../core/ui.js?v=ad8c30d';
-import { api } from '../core/client.js?v=ad8c30d';
-import { listView } from '../core/listView.js?v=ad8c30d';
-import { confirmDialog } from '../core/confirm.js?v=ad8c30d';
+import { el, dateStr } from '../core/ui.js?v=9e50e6d';
+import { api } from '../core/client.js?v=9e50e6d';
+import { listView } from '../core/listView.js?v=9e50e6d';
+import { confirmDialog } from '../core/confirm.js?v=9e50e6d';
 
 const STATUS = {
   ok: ['działa', 'Budowa strony zgodna z zapisanym wzorcem — funkcja panelu działa.'],
