@@ -16,6 +16,8 @@
   --warn: #7a5200; --warn-soft: #f7e6bf; --warn-border: #e3c98a; --info-soft: #f3e0cb;
   --bar: #d6a273; --focus: #9c4a17;
   --cost: #4a2a12; /* słupek kosztu zakupu wewnątrz słupka sprzedaży */
+  /* rodzaje komentarzy zamówienia (lib/orderCells.js) i plakietki dostawy / płatności */
+  --cm-client: #2f6f9f; --cm-internal: #b06a00; --cm-groups: #7b4fa3; --dlv: #2f6a5a; --pay: #6a4a9a;
   /* kolory kafelków (tylko pasek/poświata, nie tekst) */
   --tone-1: #c0702f; --tone-2: #4b7fa8; --tone-3: #3e8a73; --tone-4: #8a5fa8; --tone-5: #b8892b; --tone-6: #b4526b;
   /* nawigacja (zawsze ciemna) */
@@ -49,6 +51,7 @@
     --lamp: 229, 165, 97;
     --ok: #8fd48a; --ok-soft: #1f3320; --no: #ff9c86; --no-soft: #3f211a;
     --warn: #f0c868; --warn-soft: #3a2d10; --warn-border: #5e4a1c; --info-soft: #3b2a17;
+  --cm-client: #7fb6e3; --cm-internal: #f0b45a; --cm-groups: #c4a0e8; --dlv: #7fcfb8; --pay: #c3a8ee;
     --bar: #a8703a; --focus: #f2c18b;
     --cost: #5a3818;
     --tone-1: #e5a561; --tone-2: #6fa8d6; --tone-3: #5cc0a3; --tone-4: #b794d6; --tone-5: #e0b84e; --tone-6: #e0809a;
@@ -70,6 +73,7 @@
   --lamp: 229, 165, 97;
   --ok: #8fd48a; --ok-soft: #1f3320; --no: #ff9c86; --no-soft: #3f211a;
   --warn: #f0c868; --warn-soft: #3a2d10; --warn-border: #5e4a1c; --info-soft: #3b2a17;
+  --cm-client: #7fb6e3; --cm-internal: #f0b45a; --cm-groups: #c4a0e8; --dlv: #7fcfb8; --pay: #c3a8ee;
   --bar: #a8703a; --focus: #f2c18b;
   --cost: #5a3818;
   --tone-1: #e5a561; --tone-2: #6fa8d6; --tone-3: #5cc0a3; --tone-4: #b794d6; --tone-5: #e0b84e; --tone-6: #e0809a;
@@ -1111,3 +1115,42 @@ tr.live-chg > td { animation: live-chg 2.4s ease-out; }
 .seg button[aria-pressed=true]:hover:not(:disabled), .pl-seg[aria-pressed=true]:hover { background: var(--accent); color: var(--accent-text); filter: brightness(1.07); }
 :is(.chip, .tab, .crit, .fp-item, .ms-btn, .osa-sel, .th-sort):is([aria-pressed=true], [aria-current=page], .on):hover { background: var(--accent-soft); filter: brightness(1.04); }
 :is(button.secondary, .btn-secondary).on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-strong); }
+
+/* ─── Wiersze zamówień (lib/orderCells.js): komentarze w kolorach rodzaju, dostawa / płatność, dodatki przy produktach ─── */
+.cm { --c: var(--cm-client-u, var(--cm-client)); border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) 12%, var(--surface)); color: var(--text);
+  padding: 3px 8px; border-radius: 0 var(--r1) var(--r1) 0; overflow-wrap: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cm.full { display: block; -webkit-line-clamp: none; }
+.cm-internal { --c: var(--cm-internal-u, var(--cm-internal)); }
+.cm-groups { --c: var(--cm-groups-u, var(--cm-groups)); }
+.cm-h { font-size: var(--fs-xs); font-weight: 700; color: var(--c); margin-right: 6px; white-space: nowrap; filter: saturate(1.1); }
+.ord-tag { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; margin-top: 3px; padding: 1px 7px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--t) 45%, transparent); background: color-mix(in srgb, var(--t) 10%, var(--surface)); color: var(--text); overflow-wrap: anywhere; }
+.ord-tag.dlv { --t: var(--dlv); }
+.ord-tag.pay { --t: var(--pay); }
+.ord-tag-i { font-size: 12px; line-height: 1; }
+.ord-tags { display: flex; flex-direction: column; align-items: flex-start; }
+.ord-items .it-main { min-width: 0; }
+.ord-items .it-x { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ord-items .it-sym { font-family: var(--mono, ui-monospace, monospace); }
+.ord-items .it-val { color: var(--text); font-weight: 600; }
+.ord-items .it-disc { color: var(--no); font-weight: 600; }
+.ord-items.ph-m .thumb-l { width: 48px; height: 48px; }
+.ord-items.ph-l .thumb-l { width: 72px; height: 72px; }
+.ord-lvl { font-size: var(--fs-sm); }
+.menu-sec { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
+.menu-h { padding: 4px 12px; font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.menu-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: 5px 12px; font-size: var(--fs-md); }
+.menu-row select { height: var(--ctl-h-sm); }
+.menu-sec .linkbtn, .menu-sec button.link { display: block; padding: 7px 12px; }
+/* Zmiana szerokości kolumn (core/ui.js colWidths) */
+th.col-rs-host { position: sticky; }
+.col-rs { position: absolute; top: 0; right: -4px; width: 9px; height: 100%; cursor: col-resize; z-index: 3; touch-action: none; }
+.col-rs::after { content: ''; position: absolute; top: 25%; bottom: 25%; left: 4px; width: 1px; background: var(--border-strong); opacity: 0; transition: opacity .15s; }
+th:hover > .col-rs::after, .col-rs:focus-visible::after, th.col-rs-drag > .col-rs::after { opacity: 1; width: 2px; background: var(--accent); }
+.col-rs:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+th.col-sized { white-space: normal; }
+table:has(th.col-sized) td { overflow-wrap: anywhere; }
+/* „Filtry” / „Ukryj filtry” — wyróżnione na tle innych przycisków paska (akcent); aktywne filtry = wypełnione */
+:is(button.secondary, button).fbtn { border-color: var(--accent); color: var(--accent-strong); box-shadow: inset 0 0 0 1px var(--accent); }
+:is(button.secondary, button).fbtn.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+:is(button.secondary, button).fbtn.on:hover:not(:disabled) { background: var(--accent-strong); color: var(--accent-text); }

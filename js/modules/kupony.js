@@ -1,6 +1,6 @@
 // Kupony rabatowe (Selly ?a=rabaty.kuponyRabatowe) — natywny ekran: lista z filtrami, karta kuponu, dodawanie i edycja (rabat, ważność, limity).
 // Kopiowanie = dodanie nowego kuponu z wartościami z karty (przez zwykłe dodawanie, bez trasy kopiowania Selly). Usuwanie i raport wykorzystania zostają w Selly (akcje niszczące / osobne formularze).
-import { createNative } from './sellyNative.js?v=a9a0d42';
+import { createNative } from './sellyNative.js?v=802d849';
 
 const pad = n => String(n).padStart(2, '0');
 /** Wczorajsza data w tym samym zapisie, w jakim Selly podaje daty kuponu (RRRR-MM-DD albo DD.MM.RRRR); inny zapis → null (bez szybkiej akcji). */

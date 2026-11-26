@@ -1,9 +1,9 @@
 // Reklamacje (Selly ?a=reklamacje) — natywny ekran: serwer główny czyta i zapisuje Selly sesją zalogowanego użytkownika (docs/selly-embed.md, docs/auth.md).
 // Lista, karta z historią zdarzeń, zmiana statusu / pracownika / RMA / uwag i dodawanie reklamacji (podgląd → potwierdzenie → zapis).
 // Zdarzenia wszystkich reklamacji i słownik statusów — osobne widoki tylko do podglądu (eksporty `zdarzenia`, `statusy`). Usuwanie zostaje w Selly.
-import { createNative } from './sellyNative.js?v=a9a0d42';
-import { createSettings } from './sellyNativeSettings.js?v=a9a0d42';
-import { panelLink } from './koszyki.js?v=a9a0d42';
+import { createNative } from './sellyNative.js?v=802d849';
+import { createSettings } from './sellyNativeSettings.js?v=802d849';
+import { panelLink } from './koszyki.js?v=802d849';
 
 const LINKS = [
   { href: '#/reklamacje', label: 'Reklamacje', tip: 'Lista reklamacji' },

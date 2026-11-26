@@ -667,14 +667,16 @@ export function pager(o) {
  */
 export function columnMenu(o) {
   const saved = store(o.storeKey) || {};
-  const isOn = key => { const c = o.cols.find(x => x.key === key); return !c || c.locked || (saved[key] != null ? !!saved[key] : c.def !== false); };
+  // c.unavailable = powód, dla którego kolumny nie da się włączyć (np. brak danych w kopii panelu) — pole wyłączone z tooltipem
+  const isOn = key => { const c = o.cols.find(x => x.key === key); return !c || c.locked || (!c.unavailable && (saved[key] != null ? !!saved[key] : c.def !== false)); };
   const btn = el('button', { type: 'button', class: 'secondary', id: o.id, 'aria-haspopup': 'true', 'aria-expanded': 'false',
     title: 'Wybierz, które kolumny tabeli są widoczne. Wybór jest zapamiętywany w tej przeglądarce.' }, 'Kolumny', el('span', { class: 'caret', 'aria-hidden': 'true' }, '▾'));
   const pop = el('div', { class: 'menu-pop wide', id: o.id + 'Pop', hidden: true }, o.cols.map(c => {
-    const cb = el('input', { type: 'checkbox', checked: isOn(c.key), disabled: !!c.locked, 'data-col': c.key,
+    const cb = el('input', { type: 'checkbox', checked: isOn(c.key), disabled: !!(c.locked || c.unavailable), 'data-col': c.key,
       onchange: () => { saved[c.key] = cb.checked; store(o.storeKey, saved); o.onChange(); } });
-    return el('label', { class: 'menu-check' + (c.locked ? ' dis' : ''), title: c.locked ? 'Ta kolumna jest zawsze widoczna' : c.tip || null }, cb, el('span', null, c.label));
-  }));
+    return el('label', { class: 'menu-check' + (c.locked || c.unavailable ? ' dis' : ''), title: c.locked ? 'Ta kolumna jest zawsze widoczna' : c.unavailable || c.tip || null }, cb,
+      el('span', null, c.label, c.unavailable ? el('span', { class: 'menu-note' }, c.unavailable) : null));
+  }), ...(o.extra || []));   // o.extra — dodatkowe węzły pod listą kolumn (np. „Widok produktów”, „Kolory komentarzy…”)
   const node = el('span', { class: 'menu' }, btn, pop);
   const onDoc = ev => { if (!node.contains(ev.target)) close(); };
   let unplace = () => {};
@@ -904,4 +906,76 @@ export async function fetchAllRows(fetchPage, max, what = 'dane') {
 /** Pole z tooltipem: <label>tekst + kontrolka</label>. */
 export const field = (label, control, tip) => el('label', { class: 'field-inline', title: tip || null }, label, control);
 
-export * from './datepicker.js?v=a9a0d42';   // pole daty i zakres dat
+export * from './datepicker.js?v=802d849';   // pole daty i zakres dat
+
+// ─── Zmiana szerokości kolumn (core/listView.js, Wysyłka SpeedMail → Zamówienia) ───
+// Uchwyt na prawej krawędzi nagłówka: przeciągnięcie, klawiatura (← → co 16 px, z Shift co 64 px, Delete = auto), dwuklik = auto.
+// Szerokości per lista w localStorage (brak dostępu = bez pamięci). W ui.js, żeby nie dokładać pliku do wczytania list.
+export const MIN_W = 48, MAX_W = 1200, STEP = 16;
+
+/** Szerokość z ograniczeniem (px, liczba całkowita) albo null (= automatyczna). */
+export function clampWidth(w) {
+  const n = Math.round(Number(w));
+  return Number.isFinite(n) && n > 0 ? Math.min(MAX_W, Math.max(MIN_W, n)) : null;
+}
+/** Nowa szerokość po klawiszu (null = automatyczna, undefined = klawisz bez znaczenia). */
+export function keyWidth(key, cur, shift) {
+  const d = (shift ? 4 : 1) * STEP;
+  if (key === 'ArrowLeft') return clampWidth(cur - d);
+  if (key === 'ArrowRight') return clampWidth(cur + d);
+  if (key === 'Delete' || key === 'Backspace') return null;
+  return undefined;
+}
+/** Zapisane szerokości listy: { klucz kolumny: px } — tylko poprawne wpisy. */
+export function readWidths(storeKey) {
+  const raw = storeKey ? store(storeKey) : null, out = {};
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) for (const [k, v] of Object.entries(raw)) { const w = clampWidth(v); if (w && /^[\w-]{1,40}$/.test(k)) out[k] = w; }
+  return out;
+}
+function apply(th, w) {
+  const v = w ? w + 'px' : '';
+  th.style.width = v; th.style.minWidth = v; th.style.maxWidth = v;
+  th.classList.toggle('col-sized', !!w);
+}
+
+/**
+ * Szerokości kolumn jednej listy. `widths.decorate(th, key, label)` — po zbudowaniu nagłówka: ustawia zapisaną szerokość
+ * i dokłada uchwyt. Zmiana zapisuje się od razu (bez przerysowania tabeli).
+ */
+export function colWidths(storeKey) {
+  let saved = readWidths(storeKey);
+  const save = () => { try { store(storeKey, saved); } catch (e) { /* bez pamięci */ } };
+  const set = (th, key, w) => { if (w) saved[key] = w; else delete saved[key]; apply(th, w); save(); };
+  function decorate(th, key, label) {
+    if (!th || !key) return th;
+    apply(th, saved[key] || null);
+    const h = el('span', { class: 'col-rs', role: 'separator', tabindex: '0', 'aria-orientation': 'vertical', 'aria-label': 'Szerokość kolumny „' + label + '”',
+      title: 'Przeciągnij, aby zmienić szerokość kolumny „' + label + '”. Dwuklik — szerokość automatyczna. Klawiatura: ← → (z Shift szybciej), Delete — automatyczna.' });
+    const now = () => Math.round(th.getBoundingClientRect().width);
+    h.addEventListener('click', ev => ev.stopPropagation());
+    h.addEventListener('dblclick', ev => { ev.preventDefault(); ev.stopPropagation(); set(th, key, null); });
+    h.addEventListener('keydown', ev => {
+      const w = keyWidth(ev.key, saved[key] || now(), ev.shiftKey);
+      if (w === undefined) return;
+      ev.preventDefault(); ev.stopPropagation(); set(th, key, w);
+    });
+    h.addEventListener('pointerdown', ev => {
+      if (ev.button !== 0) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const x0 = ev.clientX, w0 = now();
+      th.classList.add('col-rs-drag');
+      try { h.setPointerCapture(ev.pointerId); } catch (e) { /* stara przeglądarka */ }
+      const move = e => { const w = clampWidth(w0 + e.clientX - x0); if (w) apply(th, w); };
+      const up = e => {
+        h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
+        th.classList.remove('col-rs-drag');
+        if (Math.abs(e.clientX - x0) >= 2) set(th, key, clampWidth(w0 + e.clientX - x0));
+      };
+      h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+    });
+    th.classList.add('col-rs-host');
+    th.append(h);
+    return th;
+  }
+  return { decorate, get: () => ({ ...saved }), reset() { saved = {}; save(); } };
+}

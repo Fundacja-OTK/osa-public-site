@@ -1,27 +1,26 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Lista = wspólny komponent core/listView.js (tabela, sortowanie, strony, zaznaczenie z dolnym paskiem, stan w adresie, świeżość).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { payState } from '../lib/payState.js?v=a9a0d42';
-import { photoSrc } from '../core/photo.js?v=a9a0d42';
-import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=a9a0d42';
-import { askConfirm } from '../core/confirm.js?v=a9a0d42';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=a9a0d42';
-import { api, ctx } from '../core/client.js?v=a9a0d42';
-import { go, setLeaveGuard } from '../core/router.js?v=a9a0d42';
-import { noteVisit } from '../core/recents.js?v=a9a0d42';
-import { registerListKeys } from '../core/listKeys.js?v=a9a0d42';
-import { changedIds } from '../core/liveRefresh.js?v=a9a0d42';
-import { cachedRead } from '../core/cache.js?v=a9a0d42';
-import { listView } from '../core/listView.js?v=a9a0d42';
-import { parseOrderQuery, yearNote } from '../core/recents.js?v=a9a0d42';
-import * as LL from '../core/listLogic.js?v=a9a0d42';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=a9a0d42';
-import { showNewOrder } from './zamowienieNowe.js?v=a9a0d42';
-import { showInvoices } from './zamowieniaFaktury.js?v=a9a0d42';
-import { showPick } from './zamowieniaKompletacja.js?v=a9a0d42';
-import { createFilterUi } from './zamowieniaFiltry.js?v=a9a0d42';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=a9a0d42';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=a9a0d42';
+import { payState } from '../lib/payState.js?v=802d849';
+import { itemsCell, commentsCell, commentColumns, deliveryTag, paymentTag, viewControls, normView, priceLevelName } from '../lib/orderCells.js?v=802d849';
+import { applyPrefs } from '../lib/orderCells.js?v=802d849';
+import { photoSrc } from '../core/photo.js?v=802d849';
+import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=802d849';
+import { askConfirm } from '../core/confirm.js?v=802d849';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=802d849';
+import { api, ctx } from '../core/client.js?v=802d849';
+import { go, setLeaveGuard } from '../core/router.js?v=802d849';
+import { noteVisit } from '../core/recents.js?v=802d849';
+import { registerListKeys } from '../core/listKeys.js?v=802d849';
+import { changedIds } from '../core/liveRefresh.js?v=802d849';
+import { cachedRead } from '../core/cache.js?v=802d849';
+import { listView } from '../core/listView.js?v=802d849';
+import { parseOrderQuery, yearNote } from '../core/recents.js?v=802d849';
+import * as LL from '../core/listLogic.js?v=802d849';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=802d849';
+import { createFilterUi } from './zamowieniaFiltry.js?v=802d849';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=802d849';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=802d849';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SIZES = [25, 50, 100, 200];
@@ -114,7 +113,7 @@ async function ensureMeta() {
   if (S.meta) return true;
   if (S.metaLoading) return false;
   S.metaLoading = true; S.metaErr = null;
-  try { S.meta = await cachedRead('orders:meta', {}, { personal: true }); S.metaAt = Date.now(); } catch (e) { S.metaErr = e; }
+  try { S.meta = await cachedRead('orders:meta', {}, { personal: true }); S.metaAt = Date.now(); applyPrefs(S.meta.prefs); } catch (e) { S.metaErr = e; }
   S.metaLoading = false;
   return !!S.meta;
 }
@@ -122,29 +121,17 @@ const countOf = id => { const c = S.meta.counts.find(x => String(x.id) === Strin
 
 // ─── Lista: kolumny i komórki ───────────────────────────────────────────────
 
-const parseItems = r => {
-  try { const a = JSON.parse(r.itemsJson || ''); if (Array.isArray(a) && a.length) return a.map(x => ({ n: x.n, q: x.q, ph: x.ph })); } catch (e) { /* brak danych strukturalnych */ }
-  return String(r.productsText || '').split(' • ').filter(Boolean).map(t => { const m = t.match(/^(.*) × (\d+)$/); return m ? { n: m[1], q: Number(m[2]) } : { n: t, q: null }; });
-};
-const thumbsOn = () => store('osa-ord-thumbs') !== 0;
-const thumbS = x => { const t = thumb(photoSrc(x.ph, adminUrl()), x.n, 32); t.classList.add('thumb-s'); return t; };
-function itemsCell(r) {
-  const items = parseItems(r), total = Number(r.itemCount) || items.length;
-  const li = x => el('li', null, thumbsOn() ? thumbS(x) : null, el('span', { class: 'nm' }, x.n), ' ', x.q != null ? el('span', { class: 'q' }, '× ' + x.q) : null);
-  const shown = items.slice(0, 3), rest = items.slice(3);
-  const ul = el('ul', { class: 'ord-items', title: r.productsText || null }, shown.map(li));
-  const hidden = Math.max(0, total - 3);
-  if (hidden > 0) {
-    const more = el('button', { type: 'button', class: 'more', title: rest.length ? 'Pokaż pozostałe pozycje zamówienia' : 'Pozostałe pozycje zobaczysz w szczegółach zamówienia',
-      onclick: ev => { ev.stopPropagation(); if (!rest.length) { openOrder(r.id); return; } more.remove(); ul.append(...rest.map(li)); } }, '+ ' + cnt(hidden, 'pozycja', 'pozycje', 'pozycji') + ' więcej');
-    ul.append(el('li', null, more));
-  }
-  return ul;
-}
+// Wygląd wierszy: wspólne komórki z Wysyłką SpeedMail (lib/orderCells.js); opcje widoku (zdjęcia, symbol, ceny) w Kolumny ▾ → „Widok produktów”
+const VIEW_KEY = 'osa-ord-view';
+S.view = normView(store(VIEW_KEY), store('osa-ord-thumbs') === 0);
+const prefs = () => (S.meta && S.meta.prefs) || {};
+const itemsOpts = { get view() { return S.view; }, photo: x => photoSrc(x.ph, adminUrl()), onMore: r => openOrder(r.id) };
 function paidBadge(r) {
   const ps = payState(r.paid, r.total);
   return el('span', { class: 'ord-ico ' + ps.cls, title: ps.tip }, ps.label);
 }
+// Notatki dla grup administratorów: Selly nie udostępnia ich w API (tylko ekran zamówienia w panelu Selly) — kolumna widoczna, ale wyłączona z wyjaśnieniem
+const GROUPS_NA = 'Niedostępne: Selly nie podaje notatek grup w API, więc nie ma ich w kopii panelu — zobaczysz je w karcie zamówienia w Selly.';
 
 const COLS = [
   { key: 'nr', label: 'Nr i status', locked: true, tipHeader: true,
@@ -161,19 +148,17 @@ const COLS = [
         r.city ? el('div', { class: 'cell-sub', title: 'Miasto z danych zamówienia' }, r.city) : null),
       osaBadges(r, patch => setQ(patch), true, S.meta && S.meta.facets)];
     } },
-  { key: 'items', label: 'Zamówione produkty', cls: 'ord-prods', tipHeader: true, tip: 'Produkty z zamówienia z ilościami (jak w Selly). Po trzech pozycjach reszta jest zwinięta.', cell: itemsCell },
-  { key: 'total', label: 'Wartość', sort: true, num: true, locked: true, tipHeader: true, tip: 'Wartość zamówienia z dostawą, w złotych; pod spodem koszt dostawy i sposób płatności',
-    cell: r => {
-      const deliv = r.delivery ? r.delivery + (Number(r.deliveryPrice) ? ' (' + money(r.deliveryPrice) + ' zł)' : '') : '';
-      return [el('div', { class: 'ord-sum nw' }, money(r.total) + ' zł'),
-        deliv ? el('div', { class: 'cell-sub', title: 'Sposób i koszt dostawy' }, deliv) : null,
-        r.payment ? el('div', { class: 'cell-sub', title: 'Sposób płatności' }, r.payment) : null];
-    } },
-  { key: 'info', label: 'Informacje dodatkowe', def: false, tipHeader: true, tip: 'Komentarz klienta, uwaga do zamówienia i numer przesyłki (jeśli są)',
-    cell: r => el('div', { class: 'ord-info-cell' },
-      r.comment ? el('div', { class: 'note', title: 'Komentarz klienta: ' + r.comment }, '💬 ' + r.comment) : null,
-      r.attention ? el('div', { class: 'note attn', title: 'Uwaga do zamówienia: ' + r.attention }, '⚠ ' + r.attention) : null,
-      r.tracking ? el('div', { class: 'cell-sub', title: 'Numer przesyłki' }, '📦 ' + r.tracking) : null) },
+  { key: 'level', label: 'Poziom cen', def: false, tipHeader: true,
+    tip: 'Poziom cen klienta z jego konta w Selly (detaliczny / hurtowy 1–3). Nazwy poziomów zmienisz w „Kolumny ▾ → Ustawienia listy…” (administrator). Puste = zamówienie bez konta klienta.',
+    cell: r => { const n = priceLevelName(r.priceLevel, prefs().levels); return n ? el('span', { class: 'ord-lvl', title: 'Poziom cen klienta: ' + n + ' (poziom ' + r.priceLevel + ' w Selly)' }, n) : ''; } },
+  { key: 'items', label: 'Zamówione produkty', cls: 'ord-prods', tipHeader: true, tip: 'Produkty z zamówienia z ilościami (jak w Selly). Po trzech pozycjach reszta jest zwinięta. Zdjęcia, symbol, cenę, wartość i rabat włączysz w „Kolumny ▾ → Widok produktów”.', cell: r => itemsCell(r, itemsOpts) },
+  { key: 'total', label: 'Wartość', sort: true, num: true, locked: true, tipHeader: true, tip: 'Wartość zamówienia z dostawą, w złotych; pod spodem forma dostawy (🚚, z kosztem) i forma płatności (💳)',
+    cell: r => [el('div', { class: 'ord-sum nw' }, money(r.total) + ' zł'),
+      el('div', { class: 'ord-tags' }, deliveryTag(r.delivery, r.deliveryPrice), paymentTag(r.payment))] },
+  { key: 'info', label: 'Informacje dodatkowe', def: false, tipHeader: true,
+    tip: 'Komentarz klienta, notatka wewnętrzna (uwagi do zamówienia) i numer przesyłki — jeden pod drugim, każdy rodzaj w swoim kolorze. Osobne kolumny dla każdego rodzaju włączysz w „Kolumny ▾”.',
+    cell: r => commentsCell(r, null, [r.tracking ? el('div', { class: 'cell-sub', title: 'Numer przesyłki' }, '📦 ' + r.tracking) : null]) },
+  ...commentColumns({ unavailable: k => (k === 'groups' ? GROUPS_NA : '') }),
 ];
 
 // ─── Lista: budowa ──────────────────────────────────────────────────────────
@@ -193,15 +178,12 @@ function buildList() {
     openPanel: () => { if (!S.lv.u.layout.isOpen()) S.lv.openFilters(true); },
     goQs: qs => go('/zamowienia' + (qs ? '?' + qs : '')), linkFor: qs => location.href.split('#')[0] + '#/zamowienia' + (qs ? '?' + qs : '') });
   u.filtersInner = el('div', { class: 'opts-box ord-filters' });
-  u.thumbs = el('input', { type: 'checkbox', id: 'ordThumbs', checked: thumbsOn(), onchange: () => { store('osa-ord-thumbs', u.thumbs.checked ? 1 : 0); if (S.lv.data) S.lv.render(); } });
   u.osa = osaBar({ prefix: 'ordOsa', withLicense: true, plain: true, getQ: curQ, apply: patch => setQ(patch), facets: () => S.meta && S.meta.facets });
   u.filtersInner.append(...u.fx.panelNodes({
     moreTitle: 'Klient i produkt', moreTip: 'Dane z notatek klientów (województwo, rodzaj podmiotu, tytuł, tagi, licencja) i produkt w zamówieniu', moreActive: () => !!(curQ().product || osaActive(curQ())),
     payMethod: el('div', { class: 'field-inline' }, 'Sposób płatności', u.payment.node), delivery: el('div', { class: 'field-inline' }, 'Sposób dostawy', u.deliverySel.node), range: u.range.node, reqRange: u.reqRange.node,
     more: [el('div', { class: 'fx-clients' }, u.osa.node, el('div', { class: 'field-inline ord-prodf' }, 'Produkt', u.prodPick.node, u.prodLabel, u.prodClear))],
   }));
-  u.filtersInner.append(el('div', { class: 'ord-filter-row' },
-    el('label', { class: 'field-inline', style: 'flex-direction:row;align-items:center;gap:6px', title: 'Pokazuje lub ukrywa miniatury zdjęć przy produktach w kolumnie „Zamówione produkty”' }, u.thumbs, 'Pokazuj małe zdjęcia produktów')));
   u.segs = el('div', { class: 'ord-segs', role: 'group', 'aria-label': 'Status zamówienia' });
   u.exportBtn = menuButton({ id: 'ordExport', label: 'Eksport', cls: 'secondary', title: 'Pobierz zamówienia z tabeli do pliku Excel lub CSV — zaznaczone albo cały wynik filtra', items: exportItems });
   u.info = el('div', { class: 'muted small ord-info' });
@@ -215,7 +197,10 @@ function buildList() {
       title: 'Kreator wysyłki do magazynu SpeedMail: wybór zamówień, sprawdzenie stanu SM, podział, plik dla SpeedMail i zmiana statusów w Selly. Środkowy przycisk myszy albo Ctrl+klik otwiera w nowej karcie.' }, 'Wysyłka SpeedMail'),
     el('a', { class: 'btn-primary', id: 'ordAdd', href: '#/zamowienia/nowe', write: 'zamowienia',
       title: 'Dodaj zamówienie ręcznie: klient, produkty, dostawa i płatność (formularz w panelu)' }, '+ Nowe zamówienie')],
-    columns: COLS, columnsStore: 'osa-ord-cols2', columnsId: 'ordColsBtn',   // v2: Klient i Informacje dodatkowe domyślnie wyłączone
+    columns: COLS, columnsStore: 'osa-ord-cols2', columnsId: 'ordColsBtn', columnsExtra: [
+      viewControls({ id: 'ordCols', view: () => S.view, set: patch => { S.view = { ...S.view, ...patch }; store(VIEW_KEY, S.view); if (S.lv.data) S.lv.render(); } }),
+      el('div', { class: 'menu-sec' }, el('button', { type: 'button', class: 'link', id: 'ordPrefsBtn', title: 'Kolory komentarzy (dla siebie albo — administrator — dla całego sklepu) i nazwy poziomów cen',
+        onclick: () => import('./zamowieniaUst.js?v=802d849').then(m => m.openPrefs(S.ui.dlg, { prefs: () => S.meta && S.meta.prefs, onSaved: pr => { if (pr && S.meta) S.meta.prefs = pr; if (S.lv.data) S.lv.render(); } })) }, 'Ustawienia listy…'))],   // okno wczytywane dopiero po kliknięciu   // v2: Klient i Informacje dodatkowe domyślnie wyłączone
     defaultSort: SPEC.defaultSort, sizes: SIZES, defaultSize: 50, sizeStore: SIZE_STORE, extra: EXTRA,
     search: { placeholder: 'Szukaj: numer, e-mail, telefon, nazwisko, firma, miasto, nr przesyłki', label: 'Szukaj zamówień',
       tip: 'Szuka w numerze zamówienia, e-mailu, telefonie, imieniu i nazwisku (faktura i wysyłka), firmie, mieście i numerze przesyłki' },
@@ -569,6 +554,16 @@ async function mountRoute() {
   S.lv.mount(route.query);
 }
 
+// #/zamowienia/kompletacja?ids=… → zamowieniaKompletacja.js, #/zamowienia/faktury → zamowieniaFaktury.js, #/zamowienia/nowe → zamowienieNowe.js
+const SUBS = {
+  kompletacja: { load: () => import('./zamowieniaKompletacja.js?v=802d849'), show: (m, host, on, q) => m.showPick(host, on, q) },
+  faktury: { load: () => import('./zamowieniaFaktury.js?v=802d849'), show: (m, host, on) => m.showInvoices(host, on) },
+  nowe: { load: () => import('./zamowienieNowe.js?v=802d849'), show: (m, host, on) => m.showNewOrder(host, on) },
+};
+const SUB_MODS = {};
+S.subSeq = 0;
+const loadSub = async k => SUB_MODS[k] || (SUB_MODS[k] = await SUBS[k].load());
+
 export default {
   id: 'zamowienia',
   title: 'Zamówienia',
@@ -581,12 +576,15 @@ export default {
       el0.append(S.metaBox, S.detailBox);
     }
     S.route = { id: params && params.parts && params.parts[0] || '', query: params && params.query };
-    if (showPick(el0, S.route.id === 'kompletacja', params && params.query) && S.route.id === 'kompletacja') { S.routeSeq++; S.guard = null; showInvoices(el0, false); showNewOrder(el0, false); show(''); if (S.lv) S.lv.stop(); return; }   // #/zamowienia/kompletacja?ids=… → zamowieniaKompletacja.js
-    showInvoices(el0, S.route.id === 'faktury');   // #/zamowienia/faktury → zamowieniaFaktury.js
-    if (S.lv && (S.route.id === 'faktury' || S.route.id === 'nowe')) S.lv.stop();
-    if (S.route.id === 'faktury') { S.routeSeq++; S.guard = null; showNewOrder(el0, false); show(''); return; }
-    if (showNewOrder(el0, S.route.id === 'nowe') && S.route.id === 'nowe') { S.routeSeq++; S.guard = null; show(''); return; }   // #/zamowienia/nowe → zamowienieNowe.js
+    // Podwidoki (kompletacja, faktury, nowe zamówienie) wczytywane dopiero przy wejściu na ich adres — lista ładuje mniej plików
+    const key = SUBS[S.route.id] ? S.route.id : '', seq = ++S.subSeq;
+    for (const k of Object.keys(SUB_MODS)) if (k !== key) SUBS[k].show(SUB_MODS[k], el0, false);
+    if (key) {
+      S.routeSeq++; S.guard = null; if (S.lv) S.lv.stop(); show('');
+      loadSub(key).then(m => { if (seq === S.subSeq) SUBS[key].show(m, el0, true, params && params.query); }).catch(e => { if (seq === S.subSeq) flash('', 'Nie udało się wczytać widoku — odśwież stronę. ' + ((e && e.message) || ''), 'error'); });
+      return;
+    }
     mountRoute();
   },
-  unmount() { S.routeSeq++; S.guard = null; if (S.lv) S.lv.stop(); },
+  unmount() { S.routeSeq++; S.subSeq++; S.guard = null; if (S.lv) S.lv.stop(); },
 };

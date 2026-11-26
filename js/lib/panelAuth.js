@@ -89,6 +89,8 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
   const WRITE_ACTIONS = [
     'auth:logout', 'feedback:send', 'feedback:status', 'client:errors', 'client:exits', 'grants:set', 'map:report', 'map:retry',
     'orders:setStatus', 'orders:update', 'orders:addItem', 'orders:updateItem', 'orders:create', 'orders:invoiceUpdate',
+    // ustawienia listy zamówień wspólne dla sklepu (kolory komentarzy, nazwy poziomów cen) — tylko D1, tylko administrator
+    'orders:prefsSave',
     'clients:save', 'clients:create', 'clients:update', 'clients:setBlock', 'clients:addressSave', 'clients:addressDelete', 'clients:affiliateAdd',
     'clients:affiliateDelete', 'clients:groupName', 'clients:priceSave', 'clients:priceDelete', 'clients:noteDelete',
     'products:create', 'products:update', 'products:duplicate', 'products:setCategories', 'products:setFeatures', 'products:setMeta', 'products:setStock',
@@ -173,6 +175,7 @@ globalThis.OSA_NATIVE_ACCESS = {"gpsr":{"access":"write"},"produkt-gpsr":{"acces
     // orders:stamp (znacznik wersji, 1 wiersz D1) i orders:refresh (synchronizacja zamówień teraz — pisze tylko do kopii panelu w D1, nigdy do Selly;
     // limit globalny i budżet Selly: panel/worker/src/lib/liveSync.js) — jak odczyt listy
     [/^orders:(list|resolve|get|meta|invoices|stamp|refresh)$/, ORD],
+    [/^orders:prefsSave$/, ADMIN],   // ustawienia listy wspólne dla sklepu (panel/worker/src/modules/orders.js)
     [/^orders:setStatus$/, ['zamowienia', 'przesylki']],
     // wystawianie faktur: tylko sekcja „faktury” (pochodna zamówień); zapis wymaga prawa zmian tej sekcji (administrator albo zgoda)
     [/^invoices:(issueForm|issue)$/, ['faktury']],

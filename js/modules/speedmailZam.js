@@ -1,11 +1,12 @@
 // „Wysyłka SpeedMail” → zakładka Zamówienia: tabela wszystkich otwartych zamówień z podpowiedzią „SpeedMail / pakujemy sami” i powodem
 // (reguły 1–5 specyfikacji). Sortowanie po każdej kolumnie, filtry i wyszukiwanie zapisane w adresie, zaznaczanie zbiorcze, ręczna zmiana
 // decyzji w obie strony, przekazanie paczki zleceń (sm:batch) + status w Selly, „zostają u nas” (sm:keep + status „Złożone OTK”).
-import { payState } from '../lib/payState.js?v=a9a0d42';
-import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store } from '../core/ui.js?v=a9a0d42';
-import { askConfirm } from '../core/confirm.js?v=a9a0d42';
-import { go } from '../core/router.js?v=a9a0d42';
-import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=a9a0d42';
+import { payState } from '../lib/payState.js?v=802d849';
+import { el, cnt, norm, sortTh, multiSelect, filterLayout, filterSection, dateRange, statusPill, menuButton, store, columnMenu, colWidths } from '../core/ui.js?v=802d849';
+import { itemsCell, commentsCell, commentColumns, deliveryTag, paymentTag, viewControls, applyPrefs, normView } from '../lib/orderCells.js?v=802d849';
+import { askConfirm } from '../core/confirm.js?v=802d849';
+import { go } from '../core/router.js?v=802d849';
+import { S, SM, WRITE, STATUS_WRITE, plan, planSel, nf, dmy, notice, statusName, prodOf, needText, liveCtl, save, reload, runStatus, jobBusy, downloadBatch } from './speedmailKit.js?v=802d849';
 
 const KEYS = ['dec', 'reason', 'status', 'delivery', 'from', 'to', 'product', 'stock', 'pre', 'q'];
 const SORTS = ['num', 'date', 'status', 'delivery', 'items', 'stock', 'dec', 'reason'];
@@ -94,12 +95,17 @@ function build() {
   u.pre = pick('smFPre', 'Przedsprzedaż', 'Zamówienia z produktami z przedsprzedaży (korony, śpiewniki OTK, naklejki, identyfikatory) — SpeedMail wysyła je od dnia startu przedsprzedaży', 'pre', [['', 'Bez znaczenia'], ['1', 'Z przedsprzedażą'], ['0', 'Bez przedsprzedaży']]);
   u.range = dateRange({ idFrom: 'smFFrom', idTo: 'smFTo', labelFrom: 'Od dnia', labelTo: 'Do dnia', titleFrom: 'Zamówienia złożone od tego dnia (włącznie)', titleTo: 'Zamówienia złożone do tego dnia (włącznie)',
     onChange: ({ from, to }) => setQ({ from, to }) });
-  u.filtersBtn = el('button', { type: 'button', class: 'secondary', id: 'smFiltersBtn', 'aria-controls': 'smFilters', title: 'Pokaż albo ukryj filtry: decyzja, powód, status, dostawa, data, produkt, towar w SpeedMail, przedsprzedaż',
+  u.filtersBtn = el('button', { type: 'button', class: 'secondary fbtn', id: 'smFiltersBtn', 'aria-controls': 'smFilters', title: 'Pokaż albo ukryj filtry: decyzja, powód, status, dostawa, data, produkt, towar w SpeedMail, przedsprzedaż',
     onclick: () => { u.layout.setOpen(!u.layout.isOpen()); S.rerender(); } });
   u.clear = el('button', { type: 'button', class: 'ghost small', id: 'smFClear', title: 'Usuń wszystkie filtry i wyszukiwanie', onclick: () => setQ(Object.fromEntries(KEYS.map(k => [k, ''])) ) }, 'Wyczyść filtry');
   u.segs = el('div', { class: 'toolbar sm-segs', id: 'smSegs', role: 'group', 'aria-label': 'Decyzja' });
   u.results = el('div', { id: 'smResults' });
-  u.layout = filterLayout({ key: 'speedmail', panelId: 'smFilters', mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.filtersBtn, u.clear), u.results],
+  // Kolumny ▾ (jak w Zamówieniach): wybór kolumn, widok produktów; szerokości kolumn zapamiętane w przeglądarce
+  u.view = normView(store(VIEW_KEY));
+  u.cols = columnMenu({ id: 'smCols', storeKey: 'osa-sm-cols', cols: colDefs().map(c => ({ key: c.key, label: c.label, tip: c.tip, def: c.def, locked: c.locked, unavailable: c.unavailable })),
+    extra: [viewControls({ id: 'smCols', view: () => u.view, set: patch => { u.view = { ...u.view, ...patch }; store(VIEW_KEY, u.view); S.rerender(); } })], onChange: () => S.rerender() });
+  u.widths = colWidths('osa-colw-speedmail');
+  u.layout = filterLayout({ key: 'speedmail', panelId: 'smFilters', mainNodes: [u.segs, el('div', { class: 'toolbar' }, u.search, u.filtersBtn, u.cols.node, u.clear), u.results],
     panelNodes: [
       filterSection('Decyzja', u.dec), filterSection('Powód decyzji', u.reason.node, { tip: 'Która reguła zdecydowała' }), filterSection('Towar w SpeedMail', u.stock),
       filterSection('Status w Selly', u.status.node), filterSection('Forma dostawy', u.delivery.node), filterSection('Data zamówienia', u.range.node),
@@ -137,6 +143,8 @@ export function viewOrders() {
   const nf2 = activeFilters(Q);
   u.filtersBtn.textContent = (u.layout.isOpen() ? 'Ukryj filtry' : 'Filtry') + (nf2 ? ' (' + nf2 + ')' : '');
   u.filtersBtn.setAttribute('aria-expanded', String(u.layout.isOpen()));
+  u.filtersBtn.classList.toggle('on', nf2 > 0);
+  if (!u.prefsOn && v.prefs) { u.prefsOn = true; applyPrefs(v.prefs); }
   u.clear.hidden = !nf2;
 
   const nDec = countBy(all, x => x.b.result);
@@ -186,29 +194,22 @@ function results(v, Q, all, shown) {
   allCb.indeterminate = nSel > 0 && nSel < work.length;
   allCb.disabled = !work.length;
   allCb.addEventListener('change', () => (nSel === work.length ? clearSel() : setSel(work)));
-  const cols = [
-    { label: 'Zamówienie', sort: 'num', tip: 'Numer zamówienia w Selly — klik otwiera kartę zamówienia' },
-    { label: 'Data', sort: 'date', tip: 'Data złożenia zamówienia (od niej zależy reguła terminów)', firstDir: 'asc' },
-    { label: 'Status', sort: 'status', tip: 'Obecny status zamówienia w Selly' },
-    { label: 'Dostawa', sort: 'delivery', tip: 'Forma dostawy z zamówienia. Do SpeedMail idą tylko: ' + (v.cfg.couriers.join(', ') || '—') + ' (zmienisz w Ustawieniach)', tipHeader: true },
-    { label: 'Produkty', sort: 'items', tip: 'Pozycje zamówienia. Najedź na komórkę, aby zobaczyć je przeliczone na produkty SpeedMail (zestawy rozbite na składniki)', tipHeader: true },
-    { label: 'Towar w SM', sort: 'stock', tip: 'Czy SpeedMail ma towar na CAŁE zamówienie: stan przed tym zamówieniem, produkt ograniczający pierwszy. Panel przydziela towar od najstarszych zamówień (zaznaczone dostają go pierwsze), a wcześniej przekazane już go zmniejszyły', tipHeader: true },
-    { label: 'Kto pakuje', sort: 'dec', tip: 'Podpowiedź panelu: SpeedMail albo my. Zamówienia nie dzielimy — pakuje je w całości jedna strona. Decyzję możesz zmienić w ostatniej kolumnie', tipHeader: true },
-    { label: 'Dlaczego', sort: 'reason', tip: 'Powód decyzji: która reguła zdecydowała (forma dostawy, lista produktów, terminy, ręczne oznaczenie, stan SpeedMail)', tipHeader: true },
-  ];
+  const cols = colDefs(v).filter(c => u.cols.isOn(c.key) && !c.unavailable);
   const sel = S.sel.size > 0;
   // Braki przy zaznaczeniu idącym do SpeedMail: zaznaczone, które się nie mieszczą (reguła 5 — zostają u nas; sm:batch ich nie przyjmie),
   // zaznaczone ręcznie „do SM” mimo braku (serwer przyjmie, stan zejdzie poniżej zera) i inne, którym zabraknie przez zaznaczenie
   const short = shortInfo(v, selRows, selSm, all);
   u.shortIds = short.ids;
-  const ths = cols.map(c => sortTh(c, Q, (sort, dir) => setQ({ sort, dir })));
+  const ths = cols.map(c => u.widths.decorate(c.sort ? sortTh(c, Q, (sort, dir) => setQ({ sort, dir })) : el('th', null, el('span', { class: c.tipHeader ? 'tip' : null, title: c.tip }, c.label)), c.key, c.label));
   // Znacznik zawsze w nagłówku (niewidoczny bez zaznaczenia) — zaznaczenie nie zmienia wysokości nagłówka ani układu tabeli
-  ths[5].append(el('span', { class: 'sm-selnote tip' + (sel ? ' on' : ''), id: 'smSelNote', 'aria-hidden': sel ? null : 'true', title: 'Liczby i decyzje uwzględniają zaznaczone zamówienia: dostają one towar jako pierwsze (tak policzy go serwer przy przekazaniu), a pozostałe — z tego, co zostanie. Wyczyść zaznaczenie, aby wrócić do zwykłej kolejności (od najstarszych).' }, '◆'));
+  const stockTh = ths[cols.findIndex(c => c.key === 'stock')] || ths[ths.length - 1];
+  stockTh.append(el('span', { class: 'sm-selnote tip' + (sel ? ' on' : ''), id: 'smSelNote', 'aria-hidden': sel ? null : 'true', title: 'Liczby i decyzje uwzględniają zaznaczone zamówienia: dostają one towar jako pierwsze (tak policzy go serwer przy przekazaniu), a pozostałe — z tego, co zostanie. Wyczyść zaznaczenie, aby wrócić do zwykłej kolejności (od najstarszych).' }, '◆'));
   const head = el('tr', null, el('th', null, allCb), ...ths, el('th', null, el('span', { class: 'tip', title: 'Ręczna zmiana decyzji dla jednego zamówienia (z powodem, który zostaje w tabeli)' }, 'Zmień')));
+  const span = String(cols.length + 2);
   const more = shown.length - visible.length;
-  const moreRow = more > 0 ? el('tr', { id: 'smMore' }, el('td', { colspan: '10', class: 'muted small' }, 'Pokazano ' + visible.length + ' z ' + shown.length + ' — kolejne pojawią się przy przewijaniu. ',
+  const moreRow = more > 0 ? el('tr', { id: 'smMore' }, el('td', { colspan: span, class: 'muted small' }, 'Pokazano ' + visible.length + ' z ' + shown.length + ' — kolejne pojawią się przy przewijaniu. ',
     el('button', { type: 'button', class: 'link', id: 'smMoreBtn', title: 'Dorysuj kolejne zamówienia (zaznaczanie i liczby i tak obejmują całą listę)', onclick: () => { u.limit += CHUNK; S.rerender(); } }, 'Pokaż kolejne ' + Math.min(CHUNK, more)))) : null;
-  const body = el('tbody', null, visible.length ? visible.map(x => rowEl(x)) : el('tr', null, el('td', { colspan: '10', class: 'empty' },
+  const body = el('tbody', null, visible.length ? visible.map(x => rowEl(x, cols)) : el('tr', null, el('td', { colspan: span, class: 'empty' },
     all.length ? 'Żadne zamówienie nie pasuje do filtrów. ' : 'Brak otwartych zamówień w wybranych statusach.', all.length ? el('button', { type: 'button', class: 'link', onclick: () => setQ(Object.fromEntries(KEYS.map(k => [k, '']))) }, 'Wyczyść filtry') : null)), moreRow);
   if (u.moreObs) u.moreObs.disconnect();
   if (moreRow && typeof IntersectionObserver !== 'undefined') {
@@ -235,7 +236,7 @@ function results(v, Q, all, shown) {
     el('span', { class: 'muted small', id: 'smShown', title: 'Ile zamówień pasuje do filtrów / ile jest wszystkich' }, 'Pokazano ' + shown.length + ' z ' + all.length));
 
   return [picks,
-    el('div', { class: 'table-wrap' }, el('table', { id: 'smTable', class: 'sm-table' }, el('thead', null, head), body)),
+    el('div', { class: 'table-wrap' }, el('table', { id: 'smTable', class: 'sm-table rich' }, el('thead', null, head), body)),
     el('p', { class: 'muted small' }, 'Reguła 4 (wysyłka pilna, prośba o innego kuriera niż FedEx) nie ma jeszcze źródła danych w zamówieniu — takie zamówienia oznacz ręcznie: „Zmień” → „pakujemy sami”.'),
     selBar(v, selRows, selSm, selMy, short, clearSel), modal(v)];
 }
@@ -431,12 +432,44 @@ function stockCell(x) {
       x.result === 'sm' ? '⚠ mimo braku' : '⚠ zaznaczone — brak towaru')) : null);
 }
 
-function rowEl(x) {
-  const r = x.r, d = DEC[x.result];
+const VIEW_KEY = 'osa-sm-view';
+const GROUPS_NA = 'Niedostępne: Selly nie podaje notatek grup w API, więc nie ma ich w kopii panelu — zobaczysz je w karcie zamówienia w Selly.';
+const NOTES_NA = 'Komentarze zamówień widzą osoby z dostępem do sekcji Zamówienia.';
+/** Pozycje zamówienia SpeedMail → kształt wspólnej komórki produktów (lib/orderCells.js). */
+const itemsOf = o => o.items.filter(i => i.qty > 0).map(i => ({ n: i.name + (i.variant ? ' (' + i.variant + ')' : ''), q: i.qty, s: i.symbol || '', v: i.v || null, ph: i.ph || '' }));
+/** Kolumny listy (te same komórki co w Zamówieniach). `v` = dane sm:init (do opisów zależnych od ustawień). */
+function colDefs(v) {
+  const notesNa = v && v.notesOk === false ? NOTES_NA : '';
+  const cm = commentColumns({ unavailable: k => (k === 'groups' ? GROUPS_NA : notesNa) });
+  return [
+    { key: 'num', label: 'Zamówienie', sort: 'num', locked: true, tip: 'Numer zamówienia w Selly — klik otwiera kartę zamówienia',
+      cell: x => el('td', { class: 'nw' }, el('a', { href: '#/zamowienia/' + encodeURIComponent(x.id), class: 'ord-no', title: 'Otwórz kartę zamówienia ' + x.num }, x.num),
+        x.prev ? el('span', { class: 'ord-st warn', title: 'To zamówienie było już w paczce nr ' + x.prev + ', a zlecenie anulowano. Ponowne przekazanie wymaga podania powodu.' }, 'było w paczce ' + x.prev) : null) },
+    { key: 'date', label: 'Data', sort: 'date', tip: 'Data złożenia zamówienia (od niej zależy reguła terminów)', firstDir: 'asc', cell: x => el('td', { class: 'nw' }, dmy(x.day)) },
+    { key: 'status', label: 'Status', sort: 'status', tip: 'Obecny status zamówienia w Selly i stan płatności', cell: x => el('td', null, x.status, ' ', payBadge(x.r.o)) },
+    { key: 'delivery', label: 'Dostawa', sort: 'delivery', tipHeader: true, tip: 'Forma dostawy (🚚) i płatności (💳) z zamówienia. Do SpeedMail idą tylko: ' + ((v && v.cfg.couriers.join(', ')) || '—') + ' (zmienisz w Ustawieniach)',
+      cell: x => el('td', null, el('div', { class: 'ord-tags' }, deliveryTag(x.r.o.delivery, x.r.o.deliveryPrice) || '—', paymentTag(x.r.o.payment))) },
+    { key: 'items', label: 'Produkty', sort: 'items', tipHeader: true, tip: 'Pozycje zamówienia (jak na liście Zamówień; zdjęcia i symbol — „Kolumny ▾ → Widok produktów”). Najedź na komórkę, aby zobaczyć je przeliczone na produkty SpeedMail (zestawy rozbite na składniki)',
+      cell: x => el('td', { class: 'sm-items ord-prods', title: Object.keys(x.r.need).length ? 'W produktach SpeedMail: ' + needText(x.r.need) : null },
+        x.items ? itemsCell({ items: itemsOf(x.r.o) }, { view: u.view, photo: i => i.ph, title: ' ', onMore: () => go('/zamowienia/' + encodeURIComponent(x.id)) }) : '—',
+        x.presale ? el('span', { class: 'ord-st acc', title: 'Zawiera produkty z przedsprzedaży — SpeedMail wysyła je od ' + dmy(S.d.v.cfg.dates.presaleStart) }, 'przedsprzedaż') : null) },
+    { key: 'stock', label: 'Towar w SM', sort: 'stock', tipHeader: true, tip: 'Czy SpeedMail ma towar na CAŁE zamówienie: stan przed tym zamówieniem, produkt ograniczający pierwszy. Panel przydziela towar od najstarszych zamówień (zaznaczone dostają go pierwsze), a wcześniej przekazane już go zmniejszyły',
+      cell: x => el('td', { class: 'sm-stock' }, stockCell(x)) },
+    { key: 'dec', label: 'Kto pakuje', sort: 'dec', locked: true, tipHeader: true, tip: 'Podpowiedź panelu: SpeedMail albo my. Zamówienia nie dzielimy — pakuje je w całości jedna strona. Decyzję możesz zmienić w ostatniej kolumnie',
+      cell: x => { const d = DEC[x.result], r = x.r; return el('td', { class: 'nw' }, statusPill(d[0], d[1], d[2]), r.manual ? el('span', { class: 'ord-st warn', title: 'Decyzja oznaczona ręcznie' + ((S.d.v.marks[x.id] || {}).author ? ' przez: ' + S.d.v.marks[x.id].author : '') }, 'ręcznie') : null); } },
+    { key: 'reason', label: 'Dlaczego', sort: 'reason', tipHeader: true, tip: 'Powód decyzji: która reguła zdecydowała (forma dostawy, lista produktów, terminy, ręczne oznaczenie, stan SpeedMail)',
+      cell: x => el('td', { class: 'sm-why' }, x.r.rule ? el('span', { class: 'muted small tip', title: 'Numer reguły ze specyfikacji (1 forma dostawy, 2 lista produktów, 3 terminy, 4 ręcznie „my”, 5 stan SpeedMail)' }, 'reguła ' + x.r.rule + ' · ') : null, x.reason) },
+    { key: 'info', label: 'Komentarze', tipHeader: true, unavailable: notesNa, tip: 'Komentarz klienta i notatka wewnętrzna — jeden pod drugim, każdy rodzaj w swoim kolorze. Osobne kolumny dla rodzajów włączysz w „Kolumny ▾”.',
+      cell: x => el('td', null, commentsCell(x.r.o)) },
+    ...cm.map(c => ({ ...c, cell: x => el('td', null, c.cell(x.r.o)) })),
+  ];
+}
+
+function rowEl(x, cols) {
+  const r = x.r;
   const cb = el('input', { type: 'checkbox', 'aria-label': 'Zaznacz zamówienie ' + x.num, disabled: x.result === 'sent', title: x.result === 'sent' ? 'To zamówienie jest już w paczce zleceń' : null });
   cb.checked = S.sel.has(x.id);
   cb.addEventListener('change', () => { if (cb.checked) S.sel.add(x.id); else S.sel.delete(x.id); u.dropped = 0; S.rerender(); });
-  const stock = stockCell(x);
   const change = x.result === 'sent'
     ? el('a', { href: '#/speedmail/paczki?paczka=' + r.batch, title: 'Otwórz paczkę zleceń nr ' + r.batch + ' (plik, statusy, anulowanie zlecenia)' }, 'paczka ' + r.batch)
     : r.manual ? el('button', { type: 'button', class: 'ghost small', write: WRITE, title: 'Usuń ręczne oznaczenie — wróć do podpowiedzi wg reguł', onclick: () => mark([x.id], '', '') }, '↺ wg reguł')
@@ -446,14 +479,7 @@ function rowEl(x) {
   const short = !!(u.shortIds && u.shortIds.has(x.id));
   return el('tr', { 'data-id': x.id, 'data-dec': x.result, 'data-code': x.code, 'data-short': short ? '1' : null, class: [S.flashIds && S.flashIds.has(x.id) ? 'live-chg' : '', short ? 'sm-row-short' : ''].filter(Boolean).join(' ') || null },
     el('td', null, cb),
-    el('td', { class: 'nw' }, el('a', { href: '#/zamowienia/' + encodeURIComponent(x.id), title: 'Otwórz kartę zamówienia ' + x.num }, x.num),
-      x.prev ? el('span', { class: 'ord-st warn', title: 'To zamówienie było już w paczce nr ' + x.prev + ', a zlecenie anulowano. Ponowne przekazanie wymaga podania powodu.' }, 'było w paczce ' + x.prev) : null),
-    el('td', { class: 'nw' }, dmy(x.day)), el('td', null, x.status, ' ', payBadge(r.o)), el('td', null, x.delivery),
-    el('td', { class: 'sm-items', title: Object.keys(r.need).length ? 'W produktach SpeedMail: ' + needText(r.need) : null }, x.items || '—',
-      r.presale ? el('span', { class: 'ord-st acc', title: 'Zawiera produkty z przedsprzedaży — SpeedMail wysyła je od ' + dmy(S.d.v.cfg.dates.presaleStart) }, 'przedsprzedaż') : null),
-    el('td', { class: 'sm-stock' }, stock),
-    el('td', { class: 'nw' }, statusPill(d[0], d[1], d[2]), r.manual ? el('span', { class: 'ord-st warn', title: 'Decyzja oznaczona ręcznie' + ((S.d.v.marks[x.id] || {}).author ? ' przez: ' + S.d.v.marks[x.id].author : '') }, 'ręcznie') : null),
-    el('td', { class: 'sm-why' }, r.rule ? el('span', { class: 'muted small tip', title: 'Numer reguły ze specyfikacji (1 forma dostawy, 2 lista produktów, 3 terminy, 4 ręcznie „my”, 5 stan SpeedMail)' }, 'reguła ' + r.rule + ' · ') : null, x.reason),
+    ...cols.map(c => c.cell(x)),
     el('td', { class: 'nw' }, change));
 }
 

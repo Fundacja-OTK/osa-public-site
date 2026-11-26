@@ -2,11 +2,11 @@
 // zaznaczenie przetrwające zmianę strony z przyklejonym paskiem akcji, stan w adresie, stany ładowania / pusto / błąd,
 // opcjonalnie świeżość (core/liveRefresh.js) i pamięć odczytów (core/cache.js). Logika bez DOM: core/listLogic.js.
 // API i przykład: docs/list-view.md. Identyfikatory elementów = prefiks `id` + nazwa (np. cliTable, cliSelCount, zsPrev).
-import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote } from './ui.js?v=a9a0d42';
-import { go } from './router.js?v=a9a0d42';
-import { cachedRead } from './cache.js?v=a9a0d42';
-import { liveRefresh } from './liveRefresh.js?v=a9a0d42';
-import * as LL from './listLogic.js?v=a9a0d42';
+import { el, debounce, store, cnt, loadingBox, sortTh, pager, field, filterLayout, filterSection, columnMenu, tapOpen, selOffNote, colWidths } from './ui.js?v=802d849';
+import { go } from './router.js?v=802d849';
+import { cachedRead } from './cache.js?v=802d849';
+import { liveRefresh } from './liveRefresh.js?v=802d849';
+import * as LL from './listLogic.js?v=802d849';
 
 const td = (c, v) => (v instanceof Node && v.tagName === 'TD' ? v : el('td', { class: [c.num ? 'n' : '', c.cls || ''].filter(Boolean).join(' ') || null }, v == null ? '' : v));
 
@@ -66,10 +66,12 @@ export function listView(o) {
     const groups = [];
     for (const c of u.filters) { const t = c.f.section || 'Filtry'; let g = groups.find(x => x.t === t); if (!g) groups.push(g = { t, fold: !!c.f.fold, nodes: [] }); g.nodes.push(c.node); }
     const hasPanel = u.filters.length > 0 || (o.panelNodes && o.panelNodes.length);
-    u.cols = o.columnsStore ? columnMenu({ id: o.columnsId || p + 'Cols', storeKey: o.columnsStore, cols: cols.map(c => ({ key: c.key, label: c.label, tip: c.tip, def: c.def, locked: c.locked })), onChange: () => render() }) : null;
+    u.cols = o.columnsStore ? columnMenu({ id: o.columnsId || p + 'Cols', storeKey: o.columnsStore, cols: cols.map(c => ({ key: c.key, label: c.label, tip: c.tip, def: c.def, locked: c.locked, unavailable: c.unavailable })), extra: o.columnsExtra, onChange: () => render() }) : null;
+    // szerokości kolumn (core/ui.js colWidths): uchwyt na krawędzi nagłówka, zapis per lista w tej przeglądarce; `resize: false` wyłącza
+    u.widths = o.resize === false ? null : colWidths('osa-colw-' + (o.storeKey || p));
     u.live = o.live ? liveRefresh({ id: p, ...o.live, reload: kind => load(kind),
       busy: () => (o.live.pauseOnSelect !== false && S.sel.size > 0) || !!(o.live.busy && o.live.busy()) }) : null;
-    u.filtersBtn = hasPanel ? el('button', { type: 'button', class: 'secondary', id: p + 'FiltersBtn', 'aria-controls': p + 'Filters', 'aria-expanded': 'false',
+    u.filtersBtn = hasPanel ? el('button', { type: 'button', class: 'secondary fbtn', id: p + 'FiltersBtn', 'aria-controls': p + 'Filters', 'aria-expanded': 'false',
       title: o.filtersTip || 'Pokaż lub ukryj panel filtrów', onclick: () => { u.layout.setOpen(!u.layout.isOpen()); syncFiltersBtn(); } }, 'Filtry') : null;
     u.results = el('div', { id: p + 'Results' });
     u.bar = o.select ? el('div', { class: 'save-bar lv-bar', id: p + 'Bulk', role: 'region', 'aria-label': 'Akcje dla zaznaczonych', hidden: true }) : null;
@@ -156,7 +158,8 @@ export function listView(o) {
   function headCell(c) {
     const key = LL.sortKeyOf(c);
     const col = { label: c.label, tip: c.tip || c.label, num: c.num, firstDir: c.firstDir, sort: key || null, sorts: c.sorts, tipHeader: c.tipHeader != null ? c.tipHeader : !!c.tip && c.tip !== c.label };
-    return sortTh(col, S.st, (sort, dir) => set({ sort, dir }));
+    const th = sortTh(col, S.st, (sort, dir) => set({ sort, dir }));
+    return u.widths ? u.widths.decorate(th, c.key, c.label) : th;
   }
   function render() {
     if (!S.data) { if (S.err) renderError(S.err); return; }

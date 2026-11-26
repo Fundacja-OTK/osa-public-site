@@ -3,11 +3,11 @@
 // w Selly na sesji zalogowanego użytkownika (Worker: orders:cardForm / orders:cardSave / orders:itemDelete; ekran `zamowienie-karta`).
 // Przebieg: dane z Selly dopiero po rozwinięciu sekcji (jedna strona Selly) → zmiany → podgląd z serwera (dryRun, nic nie wysyła) → potwierdzenie
 // → zapis z kluczem opId (powtórka po zerwanym połączeniu nie wysyła drugi raz) → weryfikacja. Treść z Selly wyłącznie przez el() / textContent.
-import { gateWrite, el, flash, sellyLink } from '../core/ui.js?v=a9a0d42';
-import { confirmDialog } from '../core/confirm.js?v=a9a0d42';
-import { dateInput } from '../core/datepicker.js?v=a9a0d42';
-import { api } from '../core/client.js?v=a9a0d42';
-import { newOpId } from '../core/api.js?v=a9a0d42';
+import { gateWrite, el, flash, sellyLink } from '../core/ui.js?v=802d849';
+import { confirmDialog } from '../core/confirm.js?v=802d849';
+import { dateInput } from '../core/datepicker.js?v=802d849';
+import { api } from '../core/client.js?v=802d849';
+import { newOpId } from '../core/api.js?v=802d849';
 
 const gw = e => gateWrite(e, 'zamowienia');
 const GROUP = /^notatki_grupy\[\d+\]$/;

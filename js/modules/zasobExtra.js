@@ -1,8 +1,8 @@
 // Dodatki ekranu zasobu (zasob.js): składniki zestawu, podgląd logo, moderacja opinii (przyciski w wierszu).
 // Osobny plik, żeby zasob.js został czytelny; każdy element dostaje dane i wywołania z zasob.js.
-import { el, debounce, flash, money } from '../core/ui.js?v=a9a0d42';
-import { askConfirm } from '../core/confirm.js?v=a9a0d42';
-import { api } from '../core/client.js?v=a9a0d42';
+import { el, debounce, flash, money } from '../core/ui.js?v=802d849';
+import { askConfirm } from '../core/confirm.js?v=802d849';
+import { api } from '../core/client.js?v=802d849';
 
 const num = v => (v === '' || v == null || !isFinite(Number(v)) ? 0 : Number(v));
 const fmtQty = v => (v == null ? '—' : String(Math.round(Number(v) * 1000) / 1000));
