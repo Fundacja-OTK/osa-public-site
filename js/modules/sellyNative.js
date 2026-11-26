@@ -3,13 +3,13 @@
 // czyta je i zwraca strukturę (sekrety zamaskowane po stronie serwera); zapis tylko z allowlisty pól, zawsze przez podgląd zmian (dryRun)
 // i potwierdzenie (docs/selly-embed.md, docs/auth.md). „Tylko do podglądu” = flaga `readOnly` z odpowiedzi serwera (jedna, z silnika).
 // Strony ustawień (jedna strona-formularz) obsługuje modules/sellyNativeSettings.js.
-import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=9efbcf3';
-import { confirmDialog, askConfirm } from '../core/confirm.js?v=9efbcf3';
-import { api } from '../core/client.js?v=9efbcf3';
-import { sellyUrl } from './_placeholder.js?v=9efbcf3';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=9efbcf3';
-import { addLeaveGuard } from '../core/router.js?v=9efbcf3';
-import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=9efbcf3';
+import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=b658013';
+import { confirmDialog, askConfirm } from '../core/confirm.js?v=b658013';
+import { api } from '../core/client.js?v=b658013';
+import { sellyUrl } from './_placeholder.js?v=b658013';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=b658013';
+import { addLeaveGuard } from '../core/router.js?v=b658013';
+import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=b658013';
 
 /** Żądanie do Workera: native:read / native:save / native:create → { ok, data } albo { ok:false, code, error } (nigdy nie rzuca). */
 export function sellyCall(req) {
@@ -62,7 +62,7 @@ export function createNative(cfg) {
   const isDirty = () => !!(root && dirty && dirty());
   addLeaveGuard(() => (isDirty() ? LEAVE : null));
   if (typeof window !== 'undefined') window.addEventListener('beforeunload', ev => { if (isDirty()) { ev.preventDefault(); ev.returnValue = ''; } });
-  const mayLeave = async () => !isDirty() || await askConfirm(LEAVE);
+  const mayLeave = async () => !isDirty() || await askConfirm(LEAVE, { title: 'Opuścić stronę?', confirmLabel: 'Opuść' });
   const backToList = async () => { if (await mayLeave()) { dirty = null; showList(); } };
   /** Komunikat nad kartą bez przerysowania formularza (wpisana treść zostaje w edytorze). */
   const showMsg = node => { if (!root) return; const old = root.querySelector('#natMsg'); if (old) old.remove(); const t = root.querySelector('.page-toolbar'); if (t) t.after(node); else root.prepend(node); };
@@ -226,7 +226,7 @@ export function createNative(cfg) {
     ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refresh, 200); });
     refresh();
     const reset = el('button', { type: 'button', class: 'secondary small', id: 'natReset_' + f.name, title: 'Wstawia z powrotem treść z chwili otwarcia karty (Twoje zmiany w treści znikną)', onclick: async () => {
-      if (nl(ta.value) !== nl(f.value) && !await askConfirm('Przywrócić treść z Selly? Twoje zmiany w treści znikną.')) return;
+      if (nl(ta.value) !== nl(f.value) && !await askConfirm('Przywrócić treść z Selly? Twoje zmiany w treści znikną.', { title: 'Przywrócić treść z Selly?', confirmLabel: 'Przywróć' })) return;
       ta.value = f.value; refresh(); onChange();
     } }, isNew ? 'Wyczyść' : 'Przywróć treść z Selly');
     return el('details', { class: 'nat-opts nat-content', id: 'natContent_' + f.name, open: isNew || null },

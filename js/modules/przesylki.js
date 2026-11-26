@@ -3,11 +3,11 @@
 // sortowanie w adresie, tworzenie listów w porcjach, etykiety, zmiana statusu oraz przypisanie sposobów dostawy (#/przesylki/ustawienia).
 // Dane i zapisy: backend Cloudflare (shipping:meta, shipping:setMap, shipping:queue, shipping:create, shipping:label, shipping:manualForm,
 // shipping:manualCreate, orders:meta, orders:setStatus).
-import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=9efbcf3';
-import { askConfirm } from '../core/confirm.js?v=9efbcf3';
-import { listView } from '../core/listView.js?v=9efbcf3';
-import { api, ctx } from '../core/client.js?v=9efbcf3';
-import { registerListKeys } from '../core/listKeys.js?v=9efbcf3';
+import { el, store, flash, norm, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, saveBlob, zipStored, today, dateInput, filterSection, multiSelect, dateRange, statusPill, orderStatusTone } from '../core/ui.js?v=b658013';
+import { askConfirm } from '../core/confirm.js?v=b658013';
+import { listView } from '../core/listView.js?v=b658013';
+import { api, ctx } from '../core/client.js?v=b658013';
+import { registerListKeys } from '../core/listKeys.js?v=b658013';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Moduł Przesyłki wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -264,6 +264,15 @@ function build() {
       el('div', { class: 'card-head' }, el('h2', { id: 'shipTitle' }, 'Przesyłki'), el('div', { class: 'sub' }, 'Zamówienia do nadania, listy przewozowe i etykiety — osobno dla każdego przewoźnika. Liczba przy przewoźniku = zamówienia bez etykiety.')),
       u.segs),
     u.body));
+}
+
+/** Selly: „Brak danych konfiguracyjnych dla <X>” = sposób dostawy tego zamówienia nie ma konfiguracji <X> w Selly (to nie błąd panelu). */
+function noConfigHint(attempts) {
+  for (const a of attempts || []) {
+    const m = /Brak danych konfiguracyjnych dla\s+([^.:;,\n]{1,40})/i.exec(String(a.messageText || ''));
+    if (m) return el('div', { class: 'notice info', id: 'shipInspNoCfg' }, 'Sposób dostawy tego zamówienia nie ma w Selly konfiguracji „' + m[1].trim() + '”, więc Selly nie otwiera formularza. Spróbuj „Sprawdź budowę formularza” z karty zamówienia, dla którego „Utwórz przesyłkę” w Selly otwiera formularz (np. zamówienia z dostawą tym kurierem: ' + m[1].trim() + ').');
+  }
+  return null;
 }
 
 function renderSegs() {
@@ -714,12 +723,14 @@ async function startInspect(r) {
   try { x = await api('shipping:inspect', { carrier: key, orderId: String(r.id) }); } catch (e) { x = { ok: false, error: e.message || 'błąd połączenia' }; }
   if (!x || !x.ok) { box.replaceChildren(el('h3', null, 'Budowa formularza przesyłki — ' + name), el('div', { class: 'notice error', role: 'alert' }, (x && x.error) || 'Nie udało się.'), el('div', { class: 'ord-actions' }, el('button', { type: 'button', class: 'secondary', onclick: close }, 'Zamknij'))); return; }
   const d = x.data, st = d.structure, c = d.candidate;
+  const nm = /^furgonetkaDelivery/.test(d.route || '') ? 'Furgonetka (nowa integracja)' : name;
   const fieldRow = f => el('tr', null, el('td', null, f.name), el('td', null, f.type + (f.hidden ? ' (ukryte)' : '')), el('td', null, f.required ? 'tak' : ''),
     el('td', { class: 'small' }, (f.options || []).join(', ')), el('td', null, c.editable.includes(f.name) ? el('span', { class: 'tip', title: 'Panel pozwoli zmienić to pole (parametr paczki)' }, 'tak') : ''));
   const status = el('div', { id: 'shipInspStatus', role: 'status' });
   box.replaceChildren(
-    el('h3', null, 'Budowa formularza przesyłki — ' + name),
+    el('h3', null, 'Budowa formularza przesyłki — ' + nm),
     el('p', { class: 'muted small' }, 'Selly otworzyło formularz tak jak po kliknięciu „Utwórz przesyłkę” (trasa ' + d.route + '). Poniżej tylko budowa — bez wartości i danych zamówienia. Nic nie zostało zapisane w Selly.'),
+    st.kind === 'message' ? noConfigHint(d.attempts) : null,
     st.kind === 'message' ? el('div', { class: 'notice warn', id: 'shipInspMsg' }, 'Selly nie zwróciło formularza w żadnym wariancie żądania (poniżej, co odpowiedziało). Spróbuj z innym zamówieniem albo sprawdź komunikat.') : null,
     // Warianty żądania i tekst komunikatu Selly (zamaskowany) — tylko do wglądu administratora, nigdzie nie zapisywany
     (d.attempts || []).length ? el('div', { class: 'card', id: 'shipInspAttempts' }, el('strong', { title: 'Panel próbuje kolejno żądań jak przycisk Selly (tylko trasa wyświetlająca formularz) i kończy na pierwszym formularzu' }, 'Próby otwarcia formularza'),
@@ -750,7 +761,7 @@ async function startInspect(r) {
       el('button', { type: 'button', class: 'primary', id: 'shipInspApprove', disabled: !d.saved || !!d.missing.length,
         title: 'Włącza w panelu „Utwórz przesyłkę” dla ' + name + ' według zapisanej budowy (po sprawdzeniu z właścicielem). Tworzenie przesyłki jest płatne.',
         onclick: async ev => {
-          if (!await askConfirm('Zatwierdzić formularz ' + name + '? Panel zacznie tworzyć przesyłki tego przewoźnika (płatne) według zapisanej budowy.')) return;
+          if (!await askConfirm('Zatwierdzić formularz ' + name + '? Panel zacznie tworzyć przesyłki tego przewoźnika (płatne) według zapisanej budowy.', { title: 'Zatwierdzić formularz?', confirmLabel: 'Zatwierdź' })) return;
           ev.target.disabled = true;
           try { await api('shipping:inspectApprove', { carrier: key, approve: true }); status.replaceChildren(el('div', { class: 'notice info' }, 'Zatwierdzono — „Utwórz przesyłkę” jest włączone.')); S.meta = null; await ensureMeta(); renderQueue(); }
           catch (e) { status.replaceChildren(el('div', { class: 'notice error' }, e.message || 'Nie zatwierdzono.')); ev.target.disabled = false; }

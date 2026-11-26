@@ -176,3 +176,13 @@ main.content { max-width: none; margin: 0; min-width: 0; padding: var(--s5) var(
 }
 
 @media (max-width: 640px) { .sb-item { min-height: 44px; } }
+
+/* Przewoźnicy Przesyłek: zwijany blok w grupie „Sprzedaż” */
+.fly-sub { margin: 0; }
+.fly-sub-sum { cursor: pointer; list-style: none; padding: 6px 10px; color: var(--nav-muted); font-size: var(--fs-sm); border-radius: var(--r1); }
+.fly-sub-sum::-webkit-details-marker { display: none; }
+.fly-sub-sum::before { content: '›'; display: inline-block; margin-right: 6px; transition: transform var(--dur, .18s) var(--ease, ease); }
+.fly-sub[open] > .fly-sub-sum::before { transform: rotate(90deg); }
+.fly-sub-sum:hover { color: #fff; background: rgba(255, 255, 255, .07); }
+.fly-sub-row { margin-left: 12px; }
+@media (max-width: 900px) { .fly-sub-sum { min-height: 44px; display: flex; align-items: center; } .fly-sub-row .fly-item { min-height: 44px; } }

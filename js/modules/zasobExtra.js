@@ -1,8 +1,8 @@
 // Dodatki ekranu zasobu (zasob.js): składniki zestawu, podgląd logo, moderacja opinii (przyciski w wierszu).
 // Osobny plik, żeby zasob.js został czytelny; każdy element dostaje dane i wywołania z zasob.js.
-import { el, debounce, flash, money } from '../core/ui.js?v=9efbcf3';
-import { askConfirm } from '../core/confirm.js?v=9efbcf3';
-import { api } from '../core/client.js?v=9efbcf3';
+import { el, debounce, flash, money } from '../core/ui.js?v=b658013';
+import { askConfirm } from '../core/confirm.js?v=b658013';
+import { api } from '../core/client.js?v=b658013';
 
 const num = v => (v === '' || v == null || !isFinite(Number(v)) ? 0 : Number(v));
 const fmtQty = v => (v == null ? '—' : String(Math.round(Number(v) * 1000) / 1000));
@@ -44,7 +44,7 @@ export function setComponentsCard(id, data, reload) {
     });
     const del = el('button', { type: 'button', class: 'secondary danger', write: 'zestawy', title: 'Usuwa składnik z zestawu w Selly (sam produkt zostaje w sklepie)' }, 'Usuń');
     del.addEventListener('click', async () => {
-      if (!await askConfirm('Usunąć „' + (it._name || 'produkt ' + it.product_id) + '” z zestawu? Sam produkt zostanie w sklepie.', { danger: true })) return;
+      if (!await askConfirm('Usunąć „' + (it._name || 'produkt ' + it.product_id) + '” z zestawu? Sam produkt zostanie w sklepie.', { title: 'Usunąć produkt z zestawu?', confirmLabel: 'Usuń', danger: true })) return;
       del.disabled = true;
       try { await api('res:itemDelete', { res: 'zestawy', id, itemId: it.id }); flash('', 'Usunięto składnik'); reload(); }
       catch (e) { del.disabled = false; msg.textContent = 'Błąd: ' + ((e && e.message) || ''); }

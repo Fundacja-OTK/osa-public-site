@@ -1,25 +1,25 @@
 // Moduł „Zamówienia”: lista z filtrami i akcjami masowymi (#/zamowienia?status=..&q=..&page=..), szczegóły (#/zamowienia/<id>) i lista faktur (#/zamowienia/faktury).
 // Lista = wspólny komponent core/listView.js (tabela, sortowanie, strony, zaznaczenie z dolnym paskiem, stan w adresie, świeżość).
 // Dane i zapisy: backend Cloudflare (akcje orders:meta, orders:list, orders:get, orders:setStatus).
-import { photoSrc } from '../core/photo.js?v=9efbcf3';
-import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=9efbcf3';
-import { askConfirm } from '../core/confirm.js?v=9efbcf3';
-import { setStatusInChunks } from '../lib/statusBatch.js?v=9efbcf3';
-import { api, ctx } from '../core/client.js?v=9efbcf3';
-import { go, setLeaveGuard } from '../core/router.js?v=9efbcf3';
-import { noteVisit } from '../core/recents.js?v=9efbcf3';
-import { registerListKeys } from '../core/listKeys.js?v=9efbcf3';
-import { changedIds } from '../core/liveRefresh.js?v=9efbcf3';
-import { cachedRead } from '../core/cache.js?v=9efbcf3';
-import { listView } from '../core/listView.js?v=9efbcf3';
-import * as LL from '../core/listLogic.js?v=9efbcf3';
-import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=9efbcf3';
-import { showNewOrder } from './zamowienieNowe.js?v=9efbcf3';
-import { showInvoices } from './zamowieniaFaktury.js?v=9efbcf3';
-import { showPick } from './zamowieniaKompletacja.js?v=9efbcf3';
-import { createFilterUi } from './zamowieniaFiltry.js?v=9efbcf3';
-import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=9efbcf3';
-import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=9efbcf3';
+import { photoSrc } from '../core/photo.js?v=b658013';
+import { gateWrite, el, plural, store, flash, menuButton, downloadXlsx, downloadCsv, tableMatrix, copyToClipboard, money, dateStr, fullName, cnt, isUnavailable, loadingBox, sellyLink, dl, fetchAllRows, thumb, multiSelect, dateRange, orderStatusTone } from '../core/ui.js?v=b658013';
+import { askConfirm } from '../core/confirm.js?v=b658013';
+import { setStatusInChunks } from '../lib/statusBatch.js?v=b658013';
+import { api, ctx } from '../core/client.js?v=b658013';
+import { go, setLeaveGuard } from '../core/router.js?v=b658013';
+import { noteVisit } from '../core/recents.js?v=b658013';
+import { registerListKeys } from '../core/listKeys.js?v=b658013';
+import { changedIds } from '../core/liveRefresh.js?v=b658013';
+import { cachedRead } from '../core/cache.js?v=b658013';
+import { listView } from '../core/listView.js?v=b658013';
+import * as LL from '../core/listLogic.js?v=b658013';
+import { buildOrderCard, productPicker } from './zamowieniaKarta.js?v=b658013';
+import { showNewOrder } from './zamowienieNowe.js?v=b658013';
+import { showInvoices } from './zamowieniaFaktury.js?v=b658013';
+import { showPick } from './zamowieniaKompletacja.js?v=b658013';
+import { createFilterUi } from './zamowieniaFiltry.js?v=b658013';
+import { FKEYS, EMPTY_F, readFilters, writeFilters, filterParams, effectiveDateTo, clausesOf, anyFilter } from './zamFiltry.js?v=b658013';
+import { readOsa, writeOsa, osaParams, osaActive, osaBar, osaBadges, osaExport, licenseExport, osaDetailPairs, applyBadgePrefs, OSA_CLEAR } from '../core/osa.js?v=b658013';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const SIZES = [25, 50, 100, 200];
@@ -442,7 +442,7 @@ async function renderDetail(id) {
   const stId = String(o.status_id != null ? o.status_id : '');
   const order1 = [{ id: String(id), number, statusId: stId }];
   const statusMenu = menuButton({ id: 'ordDetailStatus', label: 'Zmień status', cls: 'secondary', title: 'Ustaw inny status tego zamówienia (przed zmianą pokażemy potwierdzenie)',
-    items: () => S.meta.statuses.map(s => ({ label: s.name, title: String(s.id) === stId ? 'Aktualny status' : 'Ustaw status „' + s.name + '”', run: async () => { if (card && card.C.dirty() && !await askConfirm('W karcie są niezapisane zmiany — zmiana statusu przeładuje kartę i je odrzuci. Kontynuować?')) return; startStatusChange(dlg, order1, String(s.id), () => { S.lv.selection.delete(String(id)); reload(); }); } })) });
+    items: () => S.meta.statuses.map(s => ({ label: s.name, title: String(s.id) === stId ? 'Aktualny status' : 'Ustaw status „' + s.name + '”', run: async () => { if (card && card.C.dirty() && !await askConfirm('W karcie są niezapisane zmiany — zmiana statusu przeładuje kartę i je odrzuci. Kontynuować?', { title: 'Niezapisane zmiany', confirmLabel: 'Kontynuuj' })) return; startStatusChange(dlg, order1, String(s.id), () => { S.lv.selection.delete(String(id)); reload(); }); } })) });
 
   const moves = r.moves || [];
   const MOVE = { przyjecie: 'Przyjęcie', przesuniecie: 'Przesunięcie', wydanie: 'Wydanie', korekta: 'Korekta' };
@@ -473,7 +473,7 @@ async function renderDetail(id) {
         el('span', { class: 'spacer' }),
         freshLabel(r),
         el('button', { type: 'button', class: 'ghost live-btn', id: 'ordDetailRefresh', title: 'Pobierz to zamówienie z Selly jeszcze raz',
-          onclick: async () => { if (card && card.C.dirty() && !await askConfirm('W karcie są niezapisane zmiany — odświeżenie je odrzuci. Kontynuować?')) return; renderDetail(id); } }, '↻ Odśwież'),
+          onclick: async () => { if (card && card.C.dirty() && !await askConfirm('W karcie są niezapisane zmiany — odświeżenie je odrzuci. Kontynuować?', { title: 'Niezapisane zmiany', confirmLabel: 'Kontynuuj' })) return; renderDetail(id); } }, '↻ Odśwież'),
         sellyLink('Otwórz w panelu Selly ↗', sellyOrderUrl(id), 'Otwiera to zamówienie w panelu administracyjnym Selly')),
       el('div', { class: 'card-head' }, el('h2', { id: 'ordTitle' }, 'Zamówienie ' + number), el('div', { class: 'sub' }, dateStr(o.date))),
       el('div', { class: 'ord-detail-status' }, 'Status: ', statusPill(stId, o.status_name || statusName(stId)), statusMenu, el('span', { class: 'spacer' }), card.toggle),

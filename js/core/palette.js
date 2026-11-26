@@ -1,12 +1,12 @@
 // Szybkie wyszukiwanie (Ctrl+K): okno w środku ekranu — ekrany panelu, ostatnio otwarte miejsca i rekordy na żywo
 // (zamówienia, klienci, produkty z istniejących akcji API), prefiksy zam: kli: prod: ekran:. Oraz okno pomocy „?” ze skrótami.
-import { el } from './ui.js?v=9efbcf3';
-import { api } from './client.js?v=9efbcf3';
-import { go } from './router.js?v=9efbcf3';
-import { ITEMS, itemById, icon, menuModel, groupOf, groupById, keywordsOf } from './nav.js?v=9efbcf3';
-import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=9efbcf3';
-import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=9efbcf3';
-import { shortcuts, GOTO } from './shortcuts.js?v=9efbcf3';
+import { el } from './ui.js?v=b658013';
+import { api } from './client.js?v=b658013';
+import { go } from './router.js?v=b658013';
+import { ITEMS, itemById, icon, menuModel, groupOf, groupById, keywordsOf } from './nav.js?v=b658013';
+import { highlightParts, matchScreens, parseQuery, PREFIXES } from './search.js?v=b658013';
+import { loadRecents, noteVisit, hashOf, TYPES } from './recents.js?v=b658013';
+import { shortcuts, GOTO } from './shortcuts.js?v=b658013';
 
 const MIN_Q = 2, DEBOUNCE = 250, TOP = 5;
 const GOTO_KEY = Object.fromEntries(Object.entries(GOTO).map(([k, id]) => [id, 'G ' + k.toUpperCase()]));
@@ -43,7 +43,7 @@ function screenRows(q, limit) {
   // bez zapytania: menu główne; z zapytaniem: nazwa, grupa, synonimy i nazwy z Selly
   const list = q ? matchScreens(vis, q, sec, limit, keywordsOf) : menuModel(ok).primary.slice(0, limit);
   return list.map(i => ({ type: 'screen', label: i.title, sub: sec(i) + (i.kind === 'soon' ? ' · wkrótce' : ''), icon: i.kind === 'selly' ? 'external' : 'sliders', ext: i.kind === 'selly',
-    href: i.kind === 'selly' ? cfg.sellyHref(i.a) : '#/' + i.id, hint: GOTO_KEY[i.id] || '', tip: i.tip || (i.kind === 'soon' ? 'W planie w panelu OSA — na razie strona z linkiem do panelu Selly' : ''), _id: i.id }));
+    href: i.kind === 'selly' ? cfg.sellyHref(i.a) : i.to ? '#' + i.to : '#/' + i.id, hint: GOTO_KEY[i.id] || '', tip: i.tip || (i.kind === 'soon' ? 'W planie w panelu OSA — na razie strona z linkiem do panelu Selly' : ''), _id: i.id }));
 }
 
 export function openPalette(initial) {

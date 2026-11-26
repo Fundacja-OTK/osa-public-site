@@ -1,14 +1,14 @@
 // Uniwersalny ekran zasobu Selly: lista (#/<id>) → karta (#/<id>/<ID>) → dodawanie (#/<id>/nowy), edycja, usuwanie.
 // Definicje: core/resources.js; dane na żywo z Selly przez backend (akcje res:*). Używany dla pozycji menu z kind 'resource'.
-import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=9efbcf3';
-import { askConfirm } from '../core/confirm.js?v=9efbcf3';
-import { listView } from '../core/listView.js?v=9efbcf3';
-import { api, ctx } from '../core/client.js?v=9efbcf3';
-import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=9efbcf3';
-import { go, setLeaveGuard } from '../core/router.js?v=9efbcf3';
-import { RESOURCES } from '../core/resources.js?v=9efbcf3';
-import { registerListKeys } from '../core/listKeys.js?v=9efbcf3';
-import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=9efbcf3';
+import { el, flash, loadingBox, sellyLink, money, dateStr, isUnavailable, downloadCsv } from '../core/ui.js?v=b658013';
+import { askConfirm } from '../core/confirm.js?v=b658013';
+import { listView } from '../core/listView.js?v=b658013';
+import { api, ctx } from '../core/client.js?v=b658013';
+import { cachedRead, invalidate, cacheKey } from '../core/cache.js?v=b658013';
+import { go, setLeaveGuard } from '../core/router.js?v=b658013';
+import { RESOURCES } from '../core/resources.js?v=b658013';
+import { registerListKeys } from '../core/listKeys.js?v=b658013';
+import { imageBox, setComponentsCard, reviewToggle, marginsCard } from './zasobExtra.js?v=b658013';
 
 const SELLY_FALLBACK = 'https://takimarket.pl/adm/';
 const MSG_UNAVAILABLE = 'Ten ekran wymaga backendu Cloudflare — chwilowo niedostępny, użyj panelu Selly.';
@@ -296,7 +296,7 @@ export function createResource(id) {
           const u = meta && meta.usage ? meta.usage : null;
           const used = u && ((u.products || 0) > 0 || u.children);
           const usedTxt = used ? 'UWAGA: ' + (u.products ? 'przypisanych produktów: ' + u.products + (u.productsExact ? '' : ' lub więcej') + '. ' : '') + (u.children ? 'Ma podkategorie. ' : '') + '\n\n' : '';
-          if (!await askConfirm('Usunąć „' + name + '” z Selly?\n\n' + usedTxt + (def.deleteWarn ? def.deleteWarn + '\n\n' : '') + 'Tego nie można cofnąć.', { danger: true })) return;
+          if (!await askConfirm('Usunąć „' + name + '” z Selly?\n\n' + usedTxt + (def.deleteWarn ? def.deleteWarn + '\n\n' : '') + 'Tego nie można cofnąć.', { title: 'Usunąć z Selly?', confirmLabel: 'Usuń', danger: true })) return;
           del.disabled = true;
           try { await api('res:delete', { res: id, id: item[def.idField], force: used ? true : undefined, productId: pid || undefined }); setDirty(false); S.opts.delete(id); invalidate(cacheKey('res:options', { res: id })); flash('', 'Usunięto z Selly'); go('/' + id); }
           catch (e) { del.disabled = false; msg.replaceChildren(el('div', { class: 'notice error', role: 'alert' }, 'Nie udało się usunąć: ' + ((e && e.message) || 'błąd'))); }
@@ -327,7 +327,7 @@ export function createResource(id) {
         });
         const del = r && meta && meta.canDelete ? el('button', { type: 'button', class: 'secondary danger', write: id, title: 'Usuwa wartość z grupy w Selly — tego nie da się cofnąć',
           onclick: async () => {
-            if (!await askConfirm('Usunąć wartość „' + (r.name || r[cfg.idField]) + '” z Selly? Tego nie można cofnąć.', { danger: true })) return;
+            if (!await askConfirm('Usunąć wartość „' + (r.name || r[cfg.idField]) + '” z Selly? Tego nie można cofnąć.', { title: 'Usunąć wartość?', confirmLabel: 'Usuń', danger: true })) return;
             try { await api('res:itemDelete', { res: id, id: gid, itemId: r[cfg.idField] }); flash('', 'Usunięto wartość'); reloadItems(); }
             catch (e) { rm.textContent = 'Błąd: ' + ((e && e.message) || ''); }
           } }, 'Usuń') : null;

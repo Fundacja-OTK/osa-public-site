@@ -2,14 +2,14 @@
 // z ręczną poprawką; układ zapamiętany w tej przeglądarce — same nazwy kolumn) → sprawdzenie BEZ ZAPISU (błędne dane, duplikaty w pliku
 // i w sklepie — clients:emailsExist, odczyt kopii panelu) → dodawanie po jednym kliencie z przerwami (clients:create z opId), z postępem,
 // wynikiem dla każdego wiersza, ponowieniem nieudanych i raportem błędów do pobrania.
-import { el, flash, field, cnt, downloadCsv, statusPill, store } from '../core/ui.js?v=9efbcf3';
-import { askConfirm } from '../core/confirm.js?v=9efbcf3';
-import { api } from '../core/client.js?v=9efbcf3';
-import { setLeaveGuard } from '../core/router.js?v=9efbcf3';
-import { maskCell } from './wplatyCsv.js?v=9efbcf3';
+import { el, flash, field, cnt, downloadCsv, statusPill, store } from '../core/ui.js?v=b658013';
+import { askConfirm } from '../core/confirm.js?v=b658013';
+import { api } from '../core/client.js?v=b658013';
+import { setLeaveGuard } from '../core/router.js?v=b658013';
+import { maskCell } from './wplatyCsv.js?v=b658013';
 import { FIELDS, MAX_BYTES, MAX_ROWS, IMPORT_GAP_MS, STATUS_TEXT, parseClientsFile, autoMapping, missingRequired, buildRecords, classify, summary,
-  emailChunks, errorReport, templateRows, runThrottled, opIdFor, labelOf } from './klienciImportLogic.js?v=9efbcf3';
-import { sellyGroups, mergeGroups } from './klienciGrupy.js?v=9efbcf3';
+  emailChunks, errorReport, templateRows, runThrottled, opIdFor, labelOf } from './klienciImportLogic.js?v=b658013';
+import { sellyGroups, mergeGroups } from './klienciGrupy.js?v=b658013';
 
 const MAP_KEY = 'osa-cli-imp-map';   // { podpis nagłówków → mapowanie } — bez danych z wierszy
 const TONE = { new: 'acc', invalid: 'bad', exists: 'warn', dupFile: 'warn', done: 'ok', failed: 'bad', running: 'info' };
@@ -175,7 +175,7 @@ function paintCheck(note) {
 
 // ─── Krok 4: zapis ──────────────────────────────────────────────────────────
 async function confirmRun(list) {
-  if (!await askConfirm('Dodać ' + cnt(list.length, 'klienta', 'klientów', 'klientów') + ' do Selly? Zapis zacznie się od razu; możesz go przerwać.')) return;
+  if (!await askConfirm('Dodać ' + cnt(list.length, 'klienta', 'klientów', 'klientów') + ' do Selly? Zapis zacznie się od razu; możesz go przerwać.', { title: 'Dodać klientów do Selly?', confirmLabel: 'Dodaj' })) return;
   run(list);
 }
 
