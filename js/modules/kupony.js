@@ -1,6 +1,6 @@
 // Kupony rabatowe (Selly ?a=rabaty.kuponyRabatowe) — natywny ekran: lista z filtrami, karta kuponu, dodawanie i edycja (rabat, ważność, limity).
-// Usuwanie, kopiowanie, raport wykorzystania i „naliczaj automatycznie” zostają w Selly (osobne formularze / akcje niszczące).
-import { createNative } from './sellyNative.js?v=8355fc4';
+// Kopiowanie = dodanie nowego kuponu z wartościami z karty (przez zwykłe dodawanie, bez trasy kopiowania Selly). Usuwanie i raport wykorzystania zostają w Selly (akcje niszczące / osobne formularze).
+import { createNative } from './sellyNative.js?v=c31db2e';
 
 const pad = n => String(n).padStart(2, '0');
 /** Wczorajsza data w tym samym zapisie, w jakim Selly podaje daty kuponu (RRRR-MM-DD albo DD.MM.RRRR); inny zapis → null (bez szybkiej akcji). */
@@ -15,6 +15,12 @@ export default createNative({
   id: 'kupony', title: 'Kupony rabatowe', screen: 'kupony', a: 'rabaty.kuponyRabatowe', recordRoute: 'rabaty.kuponyRabatoweEdycja', noun: 'kuponu',
   recordTitle: id => 'Kupon nr ' + id,
   create: { label: '+ Dodaj kupon', title: 'Nowy kupon', tip: 'Otwiera pusty formularz kuponu; przed wysłaniem do Selly pokażemy podsumowanie' },
+  copy: {
+    label: 'Kopiuj kupon', tip: 'Otwiera nowy kupon z rabatem, ważnością i limitami tego kuponu — wpisz nowy kod lub prefiks i zatwierdź (nic nie powstanie bez potwierdzenia)',
+    note: 'Skopiowano rabat, ważność i limity. Wpisz nowy kod albo prefiks kuponu (musi być inny niż istniejące), sprawdź wartości i zapisz.',
+    fields: ['opis', 'rabat_typ', 'rabat', 'rabat_przecenione', 'cena_stala', 'kupon_od', 'kupon_do', 'kupon_tekst', 'liczba_kuponow', 'klient_max_uzycie',
+      'produkty_wartosc_min', 'produkty_wartosc_max', 'produkty_ilosc_min', 'produkty_ilosc_max', 'darmowa_dostawa', 'kupon_automatyczny'],
+  },
   quick: d => {
     const f = n => d.fields.find(x => x.name === n && x.editable);
     const to = f('kupon_do'); if (!to) return [];

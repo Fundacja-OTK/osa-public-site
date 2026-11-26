@@ -3,18 +3,18 @@
 // paczki — przekazane paczki zleceń (plik .xlsx, statusy, anulowanie); tempo — sprzedaż wobec prognozy; ustawienia — lista produktów SM,
 // rozbicia, terminy, progi. Dane i zapisy: akcje sm:* (Worker + D1), zmiana statusu: orders:setStatus porcjami (lib/statusBatch.js).
 // Logika bez DOM: shared/speedmail.js → lib/speedmailLogic.js (ta sama na serwerze). Bez danych osobowych.
-import { $, el } from '../core/ui.js?v=8355fc4';
-import { go, addLeaveGuard } from '../core/router.js?v=8355fc4';
-import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop, resumeRetries, SLOW_MS } from './speedmailKit.js?v=8355fc4';
-import { importRetry } from '../core/preload.js?v=8355fc4';
-import { viewOrders } from './speedmailZam.js?v=8355fc4';
+import { $, el } from '../core/ui.js?v=c31db2e';
+import { go, addLeaveGuard } from '../core/router.js?v=c31db2e';
+import { S, SM, ensure, plan, skeleton, loadError, notice, jobCard, liveCtl, liveStop, resumeRetries, SLOW_MS } from './speedmailKit.js?v=c31db2e';
+import { importRetry } from '../core/preload.js?v=c31db2e';
+import { viewOrders } from './speedmailZam.js?v=c31db2e';
 // Zakładki poza domyślną (Zamówienia) ładują się dopiero po otwarciu — mniej plików przy pierwszym wejściu.
 // [() => import('…') (dosłownie — scripts/bust-cache.js), moduł → widok]; nieudane pobranie: jedno ponowienie z ominięciem pamięci (importRetry).
 const LAZY = {
-  stan: [() => import('./speedmailStan.js?v=8355fc4'), m => m.viewStock],
-  paczki: [() => import('./speedmailPaczki.js?v=8355fc4'), m => m.viewBatches],
-  tempo: [() => import('./speedmailTempo.js?v=8355fc4'), m => m.viewPace],
-  ustawienia: [() => import('./speedmailUst.js?v=8355fc4'), m => { settingsDirty = m.settingsDirty; return m.viewSettings; }],
+  stan: [() => import('./speedmailStan.js?v=c31db2e'), m => m.viewStock],
+  paczki: [() => import('./speedmailPaczki.js?v=c31db2e'), m => m.viewBatches],
+  tempo: [() => import('./speedmailTempo.js?v=c31db2e'), m => m.viewPace],
+  ustawienia: [() => import('./speedmailUst.js?v=c31db2e'), m => { settingsDirty = m.settingsDirty; return m.viewSettings; }],
 };
 const tabLoading = {};
 const VIEWS = { zamowienia: viewOrders };

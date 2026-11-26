@@ -3,13 +3,13 @@
 // czyta je i zwraca strukturę (sekrety zamaskowane po stronie serwera); zapis tylko z allowlisty pól, zawsze przez podgląd zmian (dryRun)
 // i potwierdzenie (docs/selly-embed.md, docs/auth.md). „Tylko do podglądu” = flaga `readOnly` z odpowiedzi serwera (jedna, z silnika).
 // Strony ustawień (jedna strona-formularz) obsługuje modules/sellyNativeSettings.js.
-import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=8355fc4';
-import { confirmDialog, askConfirm } from '../core/confirm.js?v=8355fc4';
-import { api } from '../core/client.js?v=8355fc4';
-import { sellyUrl } from './_placeholder.js?v=8355fc4';
-import { sanitizeHtml } from '../lib/htmlSanitize.js?v=8355fc4';
-import { addLeaveGuard } from '../core/router.js?v=8355fc4';
-import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=8355fc4';
+import { el, loadingBox, tapOpen, sortMark } from '../core/ui.js?v=c31db2e';
+import { confirmDialog, askConfirm } from '../core/confirm.js?v=c31db2e';
+import { api } from '../core/client.js?v=c31db2e';
+import { sellyUrl } from './_placeholder.js?v=c31db2e';
+import { sanitizeHtml } from '../lib/htmlSanitize.js?v=c31db2e';
+import { addLeaveGuard } from '../core/router.js?v=c31db2e';
+import { nl, stripReport, reportText, lineDiff, hunks, contentStats } from './tresciEdytor.js?v=c31db2e';
 
 /** Żądanie do Workera: native:read / native:save / native:create → { ok, data } albo { ok:false, code, error } (nigdy nie rzuca). */
 export function sellyCall(req) {
@@ -45,6 +45,7 @@ const num = s => parseFloat(String(s).replace(/\s/g, '').replace(',', '.')) || 0
  * cfg: { id, title, screen, a (trasa listy), recordRoute (brak/null = tylko lista), idParam?, noun, recordTitle(id), headerTips: {nagłówek: opis},
  *  opcjonalnie: labels {pole: etykieta}, fieldTips {pole: opis}, cellLink(href) → { href, tip } (link do panelu OSA zamiast Selly),
  *  create: { label, title?, tip } (przycisk „dodaj”: pusty formularz z Selly → podgląd → potwierdzenie → native:create),
+ *  copy: { label, tip, note, fields: [pola kopiowane] } (przycisk „Kopiuj” na karcie: nowa pozycja z wartościami z karty — przez dodawanie, podgląd i potwierdzenie),
  *  quick(rec) → [{ key, label, tip, changes }] (szybkie akcje na karcie — przez to samo potwierdzenie zmian),
  *  advanced: [pole | RegExp] (pola schowane w zwijanym panelu „Ustawienia zaawansowane”), advancedTitle, labelOf(f) → etykieta (pola o zmiennych nazwach),
  *  contentTitle (nagłówek edytora treści HTML — pola `content` z odpowiedzi serwera; edytor: tresciEdytor.js) }
@@ -188,6 +189,17 @@ export function createNative(cfg) {
     S.rec = r.data; paintRecord(null);
   }
 
+  /** Kopiowanie: pusty formularz dodawania z Selly + wartości kopiowanych pól z karty (cfg.copy.fields); do wysłania idą tylko pola zmienione względem pustego formularza. */
+  async function showCopy(src) {
+    const my = ++seq; dirty = null;
+    root.replaceChildren(toolbar(''), loadingBox('Pobieram formularz dodawania z Selly…'));
+    const r = await sellyCall({ op: 'read', screen: cfg.screen, view: 'new' });
+    if (my !== seq || !root) return;
+    if (!r.ok) { root.replaceChildren(toolbar(''), el('button', { type: 'button', class: 'secondary', onclick: showList }, '← Wróć do listy'), errorBox(r, () => showCopy(src))); return; }
+    const want = new Set(cfg.copy.fields), vals = Object.fromEntries(src.fields.filter(f => want.has(f.name) && f.editable).map(f => [f.name, f.value]));
+    S.rec = r.data; S.prefill = vals; paintRecord(null);
+  }
+
   const ctl = (f, isNew) => {
     const common = { 'data-field': f.name, id: 'natF_' + f.name, title: ftip(f), required: isNew && (S.rec.required || []).includes(f.name) || null };
     if (f.type === 'checkbox') return el('input', { ...common, type: 'checkbox', 'data-on': f.onValue || 'on', checked: f.value !== '' || null });
@@ -247,7 +259,9 @@ export function createNative(cfg) {
   }
 
   function paintRecord(id, message) {
-    const d = S.rec, isNew = id == null, orig = Object.fromEntries(d.fields.map(f => [f.name, f.value]));
+    const isNew = id == null, orig = Object.fromEntries(S.rec.fields.map(f => [f.name, f.value]));
+    const pre0 = isNew ? S.prefill : null; S.prefill = null;   // kopia: pola z wartościami skopiowanej pozycji (orig = pusty formularz)
+    const d = pre0 ? { ...S.rec, fields: S.rec.fields.map(f => Object.prototype.hasOwnProperty.call(pre0, f.name) ? { ...f, value: pre0[f.name] } : f) } : S.rec;
     const cNames = d.content || [], isC = f => cNames.includes(f.name) || !!f.content;
     const edit = d.fields.filter(f => f.editable && !isC(f)), cEdit = d.canSave ? d.fields.filter(f => f.editable && isC(f)) : [];
     const basic = edit.filter(f => !isAdv(f.name)), adv = edit.filter(f => isAdv(f.name));
@@ -287,6 +301,7 @@ export function createNative(cfg) {
       toolbar(isNew ? ((cfg.create && cfg.create.title) || 'Nowa pozycja') : cfg.recordTitle(id)),
       message || null,
       el('p', null, el('button', { type: 'button', class: 'secondary', id: 'natBack', onclick: backToList, title: 'Wraca do listy' }, '← Wróć do listy'),
+        isNew || !cfg.copy || !d.canCreate ? null : [' ', el('button', { type: 'button', class: 'secondary', id: 'natCopy', title: cfg.copy.tip, onclick: () => showCopy(d) }, cfg.copy.label)],
         isNew || !cfg.recordRoute ? null : [' ', el('a', { href: sellyRecord(id), target: '_blank', rel: 'noopener', class: 'btn-link', title: 'Pełna karta w Selly (wszystkie pola, załączniki, wysyłka e-maila)' }, 'Pełna karta w Selly ↗')]),
       d.canSave || d.readOnly ? null : el('div', { class: 'card nat-err', id: 'natNoSave' }, el('p', null, 'Formularz w Selly wygląda inaczej niż oczekiwano — ' + (isNew ? 'dodawanie' : 'edycja') + ' wyłączona. Użyj Selly.')),
       info.length ? el('div', { class: 'card' }, el('h3', null, 'Dane'), el('dl', { class: 'ord-dl', id: 'natInfo' }, info.flatMap(f => [el('dt', null, lab(f)), el('dd', { class: f.type === 'secret' ? 'tip' : null, title: f.type === 'secret' ? 'Wartość poufna — ukryta przez serwer panelu; zobaczysz ją tylko w Selly' : null }, shown(f))]))) : null,
@@ -302,6 +317,7 @@ export function createNative(cfg) {
       (d.tables || []).map((t, i) => t.rows.length ? el('div', { class: 'card' }, el('h3', null, i === 0 && d.tables.length > 1 ? 'Pozycje' : 'Historia zdarzeń'),
         el('div', { class: 'table-wrap' }, el('table', null, el('thead', null, el('tr', null, t.headers.map(h => el('th', { title: h }, h)))),
           el('tbody', null, t.rows.map(r => el('tr', null, r.map(c => el('td', null, c)))))))) : null));
+    if (pre0) { sync(); if (!message) root.querySelector('.page-toolbar').after(el('div', { class: 'card', id: 'natCopyNote' }, cfg.copy ? cfg.copy.note : 'Skopiowano wartości — sprawdź je i zapisz.')); }
   }
 
   function modal(title, body, okLabel, onOk) {

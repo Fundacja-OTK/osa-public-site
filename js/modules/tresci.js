@@ -2,7 +2,7 @@
 // Lista + karta rekordu na sesji zalogowanego użytkownika (docs/selly-embed.md, docs/auth.md); zapis tylko z allowlisty pól (extension/lib/sellyNative.js, blok „treści (CMS)”).
 // Treść HTML stron, bloków i nowych aktualności: edytor kodu + podgląd oczyszczony (tresciEdytor.js); do Selly idzie dokładnie wpisany tekst.
 // Formularze online i komentarze bloga — tylko podgląd listy (karty rekordu docs nie opisują). Usuwania nie ma — zawsze w Selly.
-import { createNative } from './sellyNative.js?v=8355fc4';
+import { createNative } from './sellyNative.js?v=c31db2e';
 
 export const screens = {
   cms: createNative({

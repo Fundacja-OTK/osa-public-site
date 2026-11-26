@@ -2,14 +2,14 @@
 // z ręczną poprawką; układ zapamiętany w tej przeglądarce — same nazwy kolumn) → sprawdzenie BEZ ZAPISU (błędne dane, duplikaty w pliku
 // i w sklepie — clients:emailsExist, odczyt kopii panelu) → dodawanie po jednym kliencie z przerwami (clients:create z opId), z postępem,
 // wynikiem dla każdego wiersza, ponowieniem nieudanych i raportem błędów do pobrania.
-import { el, flash, field, cnt, downloadCsv, statusPill, store } from '../core/ui.js?v=8355fc4';
-import { askConfirm } from '../core/confirm.js?v=8355fc4';
-import { api } from '../core/client.js?v=8355fc4';
-import { setLeaveGuard } from '../core/router.js?v=8355fc4';
-import { maskCell } from './wplatyCsv.js?v=8355fc4';
+import { el, flash, field, cnt, downloadCsv, statusPill, store } from '../core/ui.js?v=c31db2e';
+import { askConfirm } from '../core/confirm.js?v=c31db2e';
+import { api } from '../core/client.js?v=c31db2e';
+import { setLeaveGuard } from '../core/router.js?v=c31db2e';
+import { maskCell } from './wplatyCsv.js?v=c31db2e';
 import { FIELDS, MAX_BYTES, MAX_ROWS, IMPORT_GAP_MS, STATUS_TEXT, parseClientsFile, autoMapping, missingRequired, buildRecords, classify, summary,
-  emailChunks, errorReport, templateRows, runThrottled, opIdFor, labelOf } from './klienciImportLogic.js?v=8355fc4';
-import { sellyGroups, mergeGroups } from './klienciGrupy.js?v=8355fc4';
+  emailChunks, errorReport, templateRows, runThrottled, opIdFor, labelOf } from './klienciImportLogic.js?v=c31db2e';
+import { sellyGroups, mergeGroups } from './klienciGrupy.js?v=c31db2e';
 
 const MAP_KEY = 'osa-cli-imp-map';   // { podpis nagłówków → mapowanie } — bez danych z wierszy
 const TONE = { new: 'acc', invalid: 'bad', exists: 'warn', dupFile: 'warn', done: 'ok', failed: 'bad', running: 'info' };
