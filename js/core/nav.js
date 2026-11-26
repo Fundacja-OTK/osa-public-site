@@ -67,7 +67,7 @@ export const SECTIONS = [
     '-',
     { id: 'gpsr', title: 'Dane GPSR', a: 'bezpieczenstwoProduktu', kind: 'osa', tip: 'GPSR: dane producenta i podmiotu odpowiedzialnego za bezpieczeństwo produktów — lista, dodawanie i edycja wpisów (na Twojej sesji Selly)' },
     { id: 'dostepnosc', title: 'Statusy dostępności', a: 'configuration.productsAvailability', kind: 'osa', tip: 'Które statusy dostępności są w filtrze sklepu — z podglądem zmian przed zapisem (na Twojej sesji Selly)' },
-    { id: 'hurt', title: 'Sprzedaż hurtowa', a: 'rabaty.grupyRabatowe', kind: 'selly' },
+    { id: 'hurt', title: 'Sprzedaż hurtowa', a: 'rabaty.grupyRabatowe', kind: 'osa', tip: 'Grupy rabatowe: lista, edycja rabatów i progów (z podglądem zmian przed zapisem); usuwanie tylko administrator' },
     { id: 'atrybuty', title: 'Warianty i opcje', a: 'produkty.atrybutyGrupy', kind: 'resource' },
     { id: 'opisy', title: 'Opisy zaawansowane', a: 'wzorceCech', kind: 'osa', tip: 'Wzorce cech produktów: lista i edycja nazwy, opisu, jednostki, grupy' },
     { id: 'tagi', title: 'Tagi', a: 'tags', kind: 'resource' },
@@ -128,7 +128,7 @@ export const SECTIONS = [
     { id: 'menu-ed', title: 'Edytor menu', a: 'menu.main', kind: 'osa', tip: 'Menu sklepu: lista, zmiana nazwy / zmiennej / włączenia i dodawanie menu (pozycje menu w Selly)' },
     { id: 'szablony-ed', title: 'Edytor szablonów', a: 'menadzer.templateEditor', kind: 'selly' },
     { id: 'email-ed', title: 'Edytor wiadomości e-mail', a: 'menadzer.emailEditor', kind: 'selly' },
-    { id: 'tlumaczenia', title: 'Edytor tłumaczeń', a: 'translations', kind: 'selly' },
+    { id: 'tlumaczenia', title: 'Edytor tłumaczeń', a: 'translations', kind: 'osa', tip: 'Angielskie tłumaczenia tekstów sklepu (pierwsza strona) — z podglądem zmian przed zapisem' },
     { id: 'bloki', title: 'Edytor bloków HTML', a: 'znaczniki', kind: 'osa', tip: 'Bloki HTML sklepu: opis, widoczność i treść HTML z podglądem' },
     '-',
     { id: 'formularze', title: 'Formularze online', a: 'form.lista', kind: 'osa', tip: 'Zgłoszenia z formularzy sklepu (podgląd listy z filtrami)' },
@@ -149,6 +149,7 @@ export const SECTIONS = [
     { id: 'dostawy', title: 'Formy dostawy', a: 'dostawy', kind: 'resource', tip: 'Lista form dostawy (nazwa, ID) — podgląd; edycja tylko w Selly (API bez zapisu)' },
     { id: 'dostawy-konf', title: 'Formy dostawy — konfiguracja', a: 'configuration.deliveries', kind: 'osa', tip: 'Kolejność i aktywność form dostawy oraz domyślny kraj — z podglądem zmian przed zapisem' },
     '-',
+    { id: 'integracje-przeglad', title: 'Integracje — przegląd', a: 'configuration.integracje', kind: 'osa', tip: 'Wszystkie integracje Selly na jednej liście: stan (włączona / skonfigurowana / brak danych) i podgląd bez danych dostępowych' },
     { id: 'int-porownywarki', title: 'Integracje — porównywarki', a: 'configuration.integracje', kind: 'osa', tip: 'Eksporty do porównywarek: zakres i ceny w podglądzie, włączanie opisów w eksporcie do zmiany' },
     { id: 'int-przesylki', title: 'Integracje — przesyłki', a: 'configuration.shipping', kind: 'osa', tip: 'Podgląd integracji z Apaczką (dane nadawcy ukryte); zmiany w Selly' },
     { id: 'int-fk', title: 'Integracje — programy F/K', a: 'configuration.programsFK', kind: 'osa', tip: 'Podgląd integracji z wFirma (dane dostępowe ukryte); zmiany w Selly' },
@@ -229,7 +230,7 @@ export const GROUP_OF = {
   'ceny-auto': 'marketing',
   pliki: 'tresci', przekierowania: 'tresci', indeksacja: 'tresci',
   automatyzacje: 'konfiguracja', cache: 'konfiguracja', ip: 'konfiguracja',
-  'int-porownywarki': 'integracje', 'int-przesylki': 'integracje', 'int-fk': 'integracje', 'int-dodatkowe': 'integracje', api: 'integracje', frontapi: 'integracje',
+  'int-porownywarki': 'integracje', 'int-przesylki': 'integracje', 'int-fk': 'integracje', 'int-dodatkowe': 'integracje', 'integracje-przeglad': 'integracje', api: 'integracje', frontapi: 'integracje',
 };
 
 /** Synonimy do wyszukiwania w menu: słowa, których ktoś może szukać, i nazwy z panelu Selly (bez polskich znaków też zadziała). */

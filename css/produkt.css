@@ -60,3 +60,12 @@
 .pk-vpair { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) auto; gap: var(--s2); align-items: center; }
 #whTable .ord-st { font-size: var(--fs-xs); }
 @media (max-width: 640px) { .pk-feat { grid-template-columns: 1fr; } .pk-tab { padding: 8px 10px; } .pk-vpair { grid-template-columns: 1fr 1fr auto; } .pk-vpair select { min-width: 0; } }
+
+/* Zakładki z ekranów Selly (produktZakladki.js) */
+.pz-group { border: 1px solid var(--border); border-radius: var(--radius, 8px); margin: 0 0 var(--s3); padding: var(--s2) var(--s3); display: grid; gap: var(--s2); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.pz-group legend { font-weight: 600; padding: 0 var(--s1); }
+.pz-group .field.check { display: flex; align-items: center; gap: var(--s2); }
+.pz-sec { border: 1px solid var(--border); border-radius: var(--radius, 8px); margin-bottom: var(--s2); padding: var(--s2) var(--s3); }
+.pz-sec > summary { cursor: pointer; font-weight: 600; }
+.pz-body { margin-top: var(--s2); }
+.pz-ref { margin: var(--s2) 0; }
